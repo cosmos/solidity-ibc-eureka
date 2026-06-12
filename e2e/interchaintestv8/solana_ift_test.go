@@ -37,8 +37,8 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
-	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
-	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
+	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/ift"
+	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/tokenfactory"
 )
 
 // IbcEurekaSolanaIFTTestSuite tests IFT functionality
@@ -95,7 +95,7 @@ func TestWithIbcEurekaSolanaIFTTestSuite(t *testing.T) {
 
 func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
-		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
+		chainconfig.WfchainChainSpec("sandbox-ledger-1", "sandbox-ledger-1"),
 	}
 
 	s.IbcEurekaSolanaTestSuite.SetupSuite(ctx)
@@ -1355,7 +1355,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 }
 
 // Test_IFT_ExistingToken_AckFailureRefund tests that tokens are refunded on acknowledgement failure
-// Note: wfchain has IFT module but we unregister the bridge to trigger error ack
+// Note: sandbox-ledger has IFT module but we unregister the bridge to trigger error ack
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_AckFailureRefund() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -1457,7 +1457,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_AckFailureRefund() 
 	}))
 
 	var cosmosRecvTxHash string
-	s.Require().True(s.Run("Relay packet to wfchain (will fail - no IFT bridge registered)", func() {
+	s.Require().True(s.Run("Relay packet to sandbox-ledger (will fail - no IFT bridge registered)", func() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
@@ -2021,7 +2021,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			CounterpartyIftAddress: counterpartyAddress,
 			ChainOptions: &ift.IftStateChainOptions_Cosmos{
 				Denom:      counterpartyDenom,
-				TypeUrl:    "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
+				TypeUrl:    "/sandbox-ledger.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
 				IcaAddress: cosmosIcaAddress,
 			},
 		}

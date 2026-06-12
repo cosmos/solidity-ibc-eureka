@@ -30,8 +30,8 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestations"
-	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
-	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
+	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/ift"
+	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/tokenfactory"
 )
 
 // Codec returns the global E2E protobuf codec.
@@ -84,14 +84,14 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	authz.RegisterInterfaces(cfg.InterfaceRegistry)
 	txtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 
-	// wfchain IFT and TokenFactory types
+	// sandbox-ledger IFT and TokenFactory types
 	registerWfchainTypes(cfg.InterfaceRegistry)
 
 	cdc := codec.NewProtoCodec(cfg.InterfaceRegistry)
 	return cdc, cfg
 }
 
-// registerWfchainTypes registers wfchain IFT and TokenFactory message types
+// registerWfchainTypes registers sandbox-ledger IFT and TokenFactory message types
 func registerWfchainTypes(registry codectypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&ifttypes.MsgRegisterIFTBridge{},

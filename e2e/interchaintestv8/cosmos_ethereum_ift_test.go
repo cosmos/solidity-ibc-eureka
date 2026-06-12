@@ -42,11 +42,11 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
-	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
-	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
+	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/ift"
+	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/tokenfactory"
 )
 
-// CosmosEthereumIFTTestSuite tests IFT transfers between wfchain and Ethereum
+// CosmosEthereumIFTTestSuite tests IFT transfers between sandbox-ledger and Ethereum
 type CosmosEthereumIFTTestSuite struct {
 	e2esuite.TestSuite
 
@@ -86,9 +86,9 @@ func TestWithCosmosEthereumIFTTestSuite(t *testing.T) {
 }
 
 func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
-	// Use wfchain as the Cosmos chain
+	// Use sandbox-ledger as the Cosmos chain
 	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
-		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
+		chainconfig.WfchainChainSpec("sandbox-ledger-1", "sandbox-ledger-1"),
 	}
 
 	// Set up Ethereum chain with native attestor light client

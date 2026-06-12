@@ -35,8 +35,8 @@ import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessMana
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     using stdJson for string;
 
-    /// @dev Protobuf type URL for the wfchain IFT mint message
-    string internal constant IFT_MINT_TYPE_URL = "/wfchain.ift.MsgIFTMint";
+    /// @dev Protobuf type URL for the sandbox-ledger IFT mint message
+    string internal constant IFT_MINT_TYPE_URL = "/sandbox-ledger.ift.MsgIFTMint";
     /// @dev Token denomination on the Cosmos side
     string internal constant IFT_TEST_DENOM = "testift";
     /// @dev ERC20 token name for the test IFT contract

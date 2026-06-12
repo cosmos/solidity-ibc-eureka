@@ -32,11 +32,11 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
-	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
-	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
+	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/ift"
+	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/tokenfactory"
 )
 
-// CosmosIFTTestSuite tests IFT transfers between two wfchain instances
+// CosmosIFTTestSuite tests IFT transfers between two sandbox-ledger instances
 type CosmosIFTTestSuite struct {
 	e2esuite.TestSuite
 
@@ -54,10 +54,10 @@ func TestWithCosmosIFTTestSuite(t *testing.T) {
 }
 
 func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
-	// Use two wfchain instances
+	// Use two sandbox-ledger instances
 	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
-		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
-		chainconfig.WfchainChainSpec("wfchain-2", "wfchain-2"),
+		chainconfig.WfchainChainSpec("sandbox-ledger-1", "sandbox-ledger-1"),
+		chainconfig.WfchainChainSpec("sandbox-ledger-2", "sandbox-ledger-2"),
 	}
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
