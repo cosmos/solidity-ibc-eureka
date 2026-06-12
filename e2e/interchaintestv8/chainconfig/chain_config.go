@@ -46,7 +46,20 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 }
 
 func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
+	// sandbox-ledger runs the cosmos-sdk enterprise PoA module, which requires
+	// genesis to contain at least one validator with positive power. There is no
+	// genutil/gentx integration (validators are not derived from gentxs), so the
+	// standard interchaintest bootstrap fails: `gentx` validates the whole genesis,
+	// finds zero PoA power and aborts. We therefore skip gentx, run a single
+	// validator, and seed the PoA validator set ourselves — discovering the node's
+	// CometBFT consensus key in PreGenesis and injecting it in ModifyGenesis.
+	numValidators := 1
+	numFullNodes := 0
+	poaVal := &poaGenesisValidator{}
+
 	return &interchaintest.ChainSpec{
+		NumValidators: &numValidators,
+		NumFullNodes:  &numFullNodes,
 		ChainConfig: ibc.ChainConfig{
 			Type:    "cosmos",
 			Name:    name,
@@ -69,7 +82,9 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.5,
 			EncodingConfig: SDKEncodingConfig(),
-			ModifyGenesis:  wfchainModifyGenesis(),
+			SkipGenTx:      true,
+			PreGenesis:     wfchainPreGenesis(poaVal),
+			ModifyGenesis:  wfchainModifyGenesis(poaVal),
 			TrustingPeriod: "508h",
 			NoHostMount:    false,
 		},
