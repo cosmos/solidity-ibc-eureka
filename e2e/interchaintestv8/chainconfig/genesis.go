@@ -142,6 +142,14 @@ func wfchainModifyGenesis(poaVal *poaGenesisValidator) func(ibc.ChainConfig, []b
 		}
 		appState["poa"] = poaGenBz
 
+		// disable the EIP-1559 base fee so the test faucet (and tests) can submit
+		// zero-fee transactions
+		feemarketGenBz, err := modifyFeemarketAppState(appState["feemarket"])
+		if err != nil {
+			return nil, fmt.Errorf("failed to modify feemarket app state: %w", err)
+		}
+		appState["feemarket"] = feemarketGenBz
+
 		// marshal the app state
 		appGenesis.AppState, err = json.Marshal(appState)
 		if err != nil {
@@ -224,6 +232,30 @@ func modifyPoAAppState(poaAppState []byte, poaVal *poaGenesisValidator) ([]byte,
 	}
 
 	return json.Marshal(poaGenesis)
+}
+
+// modifyFeemarketAppState disables the cosmos/evm feemarket EIP-1559 base fee so
+// that zero-fee transactions are accepted. interchaintest funds test users at the
+// chain's configured gas price (0stake); without this the feemarket ante rejects
+// those transactions with "gas prices too low ... insufficient fee".
+func modifyFeemarketAppState(feemarketAppState []byte) ([]byte, error) {
+	var feemarketGenesis map[string]interface{}
+	if len(feemarketAppState) == 0 {
+		feemarketGenesis = make(map[string]interface{})
+	} else if err := json.Unmarshal(feemarketAppState, &feemarketGenesis); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal feemarket genesis: %w", err)
+	}
+
+	params, ok := feemarketGenesis["params"].(map[string]interface{})
+	if !ok {
+		params = make(map[string]interface{})
+	}
+	params["no_base_fee"] = true
+	params["base_fee"] = "0"
+	params["min_gas_price"] = "0"
+	feemarketGenesis["params"] = params
+
+	return json.Marshal(feemarketGenesis)
 }
 
 // modifyGovV1AppState takes the existing gov app state and marshals it to a govv1 GenesisState.
