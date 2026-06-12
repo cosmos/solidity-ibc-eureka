@@ -64,7 +64,7 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 				},
 			},
 			Bin:            "sandboxd",
-			Bech32Prefix:   "wf",
+			Bech32Prefix:   "cosmos",
 			Denom:          "stake",
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.5,
