@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode"
@@ -101,17 +102,56 @@ func (s *TestSuite) BroadcastMessagesNoWait(ctx context.Context, chain *cosmos.C
 	return s.broadcastMessages(ctx, chain, user, gas, 0, msgs...)
 }
 
+// cosmosUserKeyCounter generates unique keyring names for e2e-created cosmos users.
+var cosmosUserKeyCounter atomic.Int64
+
 // CreateAndFundCosmosUser returns a new cosmos user with the initial balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
 	return s.CreateAndFundCosmosUserWithBalance(ctx, chain, testvalues.InitialBalance)
 }
 
 // CreateAndFundCosmosUserWithBalance returns a new cosmos user with the given balance and funds it with the native chain denom.
+//
+// The user is created with a standard secp256k1 key rather than the chain's
+// default key type. sandbox-ledger is EVM-enabled and defaults `keys add` to
+// eth_secp256k1, which interchaintest's host-side broadcaster cannot decode or
+// sign (its signing keyring uses the stock cosmos-sdk crypto codec). The chain
+// accepts secp256k1-signed txs, so we create the key explicitly with
+// `--key-type secp256k1` and fund it from the faucet (which signs in-container
+// and is therefore unaffected by its own eth_secp256k1 key).
 func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chain *cosmos.CosmosChain, balance int64) ibc.Wallet {
-	cosmosUserFunds := sdkmath.NewInt(balance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
+	keyName := fmt.Sprintf("e2e-user-%d", cosmosUserKeyCounter.Add(1))
+	node := chain.GetNode()
 
-	return cosmosUsers[0]
+	stdout, _, err := node.Exec(ctx, []string{
+		chain.Config().Bin, "keys", "add", keyName,
+		"--key-type", "secp256k1",
+		"--coin-type", chain.Config().CoinType,
+		"--keyring-backend", "test",
+		"--home", node.HomeDir(),
+		"--output", "json",
+	}, chain.Config().Env)
+	s.Require().NoError(err)
+
+	// Best-effort: the broadcaster signs via the on-disk keyring (by name), so the
+	// mnemonic is only carried on the wallet for completeness.
+	var created struct {
+		Mnemonic string `json:"mnemonic"`
+	}
+	_ = json.Unmarshal(stdout, &created)
+
+	addrBytes, err := chain.GetAddress(ctx, keyName)
+	s.Require().NoError(err)
+
+	wallet := cosmos.NewWallet(keyName, addrBytes, created.Mnemonic, chain.Config())
+
+	s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
+		Address: wallet.FormattedAddress(),
+		Amount:  sdkmath.NewInt(balance),
+		Denom:   chain.Config().Denom,
+	}))
+
+	return wallet
 }
 
 // GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
