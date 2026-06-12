@@ -335,6 +335,49 @@ pub struct TmCreateClientParams {
     pub consensus_state: ConsensusState,
 }
 
+/// Default unbonding period, in seconds, for chains without a staking module.
+///
+/// Some chains, such as proof-of-authority chains, do not expose the cosmos-sdk
+/// `x/staking` module, yet the Tendermint light client still needs a trusting
+/// period. In that case we fall back to the cosmos-sdk default unbonding time
+/// of 21 days.
+pub const DEFAULT_UNBONDING_PERIOD_SECONDS: i64 = 21 * 24 * 60 * 60;
+
+/// Fetches the source chain's unbonding period (in seconds) from `x/staking`.
+///
+/// Falls back to [`DEFAULT_UNBONDING_PERIOD_SECONDS`] when the chain has no
+/// `x/staking` module, which the node reports as an "unknown query path" ABCI
+/// error (code 6). Any other error is propagated so genuine or transient
+/// failures are not silently masked.
+///
+/// # Errors
+/// - The staking query fails for a reason other than a missing module
+/// - The staking params contain no unbonding time
+pub async fn unbonding_period_seconds(src_tm_client: &HttpClient) -> Result<i64> {
+    match src_tm_client.sdk_staking_params().await {
+        Ok(params) => params
+            .unbonding_time
+            .map(|d| d.seconds)
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found")),
+        Err(err) if is_staking_module_absent(&err) => {
+            tracing::warn!(
+                error = %err,
+                seconds = DEFAULT_UNBONDING_PERIOD_SECONDS,
+                "x/staking params unavailable; falling back to default unbonding period (source chain likely has no staking module, e.g. PoA)"
+            );
+            Ok(DEFAULT_UNBONDING_PERIOD_SECONDS)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Returns `true` when the error indicates the chain has no `x/staking` module
+/// (the staking query path is unknown), rather than a transient failure.
+fn is_staking_module_absent(err: &anyhow::Error) -> bool {
+    let msg = err.to_string();
+    msg.contains("unknown query path") || msg.contains("non-zero code 6")
+}
+
 /// Generates parameters for creating a new Tendermint IBC light client.
 /// # Arguments
 /// * `src_tm_client` - HTTP client connected to the source Tendermint chain
@@ -362,15 +405,15 @@ pub async fn tm_create_client_params(
         revision_number: chain_id.revision_number(),
         revision_height: latest_light_block.height().value(),
     };
-    let unbonding_period = src_tm_client
-        .sdk_staking_params()
-        .await?
-        .unbonding_time
-        .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+    let unbonding_seconds = unbonding_period_seconds(src_tm_client).await?;
+    let unbonding_period = Duration {
+        seconds: unbonding_seconds,
+        nanos: 0,
+    };
 
     // Defaults to the recommended 2/3 of the UnbondingPeriod
     let trusting_period = Duration {
-        seconds: 2 * (unbonding_period.seconds / 3),
+        seconds: 2 * (unbonding_seconds / 3),
         nanos: 0,
     };
 

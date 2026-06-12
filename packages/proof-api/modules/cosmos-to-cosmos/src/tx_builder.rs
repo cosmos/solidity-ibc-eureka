@@ -169,15 +169,14 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             revision_number: chain_id.revision_number(),
             revision_height: latest_light_block.height().value(),
         };
-        let unbonding_period = self
-            .source_tm_client
-            .sdk_staking_params()
-            .await?
-            .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+        let unbonding_seconds = cosmos::unbonding_period_seconds(&self.source_tm_client).await?;
+        let unbonding_period = Duration {
+            seconds: unbonding_seconds,
+            nanos: 0,
+        };
         // Defaults to the recommended 2/3 of the UnbondingPeriod
         let trusting_period = Duration {
-            seconds: 2 * (unbonding_period.seconds / 3),
+            seconds: 2 * (unbonding_seconds / 3),
             nanos: 0,
         };
 
