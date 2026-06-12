@@ -32,9 +32,10 @@ abstract contract DeployAccessManagerWithRoles {
         accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.unpauserSelectors(), IBCRolesLib.UNPAUSER_ROLE);
         // TODO: fix rate limiter role (#559)
 
-        // Add admin role for upgradeable contracts
-        // This is actually a no-op since if no role is set, the admin role is assumed
-        accessManager.setTargetFunctionRole(ics20, IBCRolesLib.beaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        // Explicitly register admin-gated selectors so deployments expose the full role map.
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26ClientMigrationSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics20, IBCRolesLib.ics20BeaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.ics27BeaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
