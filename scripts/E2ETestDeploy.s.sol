@@ -36,7 +36,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
     using stdJson for string;
 
     /// @dev Protobuf type URL for the sandbox-ledger IFT mint message
-    string internal constant IFT_MINT_TYPE_URL = "/sandbox-ledger.ift.MsgIFTMint";
+    string internal constant IFT_MINT_TYPE_URL = "/ibc.applications.prototypes.ift.v1.MsgIFTMint";
     /// @dev Token denomination on the Cosmos side
     string internal constant IFT_TEST_DENOM = "testift";
     /// @dev ERC20 token name for the test IFT contract

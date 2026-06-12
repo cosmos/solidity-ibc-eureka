@@ -997,7 +997,7 @@ contract IFTTest is Test {
     }
 
     function test_cosmosCallConstructor_constructor() public {
-        string memory typeUrl = "/sandbox-ledger.ift.MsgIFTMint";
+        string memory typeUrl = "/ibc.applications.prototypes.ift.v1.MsgIFTMint";
         string memory tokenDenom = "uatom";
         string memory ica = "cosmos1abc123";
 
@@ -1143,7 +1143,7 @@ contract IFTTest is Test {
     }
 
     function tableCosmosMintCallTest(CosmosMintCallTestCase memory cosmosMintCallTC) public {
-        string memory typeUrl = "/sandbox-ledger.ift.MsgIFTMint";
+        string memory typeUrl = "/ibc.applications.prototypes.ift.v1.MsgIFTMint";
         string memory tokenDenom = "testift";
         string memory ica = "wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63";
 
@@ -1176,7 +1176,7 @@ contract IFTTest is Test {
 
     function test_cosmosCallConstructor_supportsInterface() public {
         CosmosIFTSendCallConstructor constructor_ =
-            new CosmosIFTSendCallConstructor("/sandbox-ledger.ift.MsgIFTMint", "testift", "wf1ica");
+            new CosmosIFTSendCallConstructor("/ibc.applications.prototypes.ift.v1.MsgIFTMint", "testift", "wf1ica");
 
         assertTrue(constructor_.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
 

@@ -28,6 +28,7 @@ require (
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.13.0
 	github.com/holiman/uint256 v1.3.2
+	github.com/jhump/protoreflect v1.18.0
 	github.com/kurtosis-tech/kurtosis/api/golang v1.15.2
 	github.com/moby/moby v28.5.2+incompatible
 	github.com/rs/zerolog v1.35.0
@@ -208,6 +209,7 @@ require (
 	github.com/ipfs/go-cid v0.5.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
+	github.com/jhump/protoreflect/v2 v2.0.0-beta.1 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect

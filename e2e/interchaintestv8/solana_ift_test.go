@@ -2021,7 +2021,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			CounterpartyIftAddress: counterpartyAddress,
 			ChainOptions: &ift.IftStateChainOptions_Cosmos{
 				Denom:      counterpartyDenom,
-				TypeUrl:    "/sandbox-ledger.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
+				TypeUrl:    "/ibc.applications.prototypes.ift.v1.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
 				IcaAddress: cosmosIcaAddress,
 			},
 		}
