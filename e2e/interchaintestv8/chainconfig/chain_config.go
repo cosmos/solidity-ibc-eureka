@@ -55,7 +55,12 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 				{
 					Repository: "ghcr.io/cosmos/sandbox-ledger",
 					Version:    "v0.0.2",
-					UIDGID:     "1025:1025",
+					// The sandbox-ledger image runs as user `sandbox` (uid/gid 1000).
+					// interchaintest chowns the chain's volume to this UIDGID and runs
+					// every node command as the image's default user, so a mismatch here
+					// makes `init` fail with "couldn't get client config: Config File
+					// \"client\" Not Found".
+					UIDGID: "1000:1000",
 				},
 			},
 			Bin:            "sandboxd",
