@@ -54,11 +54,11 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/sandbox-ledger",
-					Version:    "latest",
+					Version:    "v0.0.2",
 					UIDGID:     "1025:1025",
 				},
 			},
-			Bin:            "wfchaind",
+			Bin:            "sandboxd",
 			Bech32Prefix:   "wf",
 			Denom:          "stake",
 			GasPrices:      "0.00stake",
