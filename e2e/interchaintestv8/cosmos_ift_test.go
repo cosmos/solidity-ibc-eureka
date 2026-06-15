@@ -1055,16 +1055,19 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 
 // Helper functions
 
-func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string) string {
+// createTokenFactoryDenom creates a tokenfactory denom from the given subdenom
+// and returns the resulting full denom (factory/<creator>/<subdenom>), which is
+// what the IFT module, minting and balance queries operate on.
+func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, subdenom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: user.FormattedAddress(),
-		Denom:  denom,
+		Denom:  subdenom,
 	}
 
 	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
 	s.Require().NoError(err)
 
-	return denom
+	return fmt.Sprintf("factory/%s/%s", user.FormattedAddress(), subdenom)
 }
 
 func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {

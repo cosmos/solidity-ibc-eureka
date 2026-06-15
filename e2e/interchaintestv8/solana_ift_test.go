@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
@@ -1956,7 +1957,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_InvalidPendingTrans
 	}))
 }
 
-// createTokenFactoryDenom creates a tokenfactory denom and returns the subdenom
+// createTokenFactoryDenom creates a tokenfactory denom from the given subdenom
+// and returns the resulting full denom (factory/<creator>/<subdenom>), which is
+// what the IFT module, minting and balance queries operate on.
 func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Context, subdenom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: s.CosmosSubmitter.FormattedAddress(),
@@ -1964,7 +1967,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Contex
 	}
 	_, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosSubmitter, 200_000, msg)
 	s.Require().NoError(err)
-	return subdenom
+	return fmt.Sprintf("factory/%s/%s", s.CosmosSubmitter.FormattedAddress(), subdenom)
 }
 
 // mintTokenFactory mints tokenfactory tokens to a recipient

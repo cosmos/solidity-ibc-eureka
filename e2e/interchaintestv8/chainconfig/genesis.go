@@ -50,7 +50,20 @@ func wfchainPreGenesis(out *poaGenesisValidator) func(ibc.Chain) error {
 		node := cosmosChain.GetNode()
 
 		// Create the validator operator key and fund it in genesis.
-		if err := node.CreateKey(ctx, poaValidatorKeyName); err != nil {
+		//
+		// Use a standard secp256k1 key rather than the chain's default
+		// (eth_secp256k1): this key signs the governance txs that register IFT
+		// bridges (sandbox-ledger's PoA module restricts governance to validators),
+		// and interchaintest decodes those txs host-side with the stock cosmos-sdk
+		// codec, which cannot resolve the eth_secp256k1 pubkey type.
+		if _, _, err := node.Exec(ctx, []string{
+			cosmosChain.Config().Bin, "keys", "add", poaValidatorKeyName,
+			"--key-type", "secp256k1",
+			"--coin-type", cosmosChain.Config().CoinType,
+			"--keyring-backend", "test",
+			"--home", node.HomeDir(),
+			"--output", "json",
+		}, cosmosChain.Config().Env); err != nil {
 			return fmt.Errorf("failed to create poa validator key: %w", err)
 		}
 		operatorAddr, err := node.AccountKeyBech32(ctx, poaValidatorKeyName)

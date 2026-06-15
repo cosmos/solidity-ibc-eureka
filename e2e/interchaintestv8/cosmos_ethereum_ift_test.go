@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -1221,16 +1222,19 @@ func (s *CosmosEthereumIFTTestSuite) getIFTModuleAddress() string {
 	return bech32Addr
 }
 
-func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context, user ibc.Wallet, denom string) string {
+// createTokenFactoryDenom creates a tokenfactory denom from the given subdenom
+// and returns the resulting full denom (factory/<creator>/<subdenom>), which is
+// what the IFT module, minting and balance queries operate on.
+func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context, user ibc.Wallet, subdenom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: user.FormattedAddress(),
-		Denom:  denom,
+		Denom:  subdenom,
 	}
 
 	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
 	s.Require().NoError(err)
 
-	return denom
+	return fmt.Sprintf("factory/%s/%s", user.FormattedAddress(), subdenom)
 }
 
 func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
