@@ -185,7 +185,7 @@ const (
 	DeterministicIFTAddress = "0x68B1D87F95878fE05B998F19b66F4baba5De1aed"
 	// DeterministicICAAddress is the Cosmos ICA address controlled by DeterministicIFTAddress.
 	// Recompute with: just compute-ift-addresses
-	DeterministicICAAddress = "wf1c98z43jf73erjp94y2nde4hpyyugtgvlcc9jwus8s25tpxc703pqfp60zh"
+	DeterministicICAAddress = "cosmos1c98z43jf73erjp94y2nde4hpyyugtgvlcc9jwus8s25tpxc703pqkx50f5"
 	// EnvKeyIFTICAAddress is the env var for passing ICA address to the deploy script.
 	EnvKeyIFTICAAddress = "IFT_ICA_ADDRESS"
 	// SolanaLedgerDir is the path to the Solana ledger directory.

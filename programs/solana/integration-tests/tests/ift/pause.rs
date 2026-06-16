@@ -87,12 +87,19 @@ async fn test_ift_pause() {
     assert!(!state.paused);
 
     // ── Transfer should succeed after unpause ──
+    //
+    // Use a fresh sequence (2): under `ProgramTest` the blockhash is constant
+    // across transactions, so reusing `sequence: 1` would produce a transaction
+    // byte-identical to the earlier paused attempt. Identical bytes ⇒ identical
+    // signature ⇒ the bank treats it as already-processed and replays the cached
+    // `AppPaused` result instead of re-executing. Sequences are caller-supplied
+    // and single-use in the router, so 2 is independently valid here.
     user.ift_transfer(
         &mut chain,
         mint,
         TokenKind::Spl,
         IftTransferParams {
-            sequence: 1,
+            sequence: 2,
             receiver: ift::EVM_RECEIVER.to_string(),
             amount: TRANSFER_AMOUNT,
             timeout_timestamp: IFT_TIMEOUT,

@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
     This script is used for end-to-end testing
 */
 
-// solhint-disable custom-errors,gas-custom-errors,function-max-lines
+// solhint-disable custom-errors,gas-custom-errors,function-max-lines,gas-small-strings
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
