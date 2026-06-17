@@ -17,6 +17,7 @@ members = [
     "packages/proof-api/lib",
     "packages/proof-api/core",
     "packages/proof-api/modules/eth-to-cosmos",
+    "packages/proof-api/modules/eth-to-cosmos-compat",
     "packages/proof-api/modules/cosmos-to-eth",
     "packages/proof-api/modules/eth-to-eth",
     "packages/proof-api/modules/cosmos-to-cosmos",
@@ -47,6 +48,7 @@ ibc-eureka-solidity-types               = { path = "packages/solidity", default-
 proof-api-lib                  = { path = "packages/proof-api/lib", default-features = false }
 proof-api-core                 = { path = "packages/proof-api/core", default-features = false }
 proof-api-eth-to-cosmos        = { path = "packages/proof-api/modules/eth-to-cosmos", default-features = false }
+proof-api-eth-to-cosmos-compat = { path = "packages/proof-api/modules/eth-to-cosmos-compat", default-features = false }
 proof-api-cosmos-to-eth        = { path = "packages/proof-api/modules/cosmos-to-eth", default-features = false }
 proof-api-eth-to-eth           = { path = "packages/proof-api/modules/eth-to-eth", default-features = false }
 proof-api-cosmos-to-cosmos     = { path = "packages/proof-api/modules/cosmos-to-cosmos", default-features = false }
@@ -194,6 +196,10 @@ smallvec                     = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0     = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
 tempfile                     = { version = "3.8.1", default-features = false }
+
+# TODO: Remove these dependencies once ethereum wasm client v1.2.0 backwards compatibility is not needed.
+ibc-eureka-relayer-eth-to-cosmos-v1_2 = { package = "ibc-eureka-relayer-eth-to-cosmos", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
+ibc-eureka-relayer-core-v1_2          = { package = "ibc-eureka-relayer-core", git = "https://github.com/cosmos/solidity-ibc-eureka", rev = "d9f58589bee5881561cd8c769750a35448e5ebc8", default-features = false }
 
 # Solana dependencies
 solana-client             = { version = "2.0" }
