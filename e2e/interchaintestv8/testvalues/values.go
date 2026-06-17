@@ -85,6 +85,10 @@ const (
 	EnvValueProofType_Plonk = "plonk"
 	// EnvValueWasmLightClientTag_Local is the value to set to use the local Wasm light client binary.
 	EnvValueWasmLightClientTag_Local = "local"
+	// WasmLightClientTag_V1_3_0 is the released cw-ics08-wasm-eth tag that ships the OLD (pre-trusted_slot,
+	// bare-StorageProof membership) wire schema. Deployed on-chain wasm clients of this version are
+	// immutable and reject the NEW schema, so it is pinned to assert OLD-schema compatibility e2e.
+	WasmLightClientTag_V1_3_0 = "cw-ics08-wasm-eth-v1.3.0"
 
 	// EthTestnetTypeAnvil uses local Anvil chain (supports dummy or attestor light client)
 	EthTestnetTypeAnvil = "anvil"

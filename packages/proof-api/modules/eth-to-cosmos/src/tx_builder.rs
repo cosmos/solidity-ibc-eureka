@@ -6,19 +6,18 @@ use std::{collections::HashMap, time::Duration};
 use alloy::{
     hex,
     network::Ethereum,
-    primitives::{Address, U256},
+    primitives::{Address, B256, U256},
     providers::Provider,
 };
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
-use ethereum_light_client::{
-    client_state::ClientState,
-    consensus_state::ConsensusState,
-    header::{ActiveSyncCommittee, Header},
-};
-use ethereum_types::consensus::{
-    light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
-    sync_committee::SyncCommittee,
+use ethereum_light_client::{client_state::ClientState, header::ActiveSyncCommittee};
+use ethereum_types::{
+    consensus::{
+        light_client_header::{LightClientFinalityUpdate, LightClientUpdate},
+        sync_committee::{SummarizedSyncCommittee, SyncCommittee},
+    },
+    execution::account_proof::AccountProof,
 };
 use ibc_eureka_solidity_types::ics26::{router::routerInstance, ICS26_IBC_STORAGE_SLOT};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
@@ -49,6 +48,42 @@ use proof_api_lib::{
         wait_for_condition, RelayEventsParams,
     },
 };
+
+// OLD (cw-ics08-wasm-eth-v1.3.0-compatible) wire shapes, emitted only on the eth->cosmos path.
+// These mirror the types the deployed, immutable wasm clients accept. The sub-types
+// (`ActiveSyncCommittee`, `LightClientUpdate`, `AccountProof`, `SummarizedSyncCommittee`) are
+// reused verbatim from the shared crates; only the wrappers differ from the current schema.
+
+/// OLD update-client header: carries the ICS26 account proof inside the header (no `trusted_slot`).
+#[derive(serde::Serialize, Debug)]
+#[cfg_attr(test, derive(serde::Deserialize))]
+#[cfg_attr(test, serde(deny_unknown_fields))]
+struct OldHeader {
+    active_sync_committee: ActiveSyncCommittee,
+    consensus_update: LightClientUpdate,
+    account_update: AccountUpdate,
+}
+
+/// OLD account update wrapper carried inside [`OldHeader`].
+#[derive(serde::Serialize, Debug)]
+#[cfg_attr(test, derive(serde::Deserialize))]
+#[cfg_attr(test, serde(deny_unknown_fields))]
+struct AccountUpdate {
+    account_proof: AccountProof,
+}
+
+/// OLD consensus state: includes the `storage_root` field that v1.3.0 wasm clients expect.
+#[derive(serde::Serialize)]
+#[cfg_attr(test, derive(serde::Deserialize))]
+#[cfg_attr(test, serde(deny_unknown_fields))]
+struct OldConsensusState {
+    slot: u64,
+    state_root: B256,
+    storage_root: B256,
+    timestamp: u64,
+    current_sync_committee: SummarizedSyncCommittee,
+    next_sync_committee: Option<SummarizedSyncCommittee>,
+}
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
 pub struct TxBuilder<P>
@@ -190,8 +225,40 @@ where
         Ok(())
     }
 
+    /// Builds an OLD-schema [`OldHeader`] from a light client update, fetching the ICS26 contract
+    /// account proof at that update's own finalized execution block (mirrors relayer-v0.7.0).
+    async fn light_client_update_to_header(
+        &self,
+        ethereum_client_state: &ClientState,
+        active_sync_committee: ActiveSyncCommittee,
+        update: LightClientUpdate,
+    ) -> Result<OldHeader> {
+        let block_hex = format!("0x{:x}", update.finalized_header.execution.block_number);
+        let ibc_contract_address = ethereum_client_state.ibc_contract_address.to_string();
+
+        tracing::debug!("Getting account proof for execution block {}", block_hex);
+        let proof = self
+            .eth_client
+            .get_proof(&ibc_contract_address, vec![], block_hex)
+            .await?;
+
+        Ok(OldHeader {
+            active_sync_committee,
+            consensus_update: update,
+            account_update: AccountUpdate {
+                account_proof: AccountProof {
+                    proof: proof.account_proof,
+                    storage_root: proof.storage_hash,
+                },
+            },
+        })
+    }
+
     #[tracing::instrument(skip_all)]
-    async fn get_update_headers(&self, ethereum_client_state: &ClientState) -> Result<Vec<Header>> {
+    async fn get_update_headers(
+        &self,
+        ethereum_client_state: &ClientState,
+    ) -> Result<Vec<OldHeader>> {
         let finality_update = self.beacon_api_client.finality_update().await?.data;
 
         let mut headers = vec![];
@@ -237,11 +304,9 @@ where
                 .await?;
 
             let active_sync_committee = ActiveSyncCommittee::Next(previous_next_sync_committee);
-            let header = Header {
-                active_sync_committee,
-                consensus_update: update,
-                trusted_slot: latest_trusted_slot,
-            };
+            let header = self
+                .light_client_update_to_header(ethereum_client_state, active_sync_committee, update)
+                .await?;
             tracing::debug!(
                 "Added header for slot from light client updates {}
                 Header: {:?}",
@@ -265,11 +330,13 @@ where
             let active_sync_committee =
                 ActiveSyncCommittee::Current(finality_update_sync_committee);
 
-            let header = Header {
-                active_sync_committee,
-                consensus_update: finality_update.into(),
-                trusted_slot: latest_trusted_slot,
-            };
+            let header = self
+                .light_client_update_to_header(
+                    ethereum_client_state,
+                    active_sync_committee,
+                    finality_update.into(),
+                )
+                .await?;
             tracing::debug!(
                 "Added header for slot from finality update {}: {}",
                 finality_update_finalized_slot,
@@ -565,9 +632,19 @@ where
                 anyhow::anyhow!("No next sync committee found in the light client update")
             })?;
 
-        let eth_consensus_state = ConsensusState {
+        let contract_proof = self
+            .eth_client
+            .get_proof(
+                &self.ics26_router.address().to_string(),
+                vec![],
+                format!("0x{:x}", eth_client_state.latest_execution_block_number),
+            )
+            .await?;
+
+        let eth_consensus_state = OldConsensusState {
             slot: eth_client_state.latest_slot,
             state_root: bootstrap.header.execution.state_root,
+            storage_root: contract_proof.storage_hash,
             timestamp: bootstrap.header.execution.timestamp,
             current_sync_committee: bootstrap
                 .current_sync_committee
@@ -865,5 +942,199 @@ impl AttestedTxBuilder {
     /// Returns an error if attestation retrieval or transaction building fails.
     pub async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
         build_attestor_update_client_tx(&self.aggregator, dst_client_id, &self.signer_address).await
+    }
+}
+
+/// Compatibility tests proving that the OLD (cw-ics08-wasm-eth-v1.3.0) wire shapes emitted by this
+/// module on the eth->cosmos path are byte-compatible with the bytes a v1.3.0 client provably
+/// accepted in CI.
+///
+/// Ground truth: the golden fixtures vendored verbatim from the `cw-ics08-wasm-eth-v1.3.0` tag at
+/// `packages/ethereum/light-client/src/test_utils/fixtures/*.json`. Those fixtures contain a
+/// `relayer_tx_body` (real bytes the v1.3.0-era relayer produced and the v1.3.0 client verified via
+/// `verify.rs::test_verify_header`) plus the initial consensus state. We extract the OLD Header JSON
+/// (from each `MsgUpdateClient`'s `ClientMessage.data`), the membership `proof_commitment` (from each
+/// `MsgRecvPacket`), and the OLD consensus state, then assert that:
+///  1. they parse into this module's local OLD types under `serde(deny_unknown_fields)` (so a
+///     re-introduced `trusted_slot`, or a missing `account_update`, or a `MembershipProof` wrapper
+///     fails loudly — the exact v0.8.0 regression), and
+///  2. re-serializing those local types reproduces the original wire JSON value (order-insensitive,
+///     proving our `Serialize` output is byte-compatible with the accepted v1.3.0 wire bytes).
+#[cfg(test)]
+mod v1_3_0_compat {
+    use super::*;
+
+    use ethereum_types::execution::storage_proof::StorageProof;
+    use ibc_proto_eureka::ibc::core::channel::v2::MsgRecvPacket;
+    use serde_json::Value;
+
+    const ICS20_FIXTURE: &str = "Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack";
+    const MULTI_PERIOD_FIXTURE: &str = "Test_MultiPeriodClientUpdateToCosmos";
+
+    /// Loads a vendored v1.3.0 fixture as a raw JSON value.
+    fn load_fixture(name: &str) -> Value {
+        let path = format!(
+            "{}/tests/fixtures/{}.json",
+            env!("CARGO_MANIFEST_DIR"),
+            name
+        );
+        let bytes = std::fs::read(&path).unwrap_or_else(|e| panic!("read fixture {path}: {e}"));
+        serde_json::from_slice(&bytes).unwrap_or_else(|e| panic!("parse fixture {path}: {e}"))
+    }
+
+    /// Returns the `data` value of the step with the given name.
+    fn step_data<'a>(fixture: &'a Value, step_name: &str) -> &'a Value {
+        fixture["steps"]
+            .as_array()
+            .expect("steps array")
+            .iter()
+            .find(|s| s["name"] == step_name)
+            .unwrap_or_else(|| panic!("step `{step_name}` not found"))
+            .get("data")
+            .expect("step data")
+    }
+
+    /// Decodes the `relayer_tx_body` hex string at the named step into a [`TxBody`].
+    fn decode_relayer_tx_body(fixture: &Value, step_name: &str) -> TxBody {
+        let hex_str = step_data(fixture, step_name)["relayer_tx_body"]
+            .as_str()
+            .expect("relayer_tx_body string");
+        let tx_bytes = hex::decode(hex_str).expect("decode relayer_tx_body hex");
+        TxBody::decode(tx_bytes.as_slice()).expect("decode TxBody")
+    }
+
+    /// Extracts every OLD Header JSON (the `ClientMessage.data` of every `MsgUpdateClient`) from a
+    /// `TxBody`, mirroring v1.3.0 `verify.rs::test_verify_header`.
+    fn extract_header_jsons(tx_body: &TxBody) -> Vec<Vec<u8>> {
+        tx_body
+            .messages
+            .iter()
+            .filter(|m| m.type_url == "/ibc.core.client.v1.MsgUpdateClient")
+            .map(|m| {
+                let msg =
+                    MsgUpdateClient::decode(m.value.as_slice()).expect("decode MsgUpdateClient");
+                let client_msg = ClientMessage::decode(
+                    msg.client_message.expect("client_message").value.as_slice(),
+                )
+                .expect("decode wasm ClientMessage");
+                client_msg.data
+            })
+            .collect()
+    }
+
+    /// Extracts every membership `proof_commitment` (bare `StorageProof` bytes) from a `TxBody`'s
+    /// `MsgRecvPacket` messages.
+    fn extract_recv_proof_commitments(tx_body: &TxBody) -> Vec<Vec<u8>> {
+        tx_body
+            .messages
+            .iter()
+            .filter(|m| m.type_url == "/ibc.core.channel.v2.MsgRecvPacket")
+            .map(|m| {
+                MsgRecvPacket::decode(m.value.as_slice())
+                    .expect("decode MsgRecvPacket")
+                    .proof_commitment
+            })
+            .collect()
+    }
+
+    /// Asserts that `bytes` deserializes into `T` under `deny_unknown_fields` AND that re-serializing
+    /// reproduces the original JSON value (order-insensitive byte equality).
+    fn assert_parses_and_roundtrips<T>(bytes: &[u8], context: &str) -> T
+    where
+        T: serde::Serialize + serde::de::DeserializeOwned,
+    {
+        let original: Value = serde_json::from_slice(bytes)
+            .unwrap_or_else(|e| panic!("{context}: original bytes are not valid JSON: {e}"));
+        let parsed: T = serde_json::from_slice(bytes).unwrap_or_else(|e| {
+            panic!(
+                "{context}: failed to deserialize into local OLD type (deny_unknown_fields): {e}"
+            )
+        });
+        let reserialized =
+            serde_json::to_value(&parsed).unwrap_or_else(|e| panic!("{context}: reserialize: {e}"));
+        assert_eq!(
+            reserialized, original,
+            "{context}: re-serialized OLD type is not value-equal to the v1.3.0 wire bytes"
+        );
+        parsed
+    }
+
+    #[test]
+    fn old_header_parses_and_roundtrips_byte_equal() {
+        // Single-period fixture: receive_packets step contains MsgUpdateClient(s).
+        let fixture = load_fixture(ICS20_FIXTURE);
+        let tx_body = decode_relayer_tx_body(&fixture, "receive_packets");
+        let headers = extract_header_jsons(&tx_body);
+        assert!(
+            !headers.is_empty(),
+            "expected at least one MsgUpdateClient header in the ICS20 fixture"
+        );
+        for (i, header_json) in headers.iter().enumerate() {
+            let header: OldHeader = assert_parses_and_roundtrips(
+                header_json,
+                &format!("ICS20 receive_packets header[{i}]"),
+            );
+            // Sanity: the OLD header carries an in-header account proof (the field v0.8.0 dropped).
+            assert!(
+                !header.account_update.account_proof.proof.is_empty(),
+                "OLD header[{i}] account_proof.proof must be non-empty"
+            );
+        }
+    }
+
+    #[test]
+    fn multi_period_old_headers_parse_and_roundtrip_byte_equal() {
+        // Multi-period fixture: iterate ALL update headers across sync-committee periods.
+        let fixture = load_fixture(MULTI_PERIOD_FIXTURE);
+        let tx_body = decode_relayer_tx_body(&fixture, "receive_packets");
+        let headers = extract_header_jsons(&tx_body);
+        assert!(
+            headers.len() >= 2,
+            "expected multiple OLD headers in the multi-period fixture, got {}",
+            headers.len()
+        );
+        for (i, header_json) in headers.iter().enumerate() {
+            assert_parses_and_roundtrips::<OldHeader>(
+                header_json,
+                &format!("multi-period header[{i}]"),
+            );
+        }
+    }
+
+    #[test]
+    fn bare_storage_proof_membership_roundtrips_byte_equal() {
+        // The membership proof_commitment must be a bare StorageProof (NO MembershipProof wrapper).
+        let fixture = load_fixture(ICS20_FIXTURE);
+        let tx_body = decode_relayer_tx_body(&fixture, "receive_packets");
+        let proofs = extract_recv_proof_commitments(&tx_body);
+        assert!(
+            !proofs.is_empty(),
+            "expected at least one MsgRecvPacket proof_commitment in the ICS20 fixture"
+        );
+        for (i, proof_bytes) in proofs.iter().enumerate() {
+            let proof: StorageProof = assert_parses_and_roundtrips(
+                proof_bytes,
+                &format!("ICS20 recv proof_commitment[{i}]"),
+            );
+            assert!(
+                !proof.proof.is_empty(),
+                "bare StorageProof[{i}].proof must be non-empty"
+            );
+        }
+    }
+
+    #[test]
+    fn old_consensus_state_has_storage_root_and_roundtrips() {
+        // The create_client path emits OldConsensusState WITH storage_root.
+        let fixture = load_fixture(ICS20_FIXTURE);
+        let consensus_state_value = &step_data(&fixture, "initial_state")["consensus_state"];
+        let bytes = serde_json::to_vec(consensus_state_value).expect("serialize consensus_state");
+        let cs: OldConsensusState =
+            assert_parses_and_roundtrips(&bytes, "initial_state consensus_state");
+        assert_ne!(
+            cs.storage_root,
+            B256::ZERO,
+            "OLD consensus state storage_root must be present and non-zero"
+        );
     }
 }

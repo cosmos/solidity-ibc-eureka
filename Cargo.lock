@@ -4505,6 +4505,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-light-client"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+dependencies = [
+ "alloy-primitives 1.5.7",
+ "alloy-rlp",
+ "ethereum-trie-db 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0)",
+ "hex",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0)",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "milagro_bls",
+ "prost",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0)",
+]
+
+[[package]]
 name = "ethereum-trie-db"
 version = "0.1.0"
 dependencies = [
@@ -4540,6 +4562,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethereum-trie-db"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+dependencies = [
+ "alloy-primitives 1.5.7",
+ "hash-db",
+ "hash256-std-hasher",
+ "hex",
+ "memory-db 0.32.0",
+ "primitive-types 0.13.1",
+ "rlp 0.6.1",
+ "rlp-derive",
+ "sha3",
+ "thiserror 2.0.18",
+ "trie-db 0.30.0",
+]
+
+[[package]]
 name = "ethereum-types"
 version = "0.1.0"
 dependencies = [
@@ -4563,6 +4603,19 @@ dependencies = [
  "serde_with",
  "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.2.0)",
  "tree_hash_derive 0.9.1",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+dependencies = [
+ "alloy-primitives 1.5.7",
+ "schemars 0.8.22",
+ "serde",
+ "serde_with",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0)",
+ "tree_hash_derive 0.10.0",
 ]
 
 [[package]]
@@ -5850,6 +5903,24 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "serde",
+ "sha2 0.10.9",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "thiserror 2.0.18",
+ "time",
+]
+
+[[package]]
+name = "ibc-eureka-solidity-types"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+dependencies = [
+ "alloy-primitives 1.5.7",
+ "alloy-sol-types 1.5.7",
+ "ibc-client-tendermint-types",
+ "ibc-core-client-types",
+ "ibc-core-commitment-types",
+ "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "sha2 0.10.9",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -8086,6 +8157,7 @@ dependencies = [
  "async-trait",
  "ethereum-apis",
  "ethereum-light-client 0.1.0",
+ "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0)",
  "ethereum-types 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils",
@@ -14652,10 +14724,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree_hash"
+version = "0.1.0"
+source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-eth-v1.3.0#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+dependencies = [
+ "alloy-primitives 1.5.7",
+ "sha2 0.10.9",
+ "smallvec",
+]
+
+[[package]]
 name = "tree_hash_derive"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "699e7fb6b3fdfe0c809916f251cf5132d64966858601695c3736630a87e7166a"
+dependencies = [
+ "darling 0.20.11",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "tree_hash_derive"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bee2ea1551f90040ab0e34b6fb7f2fa3bad8acc925837ac654f2c78a13e3089"
 dependencies = [
  "darling 0.20.11",
  "proc-macro2",

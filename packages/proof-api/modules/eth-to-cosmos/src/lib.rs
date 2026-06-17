@@ -10,6 +10,11 @@
 
 use tendermint as _;
 
+// Only used by the opt-in `live-verify-v1_3_0` manual harness in `tests/`. Referenced here so
+// the `unused_crate_dependencies` lint is satisfied when the feature is enabled.
+#[cfg(feature = "live-verify-v1_3_0")]
+use ethereum_light_client_v1_3_0 as _;
+
 pub mod tx_builder;
 
 use std::collections::HashMap;

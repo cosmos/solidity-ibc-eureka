@@ -1265,6 +1265,64 @@ func (s *ProofAPITestSuite) Test_UpdateClientToCosmos() {
 	}))
 }
 
+// pinV1_3_0WasmLightClient pins the eth->cosmos leg of the upcoming SetupSuite to the RELEASED,
+// immutable OLD-schema wasm light client (cw-ics08-wasm-eth-v1.3.0) instead of the locally-built one.
+//
+// It is the key enabler for the v1.3.0 compatibility e2e tests: each Test_* method below re-runs
+// SetupSuite (which calls TestSuite.parseConfig at e2esuite/suite.go:106, reading these env vars), so
+// setting them here routes getWasmLightClientBinary (e2esuite/light_clients.go:79-84) to
+// wasm.DownloadWasmLightClientRelease(Release{TagName: cw-ics08-wasm-eth-v1.3.0}), pushing the REAL
+// released OLD-schema wasm on-chain. The modified branch's proof-api (installed on PATH by
+// `just install-proof-api`) must then produce OLD-schema MsgCreateClient/MsgUpdateClient/MsgRecvPacket
+// that this immutable client ACCEPTS - the exact regression this branch fixes.
+//
+// t.Setenv auto-restores the prior values when the subtest finishes, so sibling local-tag tests are
+// unaffected. It must not be called from a t.Parallel test (none of these are parallel).
+func (s *ProofAPITestSuite) pinV1_3_0WasmLightClient() {
+	// Only meaningful against a real PoS network; the full v1.3.0 wasm does real beacon/BLS
+	// verification and config.validate rejects anvil/dummy for the full light client.
+	if os.Getenv(testvalues.EnvKeyEthTestnetType) != testvalues.EthTestnetTypePoS {
+		s.T().Skip("v1.3.0 wasm compatibility test is only relevant for PoS networks")
+	}
+	s.T().Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypePoS)
+	s.T().Setenv(testvalues.EnvKeyEthLcOnCosmos, testvalues.EthLCOnCosmosTypeFullWasm)
+	s.T().Setenv(testvalues.EnvKeyE2EWasmLightClientTag, testvalues.WasmLightClientTag_V1_3_0)
+}
+
+// Test_UpdateClientToCosmos_WasmV1_3_0 asserts that proof-api's OLD-schema MsgUpdateClient (OLD
+// Header: active_sync_committee/consensus_update/account_update.account_proof, NO trusted_slot) is
+// ACCEPTED by the released, immutable cw-ics08-wasm-eth-v1.3.0 wasm client - i.e. it does NOT fail
+// with "invalid client message: wasm contract call failed" at MsgUpdateClient gas simulation, which
+// is the v0.8.0 regression this branch reverts.
+//
+// It pins the v1.3.0 wasm, then delegates to the already-CI-proven Test_UpdateClientToCosmos body,
+// whose assertions broadcast the relay/update tx via MustBroadcastSdkTxBody (on-chain code 0) and
+// require the queried wasm client's LatestHeight.RevisionHeight to advance beyond the initial height.
+func (s *ProofAPITestSuite) Test_UpdateClientToCosmos_WasmV1_3_0() {
+	s.pinV1_3_0WasmLightClient()
+	s.Test_UpdateClientToCosmos()
+}
+
+// Test_10_RecvPacketToCosmos_WasmV1_3_0 asserts that a single relay tx whose MsgUpdateClient carries
+// an OLD Header AND whose MsgRecvPacket carries a bare StorageProof membership proof (NO
+// MembershipProof wrapper) is ACCEPTED end-to-end by the released cw-ics08-wasm-eth-v1.3.0 client -
+// exactly the create/update/recv path the schema revert targets.
+//
+// It pins the v1.3.0 wasm, then delegates to the already-CI-proven Test_10_RecvPacketToCosmos body,
+// which relays eth->simd via RelayByTx and broadcasts the resulting tx via MustBroadcastSdkTxBody.
+func (s *ProofAPITestSuite) Test_10_RecvPacketToCosmos_WasmV1_3_0() {
+	s.pinV1_3_0WasmLightClient()
+	s.Test_10_RecvPacketToCosmos()
+}
+
+// Test_MultiPeriodClientUpdateToCosmos_WasmV1_3_0 asserts that a MsgUpdateClient containing MULTIPLE
+// OLD Headers spanning sync-committee periods is accepted by the released cw-ics08-wasm-eth-v1.3.0
+// client. It pins the v1.3.0 wasm, then delegates to the existing multi-period body.
+func (s *ProofAPITestSuite) Test_MultiPeriodClientUpdateToCosmos_WasmV1_3_0() {
+	s.pinV1_3_0WasmLightClient()
+	s.Test_MultiPeriodClientUpdateToCosmos()
+}
+
 // Test_HistoricalUpdateClientToCosmos tests updating the eth light client with updates that are not the latest
 // To do this, we will:
 // 1. Send a transfer on Ethereum

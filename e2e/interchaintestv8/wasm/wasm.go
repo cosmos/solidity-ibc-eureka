@@ -1,7 +1,6 @@
 package wasm
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -22,7 +21,9 @@ func GetLocalWasmEthLightClient() (*os.File, error) {
 }
 
 func DownloadWasmLightClientRelease(release Release) (*os.File, error) {
-	downloadUrl := fmt.Sprint(release.BaseDownloadURL())
+	// The release asset URL is the per-tag base path joined with the gzipped wasm asset filename.
+	// The base path alone (.../releases/download/<tag>) returns 404; the asset URL returns the binary.
+	downloadUrl := release.BaseDownloadURL() + "/" + wasmEthLightClientFileName
 
 	resp, err := http.Get(downloadUrl) //nolint:gosec
 	if err != nil {
