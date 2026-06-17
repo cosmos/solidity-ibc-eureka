@@ -60,15 +60,25 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
     function run() public returns (string memory) {
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
         string memory iftIcaAddress = vm.envOr("IFT_ICA_ADDRESS", string(""));
+        // The Cosmos counterparty mints exactly this denom; on sandbox-ledger it is
+        // the full tokenfactory denom (factory/<creator>/<sub>), passed via env.
+        string memory iftDenom = vm.envOr("IFT_DENOM", IFT_TEST_DENOM);
 
         vm.startBroadcast();
-        DeployedContracts memory d = _deploy(e2eFaucet, iftIcaAddress);
+        DeployedContracts memory d = _deploy(e2eFaucet, iftIcaAddress, iftDenom);
         vm.stopBroadcast();
 
         return _toJson(d);
     }
 
-    function _deploy(address e2eFaucet, string memory iftIcaAddress) internal returns (DeployedContracts memory d) {
+    function _deploy(
+        address e2eFaucet,
+        string memory iftIcaAddress,
+        string memory iftDenom
+    )
+        internal
+        returns (DeployedContracts memory d)
+    {
         // Deploy SP1 verifiers
         d.verifierPlonk = address(new SP1VerifierPlonk());
         d.verifierGroth16 = address(new SP1VerifierGroth16());
@@ -114,7 +124,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         // Deploy CosmosIFTSendCallConstructor if ICA address is provided
         if (bytes(iftIcaAddress).length > 0) {
             d.cosmosIftConstructor =
-                address(new CosmosIFTSendCallConstructor(IFT_MINT_TYPE_URL, IFT_TEST_DENOM, iftIcaAddress));
+                address(new CosmosIFTSendCallConstructor(IFT_MINT_TYPE_URL, iftDenom, iftIcaAddress));
         }
 
         // NOTE: SolanaIFTSendCallConstructor is deployed separately via DeploySolanaIFTConstructor.s.sol

@@ -3,10 +3,13 @@ package e2esuite
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	pb "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -19,6 +22,35 @@ import (
 )
 
 var queryReqToPath = make(map[string]string)
+
+// hostGRPCAddress returns the chain's host gRPC address with 0.0.0.0 normalized
+// to 127.0.0.1. Interchaintest reports the bind address (0.0.0.0:<port>), which
+// is not a valid dial target on macOS (connection refused), though Linux
+// tolerates it. Mirrors the same workaround used for the Ethereum RPC in
+// setup_ethereum.go.
+func hostGRPCAddress(chain *cosmos.CosmosChain) string {
+	return strings.Replace(chain.GetHostGRPCAddress(), "0.0.0.0", "127.0.0.1", 1)
+}
+
+// waitForGRPCReady blocks until the gRPC connection reaches the Ready state or
+// the timeout elapses, driving the lazy connection to connect. Used before
+// streaming reflection calls, which (unlike unary calls) are not covered by the
+// retry policy.
+func waitForGRPCReady(ctx context.Context, conn *grpc.ClientConn, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	conn.Connect()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			return nil
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			return fmt.Errorf("grpc connection not ready (last state %s): %w", state, ctx.Err())
+		}
+	}
+}
 
 func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) error {
 	files, err := queryFileDescriptors(ctx, chain)
@@ -47,7 +79,7 @@ func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.Request
 	// Create a connection to the gRPC server.
 	path := "/cosmos.base.tendermint.v1beta1.Service/ABCIQuery"
 	grpcConn, err := grpc.Dial(
-		chain.GetHostGRPCAddress(),
+		hostGRPCAddress(chain),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		retryConfig(),
 	)
@@ -75,7 +107,7 @@ func GRPCQuery[T any](ctx context.Context, chain *cosmos.CosmosChain, req proto.
 
 	// Create a connection to the gRPC server.
 	grpcConn, err := grpc.Dial(
-		chain.GetHostGRPCAddress(),
+		hostGRPCAddress(chain),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		retryConfig(),
 	)
@@ -104,7 +136,7 @@ func GRPCQuery[T any](ctx context.Context, chain *cosmos.CosmosChain, req proto.
 func queryFileDescriptors(ctx context.Context, chain *cosmos.CosmosChain) ([]*descriptorpb.FileDescriptorProto, error) {
 	// Create a connection to the gRPC server.
 	grpcConn, err := grpc.Dial(
-		chain.GetHostGRPCAddress(),
+		hostGRPCAddress(chain),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		retryConfig(),
 	)
@@ -113,6 +145,15 @@ func queryFileDescriptors(ctx context.Context, chain *cosmos.CosmosChain) ([]*de
 	}
 
 	defer grpcConn.Close()
+
+	// Wait for the connection to become ready before issuing reflection calls.
+	// Server reflection is a streaming RPC, so it does not benefit from the unary
+	// retry policy in retryConfig; without this the call fails immediately if the
+	// chain's gRPC host port isn't accepting yet (e.g. docker port-forward warmup
+	// on the first connection right after the chain starts).
+	if err := waitForGRPCReady(ctx, grpcConn, 30*time.Second); err != nil {
+		return nil, err
+	}
 
 	// NewClientAuto negotiates between the v1 and v1alpha server-reflection APIs.
 	refClient := grpcreflect.NewClientAuto(ctx, grpcConn)

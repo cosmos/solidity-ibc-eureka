@@ -163,6 +163,11 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 	s.Require().True(s.Run("Deploy IBC contracts", func() {
 		// Set the ICA address for the CosmosIFTSendCallConstructor deployment
 		os.Setenv(testvalues.EnvKeyIFTICAAddress, testvalues.DeterministicICAAddress)
+		// The Cosmos counterparty mints the exact denom the EVM constructor carries.
+		// On sandbox-ledger the IFT token is the full tokenfactory denom
+		// factory/<creator>/<sub>, so pass that (not the bare subdenom). The creator
+		// is CosmosRelayerSubmitter, which createTokenFactoryDenom uses below.
+		os.Setenv(testvalues.EnvKeyIFTDenom, fmt.Sprintf("factory/%s/%s", s.CosmosRelayerSubmitter.FormattedAddress(), testvalues.IFTTestDenom))
 
 		stdout, err := eth.ForgeScript(s.ethDeployer, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)

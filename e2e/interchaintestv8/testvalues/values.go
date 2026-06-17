@@ -188,6 +188,11 @@ const (
 	DeterministicICAAddress = "cosmos1c98z43jf73erjp94y2nde4hpyyugtgvlcc9jwus8s25tpxc703pqkx50f5"
 	// EnvKeyIFTICAAddress is the env var for passing ICA address to the deploy script.
 	EnvKeyIFTICAAddress = "IFT_ICA_ADDRESS"
+	// EnvKeyIFTDenom is the env var for passing the full Cosmos IFT denom to the
+	// deploy script. The Cosmos counterparty mints the exact denom the EVM
+	// constructor is configured with, and on sandbox-ledger that is the full
+	// tokenfactory denom (factory/<creator>/<sub>), not the bare subdenom.
+	EnvKeyIFTDenom = "IFT_DENOM"
 	// SolanaLedgerDir is the path to the Solana ledger directory.
 	SolanaLedgerDir = "test-ledger"
 	// TendermintLightClientFixturesDir is the directory where the Tendermint light client fixtures are stored.
