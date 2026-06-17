@@ -22,7 +22,7 @@ func GetLocalWasmEthLightClient() (*os.File, error) {
 }
 
 func DownloadWasmLightClientRelease(release Release) (*os.File, error) {
-	downloadUrl := fmt.Sprint(release.BaseDownloadURL())
+	downloadUrl := fmt.Sprint(release.WasmDownloadURL())
 
 	resp, err := http.Get(downloadUrl) //nolint:gosec
 	if err != nil {
