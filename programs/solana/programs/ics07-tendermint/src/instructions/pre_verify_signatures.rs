@@ -138,7 +138,7 @@ fn verify_ed25519_from_sysvar(
 }
 
 #[inline]
-fn load_offsets(data: &[u8]) -> Offsets {
+const fn load_offsets(data: &[u8]) -> Offsets {
     Offsets {
         signature: u16::from_le_bytes([data[2], data[3]]) as usize,
         pubkey: u16::from_le_bytes([data[6], data[7]]) as usize,
@@ -155,7 +155,7 @@ struct Offsets {
 /// Returns `true` only when all three `*_instruction_index` fields equal
 /// `u16::MAX`, meaning the Ed25519 precompile reads signature, pubkey, and
 /// message from its own instruction data (not from another instruction).
-fn all_instruction_indices_inline(data: &[u8]) -> bool {
+const fn all_instruction_indices_inline(data: &[u8]) -> bool {
     let sig_ix = u16::from_le_bytes([
         data[ED25519_SIGNATURE_IX_INDEX_OFFSET],
         data[ED25519_SIGNATURE_IX_INDEX_OFFSET + 1],
