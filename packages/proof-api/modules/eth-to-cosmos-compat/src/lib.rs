@@ -8,11 +8,11 @@
     unused_crate_dependencies
 )]
 
-use ibc_eureka_relayer_core_v1_2::{
-    api::{self as api_v1_2, relayer_service_server::RelayerService as RelayerServiceV1_2},
-    modules::RelayerModule as RelayerModuleV1_2,
+use ibc_eureka_relayer_core_v1_3::{
+    api::{self as api_v1_3, relayer_service_server::RelayerService as RelayerServiceV1_3},
+    modules::RelayerModule as RelayerModuleV1_3,
 };
-use ibc_eureka_relayer_eth_to_cosmos_v1_2::EthToCosmosRelayerModule as EthToCosmosRelayerModuleV1_2;
+use ibc_eureka_relayer_eth_to_cosmos_v1_3::EthToCosmosRelayerModule as EthToCosmosRelayerModuleV1_3;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientState;
 use proof_api_core::{
@@ -26,10 +26,10 @@ use serde_json::Value;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
-/// The checksum for the v1.2 Ethereum wasm client.
-const V1_2_CHECKSUM: &[u8] = &[
-    185, 46, 153, 4, 170, 178, 41, 41, 22, 80, 127, 13, 176, 75, 122, 182, 208, 36, 194, 253, 181,
-    122, 157, 82, 230, 114, 95, 105, 178, 230, 132, 193,
+/// The checksum for the v1.3 Ethereum wasm client.
+const V1_3_CHECKSUM: &[u8] = &[
+    175, 132, 204, 204, 163, 231, 70, 217, 196, 234, 152, 12, 237, 27, 69, 17, 222, 15, 169, 98,
+    237, 80, 3, 222, 232, 203, 68, 237, 161, 14, 69, 104,
 ];
 
 /// The key for the checksum hex in the parameters map.
@@ -42,14 +42,14 @@ pub struct EthToCosmosCompatProofApiModule;
 /// The backwards compatible proof API service from Ethereum to Cosmos.
 struct EthToCosmosCompatProofApiModuleService {
     tm_listener: cosmos_sdk::ChainListener,
-    old_service: Box<dyn RelayerServiceV1_2>,
+    old_service: Box<dyn RelayerServiceV1_3>,
     new_service: Box<dyn ProofApiService>,
 }
 
 impl EthToCosmosCompatProofApiModuleService {
     fn new(
         config: &EthToCosmosConfig,
-        old_service: Box<dyn RelayerServiceV1_2>,
+        old_service: Box<dyn RelayerServiceV1_3>,
         new_service: Box<dyn ProofApiService>,
     ) -> Self {
         let tm_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
@@ -101,12 +101,12 @@ impl ProofApiService for EthToCosmosCompatProofApiModuleService {
         let req = request.get_ref();
         let checksum = self.client_checksum(&req.dst_client_id).await?;
 
-        if checksum == V1_2_CHECKSUM {
+        if checksum == V1_3_CHECKSUM {
             tracing::info!("Using backwards compatible relay_by_tx");
             let inner = request.into_inner();
             let resp = self
                 .old_service
-                .relay_by_tx(Request::new(api_v1_2::RelayByTxRequest {
+                .relay_by_tx(Request::new(api_v1_3::RelayByTxRequest {
                     src_chain: inner.src_chain,
                     dst_chain: inner.dst_chain,
                     source_tx_ids: inner.source_tx_ids,
@@ -137,12 +137,12 @@ impl ProofApiService for EthToCosmosCompatProofApiModuleService {
         )?)
         .map_err(|e| tonic::Status::internal(format!("Failed to decode checksum hex: {e}")))?;
 
-        if checksum == V1_2_CHECKSUM {
+        if checksum == V1_3_CHECKSUM {
             tracing::info!("Using backwards compatible create_client");
             let inner = request.into_inner();
             let resp = self
                 .old_service
-                .create_client(Request::new(api_v1_2::CreateClientRequest {
+                .create_client(Request::new(api_v1_3::CreateClientRequest {
                     src_chain: inner.src_chain,
                     dst_chain: inner.dst_chain,
                     parameters: inner.parameters,
@@ -166,12 +166,12 @@ impl ProofApiService for EthToCosmosCompatProofApiModuleService {
         let req = request.get_ref();
         let checksum = self.client_checksum(&req.dst_client_id).await?;
 
-        if checksum == V1_2_CHECKSUM {
+        if checksum == V1_3_CHECKSUM {
             tracing::info!("Using backwards compatible update_client");
             let inner = request.into_inner();
             let resp = self
                 .old_service
-                .update_client(Request::new(api_v1_2::UpdateClientRequest {
+                .update_client(Request::new(api_v1_3::UpdateClientRequest {
                     src_chain: inner.src_chain,
                     dst_chain: inner.dst_chain,
                     dst_client_id: inner.dst_client_id,
@@ -200,7 +200,7 @@ impl ProofApiModule for EthToCosmosCompatProofApiModule {
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
         let legacy_config = legacy_config(&eth_to_cosmos_config)?;
 
-        let old_service = EthToCosmosRelayerModuleV1_2
+        let old_service = EthToCosmosRelayerModuleV1_3
             .create_service(legacy_config)
             .await?;
 
