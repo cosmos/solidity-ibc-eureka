@@ -28,7 +28,7 @@ use tonic::{Request, Response};
 
 /// The checksum for the v1.3 Ethereum wasm client.
 const V1_3_CHECKSUM: &[u8] = &[
-    175, 132, 204, 204, 163, 231, 70, 217, 196, 234, 152, 12, 237, 27, 69, 17, 222, 15, 169, 98,
+    175, 132, 204, 204, 163, 231, 70, 217, 196, 234, 152, 12, 109, 27, 69, 17, 222, 15, 169, 98,
     237, 80, 3, 222, 232, 203, 68, 237, 161, 14, 69, 104,
 ];
 
@@ -231,4 +231,18 @@ fn legacy_config(eth_to_cosmos_config: &EthToCosmosConfig) -> anyhow::Result<Val
         .ok_or_else(|| anyhow::anyhow!("eth_to_cosmos_compat config must be an object"))?
         .remove("mode");
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::V1_3_CHECKSUM;
+
+    #[test]
+    fn v1_3_checksum_matches_expected_hex() {
+        assert_eq!(
+            hex::decode("af84cccca3e746d9c4ea980c6d1b4511de0fa962ed5003dee8cb44eda10e4568")
+                .expect("valid checksum hex"),
+            V1_3_CHECKSUM
+        );
+    }
 }
