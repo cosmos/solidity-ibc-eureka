@@ -17,7 +17,7 @@ members = [
     "packages/proof-api/lib",
     "packages/proof-api/core",
     "packages/proof-api/modules/eth-to-cosmos",
-    "packages/proof-api/modules/eth-to-cosmos-compat",
+    "packages/proof-api/modules/eth-to-cosmos-v1-3-0",
     "packages/proof-api/modules/cosmos-to-eth",
     "packages/proof-api/modules/eth-to-eth",
     "packages/proof-api/modules/cosmos-to-cosmos",
@@ -48,7 +48,7 @@ ibc-eureka-solidity-types               = { path = "packages/solidity", default-
 proof-api-lib                  = { path = "packages/proof-api/lib", default-features = false }
 proof-api-core                 = { path = "packages/proof-api/core", default-features = false }
 proof-api-eth-to-cosmos        = { path = "packages/proof-api/modules/eth-to-cosmos", default-features = false }
-proof-api-eth-to-cosmos-compat = { path = "packages/proof-api/modules/eth-to-cosmos-compat", default-features = false }
+proof-api-eth-to-cosmos-v1-3-0 = { path = "packages/proof-api/modules/eth-to-cosmos-v1-3-0", default-features = false }
 proof-api-cosmos-to-eth        = { path = "packages/proof-api/modules/cosmos-to-eth", default-features = false }
 proof-api-eth-to-eth           = { path = "packages/proof-api/modules/eth-to-eth", default-features = false }
 proof-api-cosmos-to-cosmos     = { path = "packages/proof-api/modules/cosmos-to-cosmos", default-features = false }

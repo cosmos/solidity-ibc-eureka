@@ -17,7 +17,7 @@ const (
 	ModuleCosmosToCosmos    = "cosmos_to_cosmos"
 	ModuleCosmosToEth       = "cosmos_to_eth"
 	ModuleEthToCosmos       = "eth_to_cosmos"
-	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
+	ModuleEthToCosmosV1_3_0 = "eth_to_cosmos_v1.3.0"
 	ModuleEthToEth          = "eth_to_eth"
 	ModuleSolanaToCosmos    = "solana_to_cosmos"
 	ModuleCosmosToSolana    = "cosmos_to_solana"

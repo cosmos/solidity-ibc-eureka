@@ -8883,7 +8883,7 @@ dependencies = [
  "proof-api-cosmos-to-eth",
  "proof-api-cosmos-to-solana",
  "proof-api-eth-to-cosmos",
- "proof-api-eth-to-cosmos-compat",
+ "proof-api-eth-to-cosmos-v1-3-0",
  "proof-api-eth-to-eth",
  "proof-api-eth-to-solana",
  "proof-api-solana-to-cosmos",
@@ -9026,7 +9026,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "proof-api-eth-to-cosmos-compat"
+name = "proof-api-eth-to-cosmos-v1-3-0"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -9036,7 +9036,6 @@ dependencies = [
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.52.0",
  "proof-api-core",
- "proof-api-eth-to-cosmos",
  "proof-api-lib",
  "prost",
  "serde_json",

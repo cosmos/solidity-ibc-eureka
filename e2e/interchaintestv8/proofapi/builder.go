@@ -1,6 +1,10 @@
 package proofapi
 
-import "os"
+import (
+	"os"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+)
 
 // ConfigBuilder provides a fluent API for building proof API configurations.
 type ConfigBuilder struct {
@@ -41,7 +45,7 @@ type EthToCosmosParams struct {
 	MockClient    bool
 }
 
-// EthToCosmos adds an Eth→Cosmos compat module using beacon chain light client.
+// EthToCosmos adds an Eth→Cosmos module using beacon chain light client.
 func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
 	var mode TxBuilderMode
 	if p.MockClient {
@@ -51,7 +55,7 @@ func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
 	}
 
 	module := ModuleConfig{
-		Name:     ModuleEthToCosmosCompat,
+		Name:     ethToCosmosModuleName(),
 		SrcChain: p.EthChainID,
 		DstChain: p.CosmosChainID,
 		Config: EthToCosmosModuleConfig{
@@ -65,6 +69,13 @@ func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
 	}
 	b.modules = append(b.modules, module)
 	return b
+}
+
+func ethToCosmosModuleName() string {
+	if os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag) == testvalues.EnvValueWasmLightClientTagV1_3_0 {
+		return ModuleEthToCosmosV1_3_0
+	}
+	return ModuleEthToCosmos
 }
 
 // =============================================================================

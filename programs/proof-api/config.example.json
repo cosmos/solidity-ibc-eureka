@@ -135,7 +135,7 @@
       }
     },
     {
-      "name": "eth_to_cosmos_compat",
+      "name": "eth_to_cosmos_v1.3.0",
       "src_chain": "0x1",
       "dst_chain": "cosmoshub-4",
       "config": {

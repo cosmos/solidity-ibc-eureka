@@ -107,8 +107,9 @@ Module configuration varies by module type:
   - `mode.cache`: Optional cache config when `type: attested`.
     - `mode.cache.state_cache_max_entries`.
     - `mode.cache.packet_cache_max_entries`.
-- `eth_to_cosmos_compat`:
-  - Same settings as `eth_to_cosmos`, but routes requests to the v1.2 or current handler based on the client state checksum.
+- `eth_to_cosmos_v1.3.0`:
+  - Same real/mock settings as `eth_to_cosmos`, but only supports the v1.3.0 Ethereum wasm client checksum.
+  - Attested mode is not supported; use `eth_to_cosmos` for attested mode.
 
 - `eth_to_eth`:
   - `src_chain_id`: Source chain ID string.

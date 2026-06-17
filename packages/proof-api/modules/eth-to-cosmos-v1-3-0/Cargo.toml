@@ -1,12 +1,11 @@
 [package]
-name       = "proof-api-eth-to-cosmos-compat"
+name       = "proof-api-eth-to-cosmos-v1-3-0"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-proof-api-eth-to-cosmos = { workspace = true, default-features = false }
 proof-api-lib           = { workspace = true, default-features = false }
 proof-api-core          = { workspace = true, default-features = false }
 

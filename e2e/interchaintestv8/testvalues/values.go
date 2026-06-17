@@ -85,6 +85,8 @@ const (
 	EnvValueProofType_Plonk = "plonk"
 	// EnvValueWasmLightClientTag_Local is the value to set to use the local Wasm light client binary.
 	EnvValueWasmLightClientTag_Local = "local"
+	// EnvValueWasmLightClientTagV1_3_0 is the v1.3.0 Ethereum Wasm light client release tag.
+	EnvValueWasmLightClientTagV1_3_0 = "cw-ics08-wasm-eth-v1.3.0"
 
 	// EthTestnetTypeAnvil uses local Anvil chain (supports dummy or attestor light client)
 	EthTestnetTypeAnvil = "anvil"

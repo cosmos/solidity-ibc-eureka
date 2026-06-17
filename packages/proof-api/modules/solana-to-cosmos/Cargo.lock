@@ -4995,7 +4995,7 @@ dependencies = [
  "proof-api-cosmos-to-eth",
  "proof-api-cosmos-to-solana",
  "proof-api-eth-to-cosmos 0.1.0",
- "proof-api-eth-to-cosmos-compat",
+ "proof-api-eth-to-cosmos-v1-3-0",
  "proof-api-solana-to-cosmos",
  "prometheus",
  "serde_json",
@@ -5163,7 +5163,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "proof-api-eth-to-cosmos-compat"
+name = "proof-api-eth-to-cosmos-v1-3-0"
 version = "0.1.0"
 dependencies = [
  "anyhow",
