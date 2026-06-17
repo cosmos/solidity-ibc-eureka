@@ -133,9 +133,11 @@ impl ProofApiService for EthToCosmosCompatProofApiModuleService {
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
         let checksum = hex::decode(request.get_ref().parameters.get(CHECKSUM_HEX).ok_or_else(
-            || tonic::Status::internal("Checksum hex parameter is missing in request"),
+            || tonic::Status::invalid_argument("Checksum hex parameter is missing in request"),
         )?)
-        .map_err(|e| tonic::Status::internal(format!("Failed to decode checksum hex: {e}")))?;
+        .map_err(|e| {
+            tonic::Status::invalid_argument(format!("Failed to decode checksum hex: {e}"))
+        })?;
 
         if checksum == V1_3_CHECKSUM {
             tracing::info!("Using backwards compatible create_client");
