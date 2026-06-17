@@ -49,11 +49,7 @@ struct SP1Programs {
 }
 
 /// Writes the proof data for misbehaviour to the given fixture path.
-#[allow(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::too_many_lines
-)]
+#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let misbehaviour: RawMisbehaviour =
         serde_json::from_slice(&std::fs::read(args.misbehaviour_json_path)?)?;
