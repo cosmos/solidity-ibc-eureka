@@ -1,7 +1,7 @@
 //! Runner for generating `misbehaviour` fixtures
 
 use crate::{
-    cli::command::{fixtures::MisbehaviourCmd, OutputPath},
+    cli::command::{fixtures::MisbehaviourCmd, OutputPath, SP1ELFPaths},
     runners::genesis::SP1ICS07TendermintGenesis,
 };
 use alloy::sol_types::SolValue;
@@ -41,6 +41,13 @@ struct SP1ICS07SubmitMisbehaviourFixture {
     submit_msg: Vec<u8>,
 }
 
+struct SP1Programs {
+    update_client: UpdateClientProgram,
+    membership: MembershipProgram,
+    misbehaviour: MisbehaviourProgram,
+    uc_and_membership: UpdateClientAndMembershipProgram,
+}
+
 /// Writes the proof data for misbehaviour to the given fixture path.
 #[allow(
     clippy::missing_errors_doc,
@@ -50,15 +57,7 @@ struct SP1ICS07SubmitMisbehaviourFixture {
 pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
     let misbehaviour: RawMisbehaviour =
         serde_json::from_slice(&std::fs::read(args.misbehaviour_json_path)?)?;
-
-    let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
-    let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
-    let misbehaviour_elf = std::fs::read(args.elf_paths.misbehaviour_path)?;
-    let uc_and_membership_elf = std::fs::read(args.elf_paths.uc_and_membership_path)?;
-    let update_client_program = UpdateClientProgram::new(update_client_elf);
-    let membership_program = MembershipProgram::new(membership_elf);
-    let misbehaviour_program = MisbehaviourProgram::new(misbehaviour_elf);
-    let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
+    let programs = load_sp1_programs(args.elf_paths)?;
 
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
@@ -97,10 +96,10 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
         args.sp1.proof_type,
-        &update_client_program,
-        &membership_program,
-        &uc_and_membership_program,
-        &misbehaviour_program,
+        &programs.update_client,
+        &programs.membership,
+        &programs.uc_and_membership,
+        &programs.misbehaviour,
     )
     .await?;
     let genesis_2 = SP1ICS07TendermintGenesis::from_env(
@@ -108,17 +107,17 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         args.trust_options.trusting_period,
         args.trust_options.trust_level,
         args.sp1.proof_type,
-        &update_client_program,
-        &membership_program,
-        &uc_and_membership_program,
-        &misbehaviour_program,
+        &programs.update_client,
+        &programs.membership,
+        &programs.uc_and_membership,
+        &programs.misbehaviour,
     )
     .await?;
     let trusted_consensus_state_1 = ConsensusState::abi_decode(&genesis_1.trusted_consensus_state)?;
     let trusted_consensus_state_2 = ConsensusState::abi_decode(&genesis_2.trusted_consensus_state)?;
     let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state)?;
     let verify_misbehaviour_prover =
-        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &misbehaviour_program)
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &programs.misbehaviour)
             .await;
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     let proof_data = verify_misbehaviour_prover
@@ -147,12 +146,32 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         submit_msg: submit_msg.abi_encode(),
     };
 
-    match args.output_path {
+    write_fixture(args.output_path, &fixture)?;
+
+    Ok(())
+}
+
+fn load_sp1_programs(elf_paths: SP1ELFPaths) -> anyhow::Result<SP1Programs> {
+    Ok(SP1Programs {
+        update_client: UpdateClientProgram::new(std::fs::read(elf_paths.update_client_path)?),
+        membership: MembershipProgram::new(std::fs::read(elf_paths.membership_path)?),
+        misbehaviour: MisbehaviourProgram::new(std::fs::read(elf_paths.misbehaviour_path)?),
+        uc_and_membership: UpdateClientAndMembershipProgram::new(std::fs::read(
+            elf_paths.uc_and_membership_path,
+        )?),
+    })
+}
+
+fn write_fixture(
+    output_path: OutputPath,
+    fixture: &SP1ICS07SubmitMisbehaviourFixture,
+) -> anyhow::Result<()> {
+    match output_path {
         OutputPath::File(path) => {
-            std::fs::write(PathBuf::from(path), serde_json::to_string_pretty(&fixture)?)?;
+            std::fs::write(PathBuf::from(path), serde_json::to_string_pretty(fixture)?)?;
         }
         OutputPath::Stdout => {
-            println!("{}", serde_json::to_string_pretty(&fixture)?);
+            println!("{}", serde_json::to_string_pretty(fixture)?);
         }
     }
 
