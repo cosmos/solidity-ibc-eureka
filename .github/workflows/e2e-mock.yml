@@ -41,7 +41,7 @@ permissions:
 jobs:
   golangci:
     name: lint
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -56,7 +56,7 @@ jobs:
           working-directory: e2e/interchaintestv8
 
   generate-matrix:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
@@ -68,13 +68,32 @@ jobs:
           skip-tests: TestWithProofAPITestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithProofAPITestSuite/Test_MultiPeriodClientUpdateToCosmos,TestWithProofAPITestSuite/Test_5_FinalizedTimeoutPacketFromEth,TestWithProofAPITestSuite/Test_UpdateClientToCosmos,TestWithEthToEthAttestedTestSuite,TestWithMultiAttestorTestSuite
 
   build-e2e-programs:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Build E2E artifacts
         uses: ./.github/actions/e2e-build
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Compile the large interchaintestv8 test binary once here (uploaded as its
+      # own artifact) so each matrix shard runs it directly instead of recompiling.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.9
+          cache-dependency-path: e2e/interchaintestv8/go.sum
+      - name: Compile e2e test binary
+        run: |
+          mkdir -p e2e-test-binary
+          cd e2e/interchaintestv8
+          go test -mod=readonly -c -o "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" .
+      - name: Upload e2e test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-binary
+          path: e2e-test-binary/
+          retention-days: 1
 
   e2e:
     needs: [generate-matrix, build-e2e-programs]
@@ -88,7 +107,7 @@ jobs:
         COSMOS_LC_ON_ETH: sp1
         IBC_ATTESTOR_IMAGE: ghcr.io/cosmos/ibc-attestor:v0.3.0
 
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment
@@ -96,9 +115,18 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download e2e test binary
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-test-binary
+          path: e2e-test-binary/
+
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
+          # Run the test binary precompiled in build-e2e-programs instead of
+          # recompiling per shard (download-artifact doesn't preserve +x).
+          chmod +x e2e-test-binary/e2e.test
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m
+          "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" -test.v -test.run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -test.timeout 40m
