@@ -41,7 +41,7 @@ permissions:
 jobs:
   golangci:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -56,7 +56,7 @@ jobs:
           working-directory: e2e/interchaintestv8
 
   generate-matrix:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
@@ -68,7 +68,7 @@ jobs:
           skip-tests: TestWithProofAPITestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithProofAPITestSuite/Test_MultiPeriodClientUpdateToCosmos,TestWithProofAPITestSuite/Test_5_FinalizedTimeoutPacketFromEth,TestWithProofAPITestSuite/Test_UpdateClientToCosmos,TestWithEthToEthAttestedTestSuite,TestWithMultiAttestorTestSuite
 
   build-e2e-programs:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
       - name: Build E2E artifacts
@@ -88,6 +88,12 @@ jobs:
           mkdir -p e2e-test-binary
           cd e2e/interchaintestv8
           go test -mod=readonly -c -o "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" .
+          # The binary dynamically links libwasmvm via an rpath into this runner's
+          # Go module cache, which won't exist on the matrix shard runners. Bundle
+          # the shared library into the artifact so shards can load it at runtime.
+          wasmvm_so=$(find "$(go env GOMODCACHE)/github.com/!cosm!wasm/wasmvm" -name 'libwasmvm.x86_64.so' | head -n1)
+          test -n "$wasmvm_so" || { echo "libwasmvm.x86_64.so not found in module cache" >&2; exit 1; }
+          cp "$wasmvm_so" "$GITHUB_WORKSPACE/e2e-test-binary/"
       - name: Upload e2e test binary
         uses: actions/upload-artifact@v4
         with:
@@ -107,7 +113,7 @@ jobs:
         COSMOS_LC_ON_ETH: sp1
         IBC_ATTESTOR_IMAGE: ghcr.io/cosmos/ibc-attestor:v0.3.0
 
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment
@@ -129,4 +135,7 @@ jobs:
           # recompiling per shard (download-artifact doesn't preserve +x).
           chmod +x e2e-test-binary/e2e.test
           cd e2e/interchaintestv8
-          "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" -test.v -test.run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -test.timeout 40m
+          # The binary's libwasmvm rpath points at the build runner's module
+          # cache (absent here), so resolve the bundled .so via LD_LIBRARY_PATH.
+          LD_LIBRARY_PATH="$GITHUB_WORKSPACE/e2e-test-binary${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" -test.v -test.run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -test.timeout 40m
