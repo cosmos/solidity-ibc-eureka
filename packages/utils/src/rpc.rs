@@ -100,6 +100,9 @@ impl TendermintRpcExt for HttpClient {
         )
         .client(
             reqwest_0_11::ClientBuilder::new()
+                // Send an explicit User-Agent. reqwest sends none by default, and some RPC
+                // providers reject empty User-Agent requests with 403 Forbidden.
+                .user_agent("proof-api")
                 .connect_timeout(Duration::from_secs(10))
                 .timeout(Duration::from_secs(30))
                 .pool_idle_timeout(Duration::from_secs(10))
