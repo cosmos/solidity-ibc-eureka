@@ -100,6 +100,10 @@ impl TendermintRpcExt for HttpClient {
         )
         .client(
             reqwest_0_11::ClientBuilder::new()
+                // Send an explicit User-Agent. reqwest sends none by default, and some RPC
+                // providers' WAFs (e.g. Lombard / ledger-mainnet-1) reject empty-User-Agent
+                // requests with 403 Forbidden, which surfaces as opaque RPC failures.
+                .user_agent(concat!("ibc-eureka/", env!("CARGO_PKG_VERSION")))
                 .connect_timeout(Duration::from_secs(10))
                 .timeout(Duration::from_secs(30))
                 .pool_idle_timeout(Duration::from_secs(10))
