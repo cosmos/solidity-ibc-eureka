@@ -83,8 +83,8 @@ const (
 func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 	// Use two sandbox-ledger instances
 	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
-		chainconfig.WfchainChainSpec("sandbox-ledger-1", "sandbox-ledger-1"),
-		chainconfig.WfchainChainSpec("sandbox-ledger-2", "sandbox-ledger-2"),
+		chainconfig.SandboxChainSpec("sandbox-ledger-1", "sandbox-ledger-1"),
+		chainconfig.SandboxChainSpec("sandbox-ledger-2", "sandbox-ledger-2"),
 	}
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)

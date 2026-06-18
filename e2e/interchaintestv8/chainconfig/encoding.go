@@ -85,14 +85,14 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	txtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	// sandbox-ledger IFT and TokenFactory types
-	registerWfchainTypes(cfg.InterfaceRegistry)
+	registerSandboxTypes(cfg.InterfaceRegistry)
 
 	cdc := codec.NewProtoCodec(cfg.InterfaceRegistry)
 	return cdc, cfg
 }
 
-// registerWfchainTypes registers sandbox-ledger IFT and TokenFactory message types
-func registerWfchainTypes(registry codectypes.InterfaceRegistry) {
+// registerSandboxTypes registers sandbox-ledger IFT and TokenFactory message types
+func registerSandboxTypes(registry codectypes.InterfaceRegistry) {
 	registry.RegisterImplementations((*sdk.Msg)(nil),
 		&ifttypes.MsgRegisterIFTBridge{},
 		&ifttypes.MsgRemoveIFTBridge{},

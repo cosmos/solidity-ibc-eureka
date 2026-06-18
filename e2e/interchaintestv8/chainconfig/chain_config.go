@@ -45,7 +45,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 	}
 }
 
-func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
+func SandboxChainSpec(name, chainId string) *interchaintest.ChainSpec {
 	// sandbox-ledger runs the cosmos-sdk enterprise PoA module, which requires
 	// genesis to contain at least one validator with positive power. There is no
 	// genutil/gentx integration (validators are not derived from gentxs), so the
