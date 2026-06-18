@@ -18,7 +18,11 @@ fn attested_config_deserializes_to_attested_mode() {
         }}
     });
     let cfg: CosmosToCosmosConfig = serde_json::from_value(json).unwrap();
-    assert!(matches!(cfg.mode, TxBuilderMode::Attested(_)), "expected Attested, got {:?}", cfg.mode);
+    assert!(
+        matches!(cfg.mode, TxBuilderMode::Attested(_)),
+        "expected Attested, got {:?}",
+        cfg.mode
+    );
 }
 
 #[test]
