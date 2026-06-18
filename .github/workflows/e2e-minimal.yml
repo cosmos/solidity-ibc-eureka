@@ -9,7 +9,7 @@ on:
         default: 'local'
         options:
           - local
-          - cw-ics08-wasm-eth-v1.2.0
+          - cw-ics08-wasm-eth-v1.3.0
       proof-type:
         description: 'Proof type'
         type: choice

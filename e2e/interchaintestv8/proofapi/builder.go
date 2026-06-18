@@ -41,7 +41,7 @@ type EthToCosmosParams struct {
 	MockClient    bool
 }
 
-// EthToCosmos adds an Eth→Cosmos module using beacon chain light client.
+// EthToCosmos adds an Eth→Cosmos compat module using beacon chain light client.
 func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
 	var mode TxBuilderMode
 	if p.MockClient {
@@ -51,7 +51,7 @@ func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
 	}
 
 	module := ModuleConfig{
-		Name:     ModuleEthToCosmos,
+		Name:     ModuleEthToCosmosCompat,
 		SrcChain: p.EthChainID,
 		DstChain: p.CosmosChainID,
 		Config: EthToCosmosModuleConfig{
