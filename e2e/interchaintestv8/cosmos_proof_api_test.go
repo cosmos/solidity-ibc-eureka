@@ -25,6 +25,7 @@ import (
 	ibctmtypes "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
+	interchaintest "github.com/cosmos/interchaintest/v11"
 	"github.com/cosmos/interchaintest/v11/chain/cosmos"
 	"github.com/cosmos/interchaintest/v11/ibc"
 
@@ -61,7 +62,14 @@ func TestWithCosmosProofAPITestSuite(t *testing.T) {
 // SetupSuite calls the underlying IbcEurekaTestSuite's SetupSuite method
 // and deploys the IbcEureka contract
 func (s *CosmosProofAPITestSuite) SetupSuite(ctx context.Context) {
-	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
+	// Assign (rather than append) so SetupSuite is idempotent: it is called per
+	// test, and appending to the package-global DefaultChainSpecs would accumulate
+	// duplicate chain specs across tests in the same process ("a chain with ID
+	// simd-2 already exists").
+	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
+		chainconfig.IbcGoChainSpec("ibc-go-simd-1", "simd-1"),
+		chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"),
+	}
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 

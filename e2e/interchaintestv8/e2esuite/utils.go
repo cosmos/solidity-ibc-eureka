@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode"
@@ -101,17 +102,56 @@ func (s *TestSuite) BroadcastMessagesNoWait(ctx context.Context, chain *cosmos.C
 	return s.broadcastMessages(ctx, chain, user, gas, 0, msgs...)
 }
 
+// cosmosUserKeyCounter generates unique keyring names for e2e-created cosmos users.
+var cosmosUserKeyCounter atomic.Int64
+
 // CreateAndFundCosmosUser returns a new cosmos user with the initial balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
 	return s.CreateAndFundCosmosUserWithBalance(ctx, chain, testvalues.InitialBalance)
 }
 
 // CreateAndFundCosmosUserWithBalance returns a new cosmos user with the given balance and funds it with the native chain denom.
+//
+// The user is created with a standard secp256k1 key rather than the chain's
+// default key type. sandbox-ledger is EVM-enabled and defaults `keys add` to
+// eth_secp256k1, which interchaintest's host-side broadcaster cannot decode or
+// sign (its signing keyring uses the stock cosmos-sdk crypto codec). The chain
+// accepts secp256k1-signed txs, so we create the key explicitly with
+// `--key-type secp256k1` and fund it from the faucet (which signs in-container
+// and is therefore unaffected by its own eth_secp256k1 key).
 func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chain *cosmos.CosmosChain, balance int64) ibc.Wallet {
-	cosmosUserFunds := sdkmath.NewInt(balance)
-	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
+	keyName := fmt.Sprintf("e2e-user-%d", cosmosUserKeyCounter.Add(1))
+	node := chain.GetNode()
 
-	return cosmosUsers[0]
+	stdout, _, err := node.Exec(ctx, []string{
+		chain.Config().Bin, "keys", "add", keyName,
+		"--key-type", "secp256k1",
+		"--coin-type", chain.Config().CoinType,
+		"--keyring-backend", "test",
+		"--home", node.HomeDir(),
+		"--output", "json",
+	}, chain.Config().Env)
+	s.Require().NoError(err)
+
+	// Best-effort: the broadcaster signs via the on-disk keyring (by name), so the
+	// mnemonic is only carried on the wallet for completeness.
+	var created struct {
+		Mnemonic string `json:"mnemonic"`
+	}
+	_ = json.Unmarshal(stdout, &created)
+
+	addrBytes, err := chain.GetAddress(ctx, keyName)
+	s.Require().NoError(err)
+
+	wallet := cosmos.NewWallet(keyName, addrBytes, created.Mnemonic, chain.Config())
+
+	s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
+		Address: wallet.FormattedAddress(),
+		Amount:  sdkmath.NewInt(balance),
+		Denom:   chain.Config().Denom,
+	}))
+
+	return wallet
 }
 
 // GetEvmEvent parses the logs in the given receipt and returns the first event that can be parsed
@@ -191,26 +231,39 @@ func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) stri
 
 // ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
 // to vote yes on the proposal.
+// govValidatorKeyName is interchaintest's keyring name for the chain's validator key.
+const govValidatorKeyName = "validator"
+
+// ExecuteGovV1Proposal submits a gov v1 proposal, votes on it with all validators, and
+// waits for it to pass.
+//
+// The proposal is submitted (and deposited) by the validator rather than by an
+// arbitrary account: sandbox-ledger's PoA module gates governance (submission,
+// deposit and voting) to active PoA validators via gov hooks, so a regular
+// account is rejected with "is not an active POA validator". Submitting
+// in-container as the validator key also sidesteps the host-side broadcaster's
+// inability to sign the validator's eth_secp256k1 key. The `user` parameter is
+// retained for API compatibility but is unused; governance always acts as the
+// validator here (which is also valid on the standard simd chains).
 func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
 	proposalID := s.Cosmos.proposalIDs[cosmosChain.Config().ChainID]
 	defer func() {
 		s.Cosmos.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1
 	}()
 
-	msgs := []sdk.Msg{msg}
-
-	msgSubmitProposal, err := govtypesv1.NewMsgSubmitProposal(
-		msgs,
-		sdk.NewCoins(sdk.NewCoin(cosmosChain.Config().Denom, govtypesv1.DefaultMinDepositTokens)),
-		user.FormattedAddress(),
-		"",
-		fmt.Sprintf("e2e gov proposal: %d", proposalID),
-		fmt.Sprintf("executing gov proposal %d", proposalID),
-		false,
-	)
+	// Encode the message as the proto-JSON (with @type) that `gov submit-proposal` expects.
+	msgJSON, err := cosmosChain.Config().EncodingConfig.Codec.MarshalInterfaceJSON(msg)
 	s.Require().NoError(err)
 
-	_, err = s.BroadcastMessages(ctx, cosmosChain, user, 50_000_000, msgSubmitProposal)
+	prop := cosmos.TxProposalv1{
+		Messages: []json.RawMessage{msgJSON},
+		Metadata: "ipfs://CID",
+		Deposit:  sdk.NewCoin(cosmosChain.Config().Denom, govtypesv1.DefaultMinDepositTokens).String(),
+		Title:    fmt.Sprintf("e2e gov proposal: %d", proposalID),
+		Summary:  fmt.Sprintf("executing gov proposal %d", proposalID),
+	}
+
+	_, err = cosmosChain.SubmitProposal(ctx, govValidatorKeyName, prop)
 	s.Require().NoError(err)
 
 	s.Require().NoError(cosmosChain.VoteOnProposalAllValidators(ctx, proposalID, cosmos.ProposalVoteYes))
@@ -218,12 +271,16 @@ func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmo
 	return s.waitForGovV1ProposalToPass(ctx, cosmosChain, proposalID)
 }
 
-// waitForGovV1ProposalToPass polls for the entire voting period to see if the proposal has passed.
-// if the proposal has not passed within the duration of the voting period, an error is returned.
+// waitForGovV1ProposalToPass polls until the proposal has passed, or fails after a
+// grace period beyond the voting period.
+//
+// A proposal can only transition to "passed" once the voting period has fully
+// elapsed (the tally runs in the end-blocker at that point), so we poll for the
+// voting period plus a grace buffer rather than for exactly the voting period —
+// the latter races with the transition and can spuriously time out.
 func (*TestSuite) waitForGovV1ProposalToPass(ctx context.Context, chain *cosmos.CosmosChain, proposalID uint64) error {
 	var govProposal *govtypesv1.Proposal
-	// poll for the query for the entire voting period to see if the proposal has passed.
-	err := testutil.WaitForCondition(testvalues.VotingPeriod, 10*time.Second, func() (bool, error) {
+	err := testutil.WaitForCondition(testvalues.VotingPeriod+30*time.Second, 5*time.Second, func() (bool, error) {
 		proposalResp, err := GRPCQuery[govtypesv1.QueryProposalResponse](ctx, chain, &govtypesv1.QueryProposalRequest{
 			ProposalId: proposalID,
 		})

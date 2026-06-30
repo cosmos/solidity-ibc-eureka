@@ -72,9 +72,10 @@ type SP1ProgramPaths struct {
 
 // CosmosToCosmosModuleConfig represents the configuration for cosmos_to_cosmos module
 type CosmosToCosmosModuleConfig struct {
-	SrcRpcUrl     string `json:"src_rpc_url"`
-	TargetRpcUrl  string `json:"target_rpc_url"`
-	SignerAddress string `json:"signer_address"`
+	SrcRpcUrl     string        `json:"src_rpc_url"`
+	TargetRpcUrl  string        `json:"target_rpc_url"`
+	SignerAddress string        `json:"signer_address"`
+	Mode          TxBuilderMode `json:"mode,omitempty"`
 }
 
 // GetAvailablePort returns a random available TCP port on localhost within a typical ephemeral range.

@@ -37,6 +37,7 @@ use proof_api_lib::{
     events::EurekaEventWithHeight,
     tx_builder::TxBuilderService,
     utils::{
+        cosmos,
         eth_attested::{
             build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
             build_eth_attestor_update_client_calldata,
@@ -247,13 +248,8 @@ where
             numerator: 1,
             denominator: 3,
         };
-        let unbonding_period = self
-            .tm_client
-            .sdk_staking_params()
+        let unbonding_period = cosmos::unbonding_period_seconds(&self.tm_client)
             .await?
-            .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?
-            .seconds
             .try_into()?;
         let trusting_period = 2 * (unbonding_period / 3);
 

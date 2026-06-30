@@ -76,6 +76,31 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Compile the large interchaintestv8 test binary once here (uploaded as its
+      # own artifact) so each matrix shard runs it directly instead of recompiling.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.9
+          cache-dependency-path: e2e/interchaintestv8/go.sum
+      - name: Compile e2e test binary
+        run: |
+          mkdir -p e2e-test-binary
+          cd e2e/interchaintestv8
+          go test -mod=readonly -c -o "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" .
+          # The binary dynamically links libwasmvm via an rpath into this runner's
+          # Go module cache, which won't exist on the matrix shard runners. Bundle
+          # the shared library into the artifact so shards can load it at runtime.
+          wasmvm_so=$(find "$(go env GOMODCACHE)/github.com/!cosm!wasm/wasmvm" -name 'libwasmvm.x86_64.so' | head -n1)
+          test -n "$wasmvm_so" || { echo "libwasmvm.x86_64.so not found in module cache" >&2; exit 1; }
+          cp "$wasmvm_so" "$GITHUB_WORKSPACE/e2e-test-binary/"
+      - name: Upload e2e test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-binary
+          path: e2e-test-binary/
+          retention-days: 1
+
   e2e:
     needs: [generate-matrix, build-e2e-programs]
     strategy:
@@ -96,9 +121,21 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download e2e test binary
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-test-binary
+          path: e2e-test-binary/
+
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
         run: |
+          # Run the test binary precompiled in build-e2e-programs instead of
+          # recompiling per shard (download-artifact doesn't preserve +x).
+          chmod +x e2e-test-binary/e2e.test
           cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m
+          # The binary's libwasmvm rpath points at the build runner's module
+          # cache (absent here), so resolve the bundled .so via LD_LIBRARY_PATH.
+          LD_LIBRARY_PATH="$GITHUB_WORKSPACE/e2e-test-binary${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            "$GITHUB_WORKSPACE/e2e-test-binary/e2e.test" -test.v -test.run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -test.timeout 40m

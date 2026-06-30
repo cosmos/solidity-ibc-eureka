@@ -19,8 +19,19 @@ use prost::Message;
 use tendermint_rpc::HttpClient;
 
 use proof_api_lib::{
-    chain::CosmosSdk, events::EurekaEventWithHeight,
-    tendermint_client::build_tendermint_client_state, tx_builder::TxBuilderService, utils::cosmos,
+    aggregator::Aggregator,
+    chain::CosmosSdk,
+    events::EurekaEventWithHeight,
+    tendermint_client::build_tendermint_client_state,
+    tx_builder::TxBuilderService,
+    utils::{
+        cosmos,
+        cosmos_attested::{
+            build_attestor_create_client_tx, build_attestor_relay_events_tx,
+            build_attestor_update_client_tx,
+        },
+        RelayEventsParams,
+    },
 };
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`CosmosSdk`].
@@ -169,15 +180,14 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             revision_number: chain_id.revision_number(),
             revision_height: latest_light_block.height().value(),
         };
-        let unbonding_period = self
-            .source_tm_client
-            .sdk_staking_params()
-            .await?
-            .unbonding_time
-            .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+        let unbonding_seconds = cosmos::unbonding_period_seconds(&self.source_tm_client).await?;
+        let unbonding_period = Duration {
+            seconds: unbonding_seconds,
+            nanos: 0,
+        };
         // Defaults to the recommended 2/3 of the UnbondingPeriod
         let trusting_period = Duration {
-            seconds: 2 * (unbonding_period.seconds / 3),
+            seconds: 2 * (unbonding_seconds / 3),
             nanos: 0,
         };
 
@@ -244,5 +254,54 @@ impl TxBuilderService<CosmosSdk, CosmosSdk> for TxBuilder {
             ..Default::default()
         }
         .encode_to_vec())
+    }
+}
+
+/// Transaction builder for attested relay between two Cosmos chains.
+///
+/// The destination chain runs the `attestations` light client (e.g.
+/// sandbox-ledger), which does not register the native `07-tendermint` client.
+/// Instead of tendermint headers and merkle proofs, the client is updated and
+/// packets are proven with attestations fetched from the aggregator — the same
+/// destination-side flow used by the `eth-to-cosmos` attested path, only the
+/// source chain being attested is a Cosmos SDK chain.
+pub struct AttestedTxBuilder {
+    aggregator: Aggregator,
+    signer_address: String,
+}
+
+impl AttestedTxBuilder {
+    /// Create a new [`AttestedTxBuilder`] instance.
+    #[must_use]
+    pub const fn new(aggregator: Aggregator, signer_address: String) -> Self {
+        Self {
+            aggregator,
+            signer_address,
+        }
+    }
+
+    /// Relay events from the source Cosmos chain to the destination Cosmos chain
+    /// using attestations.
+    ///
+    /// # Errors
+    /// Returns an error if attestation retrieval or transaction building fails.
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+        build_attestor_relay_events_tx(&self.aggregator, params, &self.signer_address).await
+    }
+
+    /// Create an attestations client on the destination Cosmos chain.
+    ///
+    /// # Errors
+    /// Returns an error if required parameters are missing or encoding fails.
+    pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        build_attestor_create_client_tx(parameters, &self.signer_address)
+    }
+
+    /// Update the attestations client on the destination Cosmos chain.
+    ///
+    /// # Errors
+    /// Returns an error if attestation retrieval or transaction building fails.
+    pub async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
+        build_attestor_update_client_tx(&self.aggregator, dst_client_id, &self.signer_address).await
     }
 }

@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,24 +21,23 @@ import (
 	gmptypes "github.com/cosmos/ibc-go/v11/modules/apps/27-gmp/types"
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v11/modules/core/02-client/v2/types"
-	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
-	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
 	interchaintest "github.com/cosmos/interchaintest/v11"
 	"github.com/cosmos/interchaintest/v11/chain/cosmos"
 	"github.com/cosmos/interchaintest/v11/ibc"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
-	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
-	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
+	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/ift"
+	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/sandbox-ledger/tokenfactory"
 )
 
-// CosmosIFTTestSuite tests IFT transfers between two wfchain instances
+// CosmosIFTTestSuite tests IFT transfers between two sandbox-ledger instances
 type CosmosIFTTestSuite struct {
 	e2esuite.TestSuite
 
@@ -46,18 +47,44 @@ type CosmosIFTTestSuite struct {
 	ChainASubmitter ibc.Wallet
 	ChainBSubmitter ibc.Wallet
 
+	// Attestors watching each chain's state. The attestations client created on
+	// the counterparty chain tracks the chain watched by the corresponding
+	// attestor: clients on ChainB track ChainA (chainAAttestorResult) and vice
+	// versa.
+	chainAAttestorResult attestor.SetupResult
+	chainBAttestorResult attestor.SetupResult
+
+	// denomCreator owns the IFT tokenfactory denom on BOTH chains. The IFT module
+	// mints the *source* denom string on the destination (it does not remap
+	// denoms), so the token must be the same `factory/<creator>/<sub>` on both
+	// chains — which requires the same creator address on both. We recover it
+	// from a fixed mnemonic on each chain so the addresses match.
+	denomCreator ibc.Wallet
+
 	ProofApiClient proofapitypes.ProofApiServiceClient
 }
+
+// sharedDenomCreatorMnemonic is a fixed BIP39 mnemonic used to recover the same
+// denom-creator address on both chains (standard all-"abandon" test mnemonic).
+const sharedDenomCreatorMnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"
 
 func TestWithCosmosIFTTestSuite(t *testing.T) {
 	suite.Run(t, new(CosmosIFTTestSuite))
 }
 
+// Keystore path templates for the per-chain Cosmos attestors. They must be
+// distinct so the two attestor sets generate independent keys (sharing a
+// template would make both chains' attestors collide on the same keystore).
+const (
+	cosmosIFTAttestorChainAKeystoreTemplate = "/tmp/cosmos_ift_attestor_a_%d"
+	cosmosIFTAttestorChainBKeystoreTemplate = "/tmp/cosmos_ift_attestor_b_%d"
+)
+
 func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
-	// Use two wfchain instances
+	// Use two sandbox-ledger instances
 	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
-		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
-		chainconfig.WfchainChainSpec("wfchain-2", "wfchain-2"),
+		chainconfig.SandboxChainSpec("sandbox-ledger-1", "sandbox-ledger-1"),
+		chainconfig.SandboxChainSpec("sandbox-ledger-2", "sandbox-ledger-2"),
 	}
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
@@ -68,6 +95,34 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.ChainA, s.ChainB = s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 	s.ChainASubmitter = s.CreateAndFundCosmosUser(ctx, s.ChainA)
 	s.ChainBSubmitter = s.CreateAndFundCosmosUser(ctx, s.ChainB)
+	s.denomCreator = s.setupSharedDenomCreator(ctx)
+
+	// sandbox-ledger does not register the native 07-tendermint client, so the
+	// two chains track each other with `attestations` clients instead. Start one
+	// attestor per chain (watching that chain's Tendermint RPC over the docker
+	// network); the counterparty's client is created over the attestor that
+	// watches the source chain.
+	// Call SetupAttestors directly in SetupSuite (NOT inside s.Run): it registers
+	// container teardown via t.Cleanup, and a subtest's cleanup fires the moment
+	// that subtest returns. Wrapping this in s.Run would bind cleanup to the
+	// subtest's *testing.T (s.T() inside the closure), tearing the attestors down
+	// right after setup — long before the relay needs them.
+	s.chainAAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+		NumAttestors:         testvalues.NumAttestors,
+		KeystorePathTemplate: cosmosIFTAttestorChainAKeystoreTemplate,
+		ChainType:            attestor.ChainTypeCosmos,
+		AdapterURL:           s.ChainA.GetRPCAddress(),
+		DockerClient:         s.GetDockerClient(),
+		NetworkID:            s.GetNetworkID(),
+	})
+	s.chainBAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+		NumAttestors:         testvalues.NumAttestors,
+		KeystorePathTemplate: cosmosIFTAttestorChainBKeystoreTemplate,
+		ChainType:            attestor.ChainTypeCosmos,
+		AdapterURL:           s.ChainB.GetRPCAddress(),
+		DockerClient:         s.GetDockerClient(),
+		NetworkID:            s.GetNetworkID(),
+	})
 
 	var proofApiProcess *os.Process
 	s.Require().True(s.Run("Start Proof API", func() {
@@ -75,19 +130,25 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 
 		config := proofapi.NewConfigBuilder().
-			CosmosToCosmos(proofapi.CosmosToCosmosParams{
-				SrcChainID:    s.ChainA.Config().ChainID,
-				DstChainID:    s.ChainB.Config().ChainID,
-				SrcRPC:        s.ChainA.GetHostRPCAddress(),
-				DstRPC:        s.ChainB.GetHostRPCAddress(),
-				SignerAddress: s.ChainBSubmitter.FormattedAddress(),
+			CosmosToCosmosAttested(proofapi.CosmosToCosmosAttestedParams{
+				SrcChainID:        s.ChainA.Config().ChainID,
+				DstChainID:        s.ChainB.Config().ChainID,
+				SrcRPC:            s.ChainA.GetHostRPCAddress(),
+				DstRPC:            s.ChainB.GetHostRPCAddress(),
+				SignerAddress:     s.ChainBSubmitter.FormattedAddress(),
+				AttestorEndpoints: s.chainAAttestorResult.Endpoints,
+				AttestorTimeout:   30000,
+				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
-			CosmosToCosmos(proofapi.CosmosToCosmosParams{
-				SrcChainID:    s.ChainB.Config().ChainID,
-				DstChainID:    s.ChainA.Config().ChainID,
-				SrcRPC:        s.ChainB.GetHostRPCAddress(),
-				DstRPC:        s.ChainA.GetHostRPCAddress(),
-				SignerAddress: s.ChainASubmitter.FormattedAddress(),
+			CosmosToCosmosAttested(proofapi.CosmosToCosmosAttestedParams{
+				SrcChainID:        s.ChainB.Config().ChainID,
+				DstChainID:        s.ChainA.Config().ChainID,
+				SrcRPC:            s.ChainB.GetHostRPCAddress(),
+				DstRPC:            s.ChainA.GetHostRPCAddress(),
+				SignerAddress:     s.ChainASubmitter.FormattedAddress(),
+				AttestorEndpoints: s.chainBAttestorResult.Endpoints,
+				AttestorTimeout:   30000,
+				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
 			Build()
 
@@ -137,13 +198,30 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 }
 
+// attestationsClientParams builds the CreateClient parameters for an
+// attestations light client tracking srcChain: the set of attestor addresses
+// watching the source chain, the signature quorum, and the source chain's
+// current height and timestamp as the initial consensus state.
+func (s *CosmosIFTTestSuite) attestationsClientParams(ctx context.Context, srcChain *cosmos.CosmosChain, attestors attestor.SetupResult) map[string]string {
+	header, err := srcChain.GetNode().Client.Header(ctx, nil)
+	s.Require().NoError(err)
+
+	return map[string]string{
+		testvalues.ParameterKey_AttestorAddresses: strings.Join(attestors.Addresses, ","),
+		testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
+		testvalues.ParameterKey_height:            strconv.FormatInt(header.Header.Height, 10),
+		testvalues.ParameterKey_timestamp:         strconv.FormatInt(header.Header.Time.Unix(), 10),
+	}
+}
+
 func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
-				SrcChain: s.ChainA.Config().ChainID,
-				DstChain: s.ChainB.Config().ChainID,
+				SrcChain:   s.ChainA.Config().ChainID,
+				DstChain:   s.ChainB.Config().ChainID,
+				Parameters: s.attestationsClientParams(ctx, s.ChainA, s.chainAAttestorResult),
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -155,7 +233,7 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 			resp := s.MustBroadcastSdkTxBody(ctx, s.ChainB, s.ChainBSubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
-			s.Require().Equal(ibctesting.FirstClientID, clientId)
+			s.Require().Equal(testvalues.FirstAttestationsClientID, clientId)
 		}))
 	}))
 
@@ -163,8 +241,9 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
-				SrcChain: s.ChainB.Config().ChainID,
-				DstChain: s.ChainA.Config().ChainID,
+				SrcChain:   s.ChainB.Config().ChainID,
+				DstChain:   s.ChainA.Config().ChainID,
+				Parameters: s.attestationsClientParams(ctx, s.ChainB, s.chainBAttestorResult),
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -176,16 +255,19 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 			resp := s.MustBroadcastSdkTxBody(ctx, s.ChainA, s.ChainASubmitter, 2_000_000, createClientTxBodyBz)
 			clientId, err := cosmosutils.GetEventValue(resp.Events, clienttypes.EventTypeCreateClient, clienttypes.AttributeKeyClientID)
 			s.Require().NoError(err)
-			s.Require().Equal(ibctesting.FirstClientID, clientId)
+			s.Require().Equal(testvalues.FirstAttestationsClientID, clientId)
 		}))
 	}))
 
 	s.Require().True(s.Run("Register counterparty on Chain A", func() {
-		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
+		// Attestations clients verify a single-element key path (the attestor signs
+		// the commitment directly), unlike tendermint clients which use the
+		// 2-element ["ibc", ""] multistore prefix.
+		merklePathPrefix := [][]byte{[]byte("")}
 
 		_, err := s.BroadcastMessages(ctx, s.ChainA, s.ChainASubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 ibctesting.FirstClientID,
-			CounterpartyClientId:     ibctesting.FirstClientID,
+			ClientId:                 testvalues.FirstAttestationsClientID,
+			CounterpartyClientId:     testvalues.FirstAttestationsClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.ChainASubmitter.FormattedAddress(),
 		})
@@ -193,11 +275,14 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Register counterparty on Chain B", func() {
-		merklePathPrefix := [][]byte{[]byte(ibcexported.StoreKey), []byte("")}
+		// Attestations clients verify a single-element key path (the attestor signs
+		// the commitment directly), unlike tendermint clients which use the
+		// 2-element ["ibc", ""] multistore prefix.
+		merklePathPrefix := [][]byte{[]byte("")}
 
 		_, err := s.BroadcastMessages(ctx, s.ChainB, s.ChainBSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
-			ClientId:                 ibctesting.FirstClientID,
-			CounterpartyClientId:     ibctesting.FirstClientID,
+			ClientId:                 testvalues.FirstAttestationsClientID,
+			CounterpartyClientId:     testvalues.FirstAttestationsClientID,
 			CounterpartyMerklePrefix: merklePathPrefix,
 			Signer:                   s.ChainBSubmitter.FormattedAddress(),
 		})
@@ -285,11 +370,11 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
@@ -314,7 +399,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		var sendTxHash string
 		s.Require().True(s.Run("Execute IFT transfer", func() {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-			sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, userB.FormattedAddress(), transferAmount, timeout)
+			sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, testvalues.FirstAttestationsClientID, userB.FormattedAddress(), transferAmount, timeout)
 			s.Require().NotEmpty(sendTxHash)
 			s.T().Logf("IFT Transfer tx hash: %s", sendTxHash)
 		}))
@@ -333,8 +418,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 				SrcChain:    s.ChainA.Config().ChainID,
 				DstChain:    s.ChainB.Config().ChainID,
 				SourceTxIds: [][]byte{sendTxHashBytes},
-				SrcClientId: ibctesting.FirstClientID,
-				DstClientId: ibctesting.FirstClientID,
+				SrcClientId: testvalues.FirstAttestationsClientID,
+				DstClientId: testvalues.FirstAttestationsClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -351,7 +436,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify pending transfer exists before ack", func() {
-			resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+			resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, 1)
 			s.Require().NoError(err)
 			s.Require().Equal(userA.FormattedAddress(), resp.PendingTransfer.Sender)
 			s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
@@ -363,8 +448,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 				SrcChain:    s.ChainB.Config().ChainID,
 				DstChain:    s.ChainA.Config().ChainID,
 				SourceTxIds: [][]byte{ackTxHash},
-				SrcClientId: ibctesting.FirstClientID,
-				DstClientId: ibctesting.FirstClientID,
+				SrcClientId: testvalues.FirstAttestationsClientID,
+				DstClientId: testvalues.FirstAttestationsClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -373,7 +458,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify pending transfer removed after ack", func() {
-			_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+			_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, 1)
 			s.Require().Error(err, "pending transfer should be removed after ack")
 			s.T().Logf("Pending transfer removed as expected: %v", err)
 		}))
@@ -395,7 +480,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 
 		s.Require().True(s.Run("Execute IFT transfer", func() {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-			sendTxHash = s.iftTransfer(ctx, s.ChainB, userB, denomB, ibctesting.FirstClientID, userA.FormattedAddress(), transferAmount, timeout)
+			sendTxHash = s.iftTransfer(ctx, s.ChainB, userB, denomB, testvalues.FirstAttestationsClientID, userA.FormattedAddress(), transferAmount, timeout)
 			s.Require().NotEmpty(sendTxHash)
 			s.T().Logf("IFT Transfer tx hash: %s", sendTxHash)
 		}))
@@ -414,8 +499,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 				SrcChain:    s.ChainB.Config().ChainID,
 				DstChain:    s.ChainA.Config().ChainID,
 				SourceTxIds: [][]byte{sendTxHashBytes},
-				SrcClientId: ibctesting.FirstClientID,
-				DstClientId: ibctesting.FirstClientID,
+				SrcClientId: testvalues.FirstAttestationsClientID,
+				DstClientId: testvalues.FirstAttestationsClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -432,7 +517,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify pending transfer exists before ack", func() {
-			resp, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, ibctesting.FirstClientID, 1)
+			resp, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, 1)
 			s.Require().NoError(err)
 			s.Require().Equal(userB.FormattedAddress(), resp.PendingTransfer.Sender)
 			s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
@@ -444,8 +529,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 				SrcChain:    s.ChainA.Config().ChainID,
 				DstChain:    s.ChainB.Config().ChainID,
 				SourceTxIds: [][]byte{ackTxHashB},
-				SrcClientId: ibctesting.FirstClientID,
-				DstClientId: ibctesting.FirstClientID,
+				SrcClientId: testvalues.FirstAttestationsClientID,
+				DstClientId: testvalues.FirstAttestationsClientID,
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
@@ -454,7 +539,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify pending transfer removed after ack", func() {
-			_, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, ibctesting.FirstClientID, 1)
+			_, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, 1)
 			s.Require().Error(err, "pending transfer should be removed after ack")
 			s.T().Logf("Pending transfer removed as expected: %v", err)
 		}))
@@ -501,11 +586,11 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
@@ -523,7 +608,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	s.Require().True(s.Run("Send transfer with short timeout", func() {
 		// Use 30 seconds to give enough time for tx confirmation and prefetch before timeout
 		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
-		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, userA.FormattedAddress(), transferAmount, timeout)
+		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, testvalues.FirstAttestationsClientID, userA.FormattedAddress(), transferAmount, timeout)
 		s.Require().NotEmpty(sendTxHash)
 		s.T().Logf("IFT Transfer tx hash: %s", sendTxHash)
 	}))
@@ -535,7 +620,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer exists", func() {
-		resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+		resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, 1)
 		s.Require().NoError(err)
 		s.Require().Equal(userA.FormattedAddress(), resp.PendingTransfer.Sender)
 		s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
@@ -551,8 +636,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 			SrcChain:    s.ChainA.Config().ChainID,
 			DstChain:    s.ChainB.Config().ChainID,
 			SourceTxIds: [][]byte{sendTxHashBytes},
-			SrcClientId: ibctesting.FirstClientID,
-			DstClientId: ibctesting.FirstClientID,
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -573,8 +658,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 			SrcChain:     s.ChainB.Config().ChainID,
 			DstChain:     s.ChainA.Config().ChainID,
 			TimeoutTxIds: [][]byte{sendTxHashBytes},
-			SrcClientId:  ibctesting.FirstClientID,
-			DstClientId:  ibctesting.FirstClientID,
+			SrcClientId:  testvalues.FirstAttestationsClientID,
+			DstClientId:  testvalues.FirstAttestationsClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "relayer should generate timeout tx")
@@ -590,7 +675,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer removed after timeout", func() {
-		_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+		_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, 1)
 		s.Require().Error(err, "pending transfer should be removed after timeout")
 		s.T().Logf("Pending transfer removed as expected: %v", err)
 	}))
@@ -602,7 +687,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 		s.T().Logf("Chain B balance is zero as expected")
 	}))
 
-	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
+	s.Require().True(s.Run("Proof API still builds recv relay from send-time height (no commitment check)", func() {
 		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
 		s.Require().NoError(err)
 
@@ -610,12 +695,12 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 			SrcChain:    s.ChainA.Config().ChainID,
 			DstChain:    s.ChainB.Config().ChainID,
 			SourceTxIds: [][]byte{sendTxHashBytes},
-			SrcClientId: ibctesting.FirstClientID,
-			DstClientId: ibctesting.FirstClientID,
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
 		})
-		s.Require().Error(err, "relayer should reject timed-out packet")
-		s.Require().Nil(resp)
-		s.T().Logf("Relayer correctly rejected timed-out packet: %v", err)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+		s.T().Log("Proof API built recv relay from send-time height as expected")
 	}))
 
 	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
@@ -656,7 +741,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A only", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	// NOTE: Intentionally NOT registering the IFT bridge on Chain B
@@ -671,7 +756,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	var sendTxHash string
 	s.Require().True(s.Run("Send transfer to Chain B", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, userB.FormattedAddress(), transferAmount, timeout)
+		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, testvalues.FirstAttestationsClientID, userB.FormattedAddress(), transferAmount, timeout)
 		s.Require().NotEmpty(sendTxHash)
 	}))
 
@@ -682,7 +767,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer exists", func() {
-		resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+		resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, 1)
 		s.Require().NoError(err)
 		s.Require().Equal(userA.FormattedAddress(), resp.PendingTransfer.Sender)
 		s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
@@ -697,8 +782,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 			SrcChain:    s.ChainA.Config().ChainID,
 			DstChain:    s.ChainB.Config().ChainID,
 			SourceTxIds: [][]byte{sendTxHashBytes},
-			SrcClientId: ibctesting.FirstClientID,
-			DstClientId: ibctesting.FirstClientID,
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -716,8 +801,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 			SrcChain:    s.ChainB.Config().ChainID,
 			DstChain:    s.ChainA.Config().ChainID,
 			SourceTxIds: [][]byte{ackTxHash},
-			SrcClientId: ibctesting.FirstClientID,
-			DstClientId: ibctesting.FirstClientID,
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -732,7 +817,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer removed after error ack", func() {
-		_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+		_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, 1)
 		s.Require().Error(err, "pending transfer should be removed after error ack")
 	}))
 }
@@ -768,8 +853,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridges", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
@@ -788,7 +873,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 
 			for i := 0; i < 3; i++ {
 				s.Require().True(s.Run(fmt.Sprintf("Send transfer %d", i+1), func() {
-					sendTxHashes[i] = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, userB.FormattedAddress(), transferAmount, timeout)
+					sendTxHashes[i] = s.iftTransfer(ctx, s.ChainA, userA, denomA, testvalues.FirstAttestationsClientID, userB.FormattedAddress(), transferAmount, timeout)
 					s.Require().NotEmpty(sendTxHashes[i])
 				}))
 			}
@@ -803,7 +888,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		s.Require().True(s.Run("Verify 3 pending transfers exist with correct sequences", func() {
 			for seq := uint64(1); seq <= 3; seq++ {
 				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d", seq), func() {
-					resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, seq)
+					resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, seq)
 					s.Require().NoError(err)
 					s.Require().Equal(userA.FormattedAddress(), resp.PendingTransfer.Sender)
 					s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
@@ -822,8 +907,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 						SrcChain:    s.ChainA.Config().ChainID,
 						DstChain:    s.ChainB.Config().ChainID,
 						SourceTxIds: [][]byte{sendTxHashBytes},
-						SrcClientId: ibctesting.FirstClientID,
-						DstClientId: ibctesting.FirstClientID,
+						SrcClientId: testvalues.FirstAttestationsClientID,
+						DstClientId: testvalues.FirstAttestationsClientID,
 					})
 					s.Require().NoError(err)
 					s.Require().NotEmpty(resp.Tx)
@@ -848,8 +933,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 						SrcChain:    s.ChainB.Config().ChainID,
 						DstChain:    s.ChainA.Config().ChainID,
 						SourceTxIds: [][]byte{ackTxHashes[i]},
-						SrcClientId: ibctesting.FirstClientID,
-						DstClientId: ibctesting.FirstClientID,
+						SrcClientId: testvalues.FirstAttestationsClientID,
+						DstClientId: testvalues.FirstAttestationsClientID,
 					})
 					s.Require().NoError(err)
 					s.Require().NotEmpty(resp.Tx)
@@ -862,7 +947,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		s.Require().True(s.Run("Verify all pending transfers cleared", func() {
 			for seq := uint64(1); seq <= 3; seq++ {
 				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d cleared", seq), func() {
-					_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, seq)
+					_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, seq)
 					s.Require().Error(err, "pending transfer seq=%d should be cleared", seq)
 				}))
 			}
@@ -887,7 +972,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 
 			for i := 0; i < 3; i++ {
 				s.Require().True(s.Run(fmt.Sprintf("Send transfer %d", i+1), func() {
-					sendTxHashesBA[i] = s.iftTransfer(ctx, s.ChainB, userB, denomB, ibctesting.FirstClientID, userA.FormattedAddress(), transferAmount, timeout)
+					sendTxHashesBA[i] = s.iftTransfer(ctx, s.ChainB, userB, denomB, testvalues.FirstAttestationsClientID, userA.FormattedAddress(), transferAmount, timeout)
 					s.Require().NotEmpty(sendTxHashesBA[i])
 				}))
 			}
@@ -902,7 +987,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		s.Require().True(s.Run("Verify 3 pending transfers exist on Chain B", func() {
 			for seq := uint64(1); seq <= 3; seq++ {
 				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d", seq), func() {
-					resp, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, ibctesting.FirstClientID, seq)
+					resp, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, seq)
 					s.Require().NoError(err)
 					s.Require().Equal(userB.FormattedAddress(), resp.PendingTransfer.Sender)
 					s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
@@ -921,8 +1006,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 						SrcChain:    s.ChainB.Config().ChainID,
 						DstChain:    s.ChainA.Config().ChainID,
 						SourceTxIds: [][]byte{sendTxHashBytes},
-						SrcClientId: ibctesting.FirstClientID,
-						DstClientId: ibctesting.FirstClientID,
+						SrcClientId: testvalues.FirstAttestationsClientID,
+						DstClientId: testvalues.FirstAttestationsClientID,
 					})
 					s.Require().NoError(err)
 					s.Require().NotEmpty(resp.Tx)
@@ -947,8 +1032,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 						SrcChain:    s.ChainA.Config().ChainID,
 						DstChain:    s.ChainB.Config().ChainID,
 						SourceTxIds: [][]byte{ackTxHashesBA[i]},
-						SrcClientId: ibctesting.FirstClientID,
-						DstClientId: ibctesting.FirstClientID,
+						SrcClientId: testvalues.FirstAttestationsClientID,
+						DstClientId: testvalues.FirstAttestationsClientID,
 					})
 					s.Require().NoError(err)
 					s.Require().NotEmpty(resp.Tx)
@@ -961,7 +1046,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		s.Require().True(s.Run("Verify all pending transfers cleared on Chain B", func() {
 			for seq := uint64(1); seq <= 3; seq++ {
 				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d cleared", seq), func() {
-					_, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, ibctesting.FirstClientID, seq)
+					_, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, seq)
 					s.Require().Error(err, "pending transfer seq=%d should be cleared", seq)
 				}))
 			}
@@ -998,7 +1083,7 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 		// which is fine for this test. We just want to verify the ack callback
 		// doesn't break when IFT receives it.
 		resp, err := s.BroadcastMessages(ctx, s.ChainA, user, 2_000_000, &gmptypes.MsgSendCall{
-			SourceClient:     ibctesting.FirstClientID,
+			SourceClient:     testvalues.FirstAttestationsClientID,
 			Sender:           user.FormattedAddress(),
 			Receiver:         "nonexistent-receiver-address",
 			Payload:          []byte("test payload"),
@@ -1018,8 +1103,8 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 			SrcChain:    s.ChainA.Config().ChainID,
 			DstChain:    s.ChainB.Config().ChainID,
 			SourceTxIds: [][]byte{sendTxHashBytes},
-			SrcClientId: ibctesting.FirstClientID,
-			DstClientId: ibctesting.FirstClientID,
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -1041,8 +1126,8 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 			SrcChain:    s.ChainB.Config().ChainID,
 			DstChain:    s.ChainA.Config().ChainID,
 			SourceTxIds: [][]byte{recvTxHash},
-			SrcClientId: ibctesting.FirstClientID,
-			DstClientId: ibctesting.FirstClientID,
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
@@ -1055,26 +1140,72 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 
 // Helper functions
 
-func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string) string {
-	msg := &tokenfactorytypes.MsgCreateDenom{
-		Sender: user.FormattedAddress(),
-		Denom:  denom,
+// createTokenFactoryDenom creates a tokenfactory denom from the given subdenom
+// and returns the resulting full denom (factory/<creator>/<subdenom>), which is
+// what the IFT module, minting and balance queries operate on.
+// setupSharedDenomCreator recovers the shared denom-creator key from a fixed
+// mnemonic on both chains and funds it. It uses --key-type secp256k1 (like
+// CreateAndFundCosmosUser) because sandbox-ledger defaults `keys add` to
+// eth_secp256k1, which the host broadcaster cannot sign. Recovering the same
+// mnemonic with the same key type and coin type yields the same address on both
+// chains, so `factory/<creator>/<sub>` is the identical denom string on each.
+func (s *CosmosIFTTestSuite) setupSharedDenomCreator(ctx context.Context) ibc.Wallet {
+	const keyName = "ift-denom-creator"
+
+	var bech32Addr string
+	for _, chain := range []*cosmos.CosmosChain{s.ChainA, s.ChainB} {
+		node := chain.GetNode()
+		recoverCmd := fmt.Sprintf(
+			"echo %q | %s keys add %s --recover --key-type secp256k1 --coin-type %s --keyring-backend test --home %s --output json",
+			sharedDenomCreatorMnemonic, chain.Config().Bin, keyName, chain.Config().CoinType, node.HomeDir(),
+		)
+		_, _, err := node.Exec(ctx, []string{"sh", "-c", recoverCmd}, chain.Config().Env)
+		s.Require().NoError(err)
+
+		addr, err := node.AccountKeyBech32(ctx, keyName)
+		s.Require().NoError(err)
+		bech32Addr = addr
+
+		s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
+			Address: addr,
+			Amount:  sdkmath.NewInt(testvalues.InitialBalance),
+			Denom:   chain.Config().Denom,
+		}))
 	}
 
-	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
+	addrBytes, err := sdk.GetFromBech32(bech32Addr, s.ChainA.Config().Bech32Prefix)
 	s.Require().NoError(err)
-
-	return denom
+	return cosmos.NewWallet(keyName, addrBytes, sharedDenomCreatorMnemonic, s.ChainA.Config())
 }
 
-func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
+// createTokenFactoryDenom creates the IFT tokenfactory denom under the shared
+// denom creator (see denomCreator) so it resolves to the same string on both
+// chains, and returns that full denom (factory/<creator>/<subdenom>). The user
+// argument is unused: the creator must be identical across chains.
+func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, _ ibc.Wallet, subdenom string) string {
+	creator := s.denomCreator
+	msg := &tokenfactorytypes.MsgCreateDenom{
+		Sender: creator.FormattedAddress(),
+		Denom:  subdenom,
+	}
+
+	_, err := s.BroadcastMessages(ctx, chain, creator, 200_000, msg)
+	s.Require().NoError(err)
+
+	return fmt.Sprintf("factory/%s/%s", creator.FormattedAddress(), subdenom)
+}
+
+// mintTokens mints the tokenfactory denom to a recipient. It signs as the shared
+// denom creator (the denom admin); the user argument is unused.
+func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, _ ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
+	creator := s.denomCreator
 	msg := &tokenfactorytypes.MsgMint{
-		From:    user.FormattedAddress(),
+		From:    creator.FormattedAddress(),
 		Address: recipient,
 		Amount:  sdk.Coin{Denom: denom, Amount: amount},
 	}
 
-	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
+	_, err := s.BroadcastMessages(ctx, chain, creator, 200_000, msg)
 	s.Require().NoError(err)
 }
 
