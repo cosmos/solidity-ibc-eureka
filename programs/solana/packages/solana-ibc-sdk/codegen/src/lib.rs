@@ -42,6 +42,10 @@ pub fn generate_all(idl_dir: &Path, generated_dir: &Path, programs: &[&str]) -> 
             .unwrap_or_else(|e| panic!("Failed to parse {}: {e}", idl_path.display()));
 
         let program_dir = generated_dir.join(program);
+        if program_dir.exists() {
+            fs::remove_dir_all(&program_dir)
+                .unwrap_or_else(|e| panic!("Failed to clean {}: {e}", program_dir.display()));
+        }
         fs::create_dir_all(&program_dir)
             .unwrap_or_else(|e| panic!("Failed to create {}: {e}", program_dir.display()));
 
@@ -60,9 +64,8 @@ pub fn generate_all(idl_dir: &Path, generated_dir: &Path, programs: &[&str]) -> 
             }
         }
 
-        let has_types = type_gen::generate_types(program, &idl, &program_dir, &names);
-        let has_accounts =
-            type_gen::generate_accounts(program, &idl, &program_dir, has_types, &names);
+        let has_types = type_gen::generate_types(&idl, &program_dir, &names);
+        let has_accounts = type_gen::generate_accounts(&idl, &program_dir, has_types, &names);
         let (has_instructions, ix_warnings) = instruction_gen::generate_instructions(
             program,
             &idl,

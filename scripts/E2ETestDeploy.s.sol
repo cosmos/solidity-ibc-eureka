@@ -37,8 +37,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
     /// @dev Protobuf type URL for the sandbox-ledger IFT mint message
     string internal constant IFT_MINT_TYPE_URL = "/ibc.applications.prototypes.ift.v1.MsgIFTMint";
-    /// @dev Token denomination on the Cosmos side
-    string internal constant IFT_TEST_DENOM = "testift";
     /// @dev ERC20 token name for the test IFT contract
     string internal constant IFT_TOKEN_NAME = "Test IFT";
     /// @dev ERC20 token symbol for the test IFT contract
@@ -60,9 +58,11 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
     function run() public returns (string memory) {
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
         string memory iftIcaAddress = vm.envOr("IFT_ICA_ADDRESS", string(""));
-        // The Cosmos counterparty mints exactly this denom; on sandbox-ledger it is
-        // the full tokenfactory denom (factory/<creator>/<sub>), passed via env.
-        string memory iftDenom = vm.envOr("IFT_DENOM", IFT_TEST_DENOM);
+        string memory iftDenom;
+        if (bytes(iftIcaAddress).length > 0) {
+            iftDenom = vm.envString("IFT_DENOM");
+            require(bytes(iftDenom).length > 0, "IFT_DENOM must not be empty");
+        }
 
         vm.startBroadcast();
         DeployedContracts memory d = _deploy(e2eFaucet, iftIcaAddress, iftDenom);

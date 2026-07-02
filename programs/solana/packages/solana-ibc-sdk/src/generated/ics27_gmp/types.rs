@@ -28,29 +28,6 @@ pub enum CallResultStatus {
     Timeout,
 }
 
-/// Client-ID-to-light-client mapping with counterparty chain metadata.
-/// Created when an admin registers a new IBC client (e.g. an ICS07
-/// Tendermint or attestation light client). The router reads this
-/// account during `send_packet`, `recv_packet`, `ack_packet` and
-/// `timeout_packet` to resolve which light client program to call for
-/// proof verification, and to obtain the counterparty chain's client
-/// and Merkle prefix information.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct Client {
-    /// Schema version for upgrades
-    pub version: SolanaIbcTypes_Router_AccountVersion,
-    /// The client identifier
-    pub client_id: String,
-    /// The program ID of the light client
-    pub client_program_id: Pubkey,
-    /// Counterparty chain information
-    pub counterparty_info: CounterpartyInfo,
-    /// Whether the client is active
-    pub active: bool,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
-
 /// Counterparty chain information
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct CounterpartyInfo {
@@ -58,23 +35,6 @@ pub struct CounterpartyInfo {
     pub client_id: String,
     /// Merkle prefix for proof verification
     pub merkle_prefix: Vec<Vec<u8>>,
-}
-
-/// Port-to-program mapping for IBC applications.
-/// Each registered IBC application (e.g. ICS20 transfer, ICS27 GMP) gets
-/// one `IBCApp` PDA derived from its port ID. The router uses this account
-/// to look up which program to CPI into when delivering a received packet
-/// or forwarding an acknowledgement/timeout to the application layer.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct IBCApp {
-    /// Schema version for upgrades
-    pub version: SolanaIbcTypes_Router_AccountVersion,
-    /// The port identifier
-    pub port_id: String,
-    /// The program ID of the IBC application
-    pub app_program_id: Pubkey,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
 }
 
 /// Account schema version
@@ -125,23 +85,6 @@ pub struct Payload {
     pub version: String,
     pub encoding: String,
     pub value: Vec<u8>,
-}
-
-/// Global ICS26 router configuration.
-/// Singleton PDA initialized once during program setup. Stores the link
-/// to the access manager for admin-gated operations (e.g. registering
-/// clients, migrating light clients) and a schema version for future
-/// on-chain migrations.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct RouterState {
-    /// Schema version for upgrades
-    pub version: SolanaIbcTypes_Router_AccountVersion,
-    /// Access manager transfer state for two-step propose/accept
-    pub am_state: AccessManagerState,
-    /// Whether the router is paused (emergency brake for all IBC traffic)
-    pub paused: bool,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
 }
 
 /// Send call message (unvalidated input from user)

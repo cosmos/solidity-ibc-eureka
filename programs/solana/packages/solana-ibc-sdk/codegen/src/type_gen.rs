@@ -10,13 +10,11 @@ use crate::util::{sanitize_ident, write_file_header, NameMap};
 ///
 /// Account types (in `idl.accounts`) go to `accounts.rs` and event types
 /// (in `idl.events`) go to `events.rs`.
-pub fn generate_types(program: &str, idl: &Idl, program_dir: &Path, names: &NameMap) -> bool {
+pub fn generate_types(idl: &Idl, program_dir: &Path, names: &NameMap) -> bool {
     let event_names: BTreeSet<&str> = idl.events.iter().map(|e| e.name.as_str()).collect();
-    let account_names: BTreeSet<&str> = idl
-        .accounts
-        .iter()
-        .filter(|a| a.name.starts_with(&format!("{program}::")))
-        .map(|a| a.name.as_str())
+    let account_names: BTreeSet<&str> = resolve_accounts(idl)
+        .into_iter()
+        .map(|a| a.type_def.name.as_str())
         .collect();
 
     let mut regular_types: Vec<&IdlTypeDef> = idl
@@ -101,27 +99,14 @@ pub fn generate_events(
 /// Account types are identified by the `idl.accounts` section. Each account
 /// gets its struct definition (from `idl.types`) followed by a discriminator
 /// `impl` block. Sorted by resolved name for deterministic output.
-pub fn generate_accounts(
-    program: &str,
-    idl: &Idl,
-    program_dir: &Path,
-    has_types: bool,
-    names: &NameMap,
-) -> bool {
-    let mut owned: Vec<_> = idl
-        .accounts
-        .iter()
-        .filter(|a| a.name.starts_with(&format!("{program}::")))
-        .collect();
+pub fn generate_accounts(idl: &Idl, program_dir: &Path, has_types: bool, names: &NameMap) -> bool {
+    let mut accounts = resolve_accounts(idl);
 
-    if owned.is_empty() {
+    if accounts.is_empty() {
         return false;
     }
 
-    owned.sort_by_key(|a| resolve_name(names, &a.name));
-
-    let type_map: HashMap<&str, &IdlTypeDef> =
-        idl.types.iter().map(|t| (t.name.as_str(), t)).collect();
+    accounts.sort_by_key(|a| resolve_name(names, &a.type_def.name));
 
     let mut output = String::new();
     write_file_header(&mut output);
@@ -135,13 +120,15 @@ pub fn generate_accounts(
         writeln!(output, "use super::types::*;\n").unwrap();
     }
 
-    for acc in &owned {
-        if let Some(type_def) = type_map.get(acc.name.as_str()) {
-            generate_type_def(&mut output, type_def, false, names);
-        }
+    for account in &accounts {
+        generate_type_def(&mut output, account.type_def, false, names);
 
-        let type_name = resolve_name(names, &acc.name);
-        let disc_bytes: Vec<String> = acc.discriminator.iter().map(ToString::to_string).collect();
+        let type_name = resolve_name(names, &account.type_def.name);
+        let disc_bytes: Vec<String> = account
+            .discriminator
+            .iter()
+            .map(ToString::to_string)
+            .collect();
         writeln!(output, "impl {type_name} {{").unwrap();
         writeln!(
             output,
@@ -156,6 +143,39 @@ pub fn generate_accounts(
     fs::write(&path, output).unwrap_or_else(|e| panic!("Failed to write {}: {e}", path.display()));
 
     true
+}
+
+struct ResolvedAccount<'a> {
+    type_def: &'a IdlTypeDef,
+    discriminator: &'a [u8],
+}
+
+fn resolve_accounts(idl: &Idl) -> Vec<ResolvedAccount<'_>> {
+    let mut type_map = HashMap::new();
+    for type_def in &idl.types {
+        let previous = type_map.insert(type_def.name.as_str(), type_def);
+        assert!(
+            previous.is_none(),
+            "Duplicate IDL type definition '{}'",
+            type_def.name
+        );
+    }
+
+    idl.accounts
+        .iter()
+        .map(|account| {
+            let type_def = type_map.get(account.name.as_str()).unwrap_or_else(|| {
+                panic!(
+                    "IDL account '{}' has no exact matching type definition",
+                    account.name
+                )
+            });
+            ResolvedAccount {
+                type_def,
+                discriminator: account.discriminator.as_slice(),
+            }
+        })
+        .collect()
 }
 
 pub fn generate_type_def(
@@ -697,7 +717,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(generate_types("test", &idl, &dir, &names));
+        assert!(generate_types(&idl, &dir, &names));
         let content = std::fs::read_to_string(dir.join("types.rs")).unwrap();
 
         assert!(content.contains("pub struct ModA_Shared {"));
@@ -729,7 +749,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(generate_types("test", &idl, &dir, &names));
+        assert!(generate_types(&idl, &dir, &names));
         let content = std::fs::read_to_string(dir.join("types.rs")).unwrap();
 
         assert!(content.contains("pub struct Foo {"));
@@ -752,7 +772,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(!generate_types("test", &idl, &dir, &names));
+        assert!(!generate_types(&idl, &dir, &names));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -790,7 +810,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(generate_types("prog", &idl, &dir, &names));
+        assert!(generate_types(&idl, &dir, &names));
         let content = std::fs::read_to_string(dir.join("types.rs")).unwrap();
 
         assert!(content.contains("pub struct RegularType {"));
@@ -823,7 +843,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(generate_types("test", &idl, &dir, &names));
+        assert!(generate_types(&idl, &dir, &names));
         let content = std::fs::read_to_string(dir.join("types.rs")).unwrap();
 
         let apple_pos = content.find("pub struct Apple {").unwrap();
@@ -856,7 +876,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(generate_accounts("prog", &idl, &dir, false, &names));
+        assert!(generate_accounts(&idl, &dir, false, &names));
         let content = std::fs::read_to_string(dir.join("accounts.rs")).unwrap();
 
         assert!(content.contains("pub struct MyState {"));
@@ -865,6 +885,103 @@ mod tests {
         assert!(content
             .contains("pub const DISCRIMINATOR: [u8; 8] = [10, 20, 30, 40, 50, 60, 70, 80];"));
         assert!(!content.contains("use super::types::*;"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    #[should_panic(expected = "IDL account 'ClientState' has no exact matching type definition")]
+    fn generate_accounts_requires_exact_account_type_name() {
+        let dir = std::env::temp_dir().join("codegen_test_account_exact_match");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let idl = Idl {
+            instructions: vec![],
+            events: vec![],
+            types: vec![make_struct_type_def(
+                "prog::ClientState",
+                vec![("latest_height", IdlFieldType::Primitive("u64".to_string()))],
+            )],
+            accounts: vec![IdlAccountDef {
+                name: "ClientState".to_string(),
+                discriminator: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            }],
+        };
+        let names = build_name_map(&idl);
+
+        generate_accounts(&idl, &dir, false, &names);
+    }
+
+    #[test]
+    #[should_panic(expected = "Duplicate IDL type definition 'ClientState'")]
+    fn generate_accounts_rejects_duplicate_type_names() {
+        let dir = std::env::temp_dir().join("codegen_test_account_duplicate_type");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let idl = Idl {
+            instructions: vec![],
+            events: vec![],
+            types: vec![
+                make_struct_type_def(
+                    "ClientState",
+                    vec![("latest_height", IdlFieldType::Primitive("u64".to_string()))],
+                ),
+                make_struct_type_def(
+                    "ClientState",
+                    vec![(
+                        "revision_height",
+                        IdlFieldType::Primitive("u64".to_string()),
+                    )],
+                ),
+            ],
+            accounts: vec![IdlAccountDef {
+                name: "ClientState".to_string(),
+                discriminator: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            }],
+        };
+        let names = build_name_map(&idl);
+
+        generate_accounts(&idl, &dir, false, &names);
+    }
+
+    #[test]
+    fn generate_accounts_with_unqualified_anchor_names() {
+        let dir = std::env::temp_dir().join("codegen_test_unqualified_accounts");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let idl = Idl {
+            instructions: vec![],
+            events: vec![],
+            types: vec![
+                make_struct_type_def(
+                    "ClientState",
+                    vec![("latest_height", IdlFieldType::Primitive("u64".to_string()))],
+                ),
+                make_struct_type_def(
+                    "RegularType",
+                    vec![("value", IdlFieldType::Primitive("u8".to_string()))],
+                ),
+            ],
+            accounts: vec![IdlAccountDef {
+                name: "ClientState".to_string(),
+                discriminator: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            }],
+        };
+        let names = build_name_map(&idl);
+
+        assert!(generate_types(&idl, &dir, &names));
+        let types = std::fs::read_to_string(dir.join("types.rs")).unwrap();
+        assert!(types.contains("pub struct RegularType {"));
+        assert!(!types.contains("pub struct ClientState {"));
+
+        assert!(generate_accounts(&idl, &dir, true, &names));
+        let accounts = std::fs::read_to_string(dir.join("accounts.rs")).unwrap();
+        assert!(accounts.contains("pub struct ClientState {"));
+        assert!(accounts.contains("pub latest_height: u64,"));
+        assert!(accounts.contains("pub const DISCRIMINATOR: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];"));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -889,7 +1006,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(generate_accounts("prog", &idl, &dir, true, &names));
+        assert!(generate_accounts(&idl, &dir, true, &names));
         let content = std::fs::read_to_string(dir.join("accounts.rs")).unwrap();
         assert!(content.contains("use super::types::*;"));
 
@@ -910,7 +1027,7 @@ mod tests {
         };
         let names = build_name_map(&idl);
 
-        assert!(!generate_accounts("test", &idl, &dir, false, &names));
+        assert!(!generate_accounts(&idl, &dir, false, &names));
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -993,7 +1110,7 @@ mod tests {
         assert!(events_content.contains("pub struct MyEvent {"));
         assert!(!events_content.contains("RegularType"));
 
-        assert!(generate_types("prog", &idl, &dir, &names));
+        assert!(generate_types(&idl, &dir, &names));
         let types_content = std::fs::read_to_string(dir.join("types.rs")).unwrap();
         assert!(types_content.contains("pub struct RegularType {"));
         assert!(!types_content.contains("MyEvent"));
