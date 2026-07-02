@@ -352,12 +352,12 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	var denomA, denomB string
 
 	s.Require().True(s.Run("Create denom on Chain A", func() {
-		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
+		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, subdenom)
 		s.T().Logf("Created denom on Chain A: %s", denomA)
 	}))
 
 	s.Require().True(s.Run("Create denom on Chain B", func() {
-		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, s.ChainBSubmitter, subdenom)
+		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, subdenom)
 		s.T().Logf("Created denom on Chain B: %s", denomB)
 	}))
 
@@ -370,15 +370,15 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
-		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, transferAmount, userA.FormattedAddress())
+		s.mintTokens(ctx, s.ChainA, denomA, transferAmount, userA.FormattedAddress())
 	}))
 
 	s.Require().True(s.Run("Verify initial balance on Chain A", func() {
@@ -568,12 +568,12 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	var denomA, denomB string
 
 	s.Require().True(s.Run("Create denom on Chain A", func() {
-		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
+		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, subdenom)
 		s.T().Logf("Created denom on Chain A: %s", denomA)
 	}))
 
 	s.Require().True(s.Run("Create denom on Chain B", func() {
-		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, s.ChainBSubmitter, subdenom)
+		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, subdenom)
 		s.T().Logf("Created denom on Chain B: %s", denomB)
 	}))
 
@@ -586,15 +586,15 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
-		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, transferAmount, userA.FormattedAddress())
+		s.mintTokens(ctx, s.ChainA, denomA, transferAmount, userA.FormattedAddress())
 	}))
 
 	s.Require().True(s.Run("Verify initial balance on Chain A", func() {
@@ -729,7 +729,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	var denomA string
 
 	s.Require().True(s.Run("Create denom on Chain A", func() {
-		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
+		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, subdenom)
 	}))
 
 	// NOTE: We intentionally do NOT create denom or register bridge on Chain B
@@ -741,13 +741,13 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A only", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	// NOTE: Intentionally NOT registering the IFT bridge on Chain B
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
-		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, transferAmount, userA.FormattedAddress())
+		s.mintTokens(ctx, s.ChainA, denomA, transferAmount, userA.FormattedAddress())
 		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
 		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount))
@@ -839,11 +839,11 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 	var denomA, denomB string
 
 	s.Require().True(s.Run("Create denom on Chain A", func() {
-		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
+		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, subdenom)
 	}))
 
 	s.Require().True(s.Run("Create denom on Chain B", func() {
-		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, s.ChainBSubmitter, subdenom)
+		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, subdenom)
 	}))
 
 	var iftModuleAddrA, iftModuleAddrB string
@@ -853,12 +853,12 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridges", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainA, denomA, testvalues.FirstAttestationsClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, denomB, testvalues.FirstAttestationsClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
-		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, totalAmount, userA.FormattedAddress())
+		s.mintTokens(ctx, s.ChainA, denomA, totalAmount, userA.FormattedAddress())
 		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
 		s.Require().NoError(err)
 		s.Require().True(balance.Equal(totalAmount))
@@ -1140,9 +1140,6 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 
 // Helper functions
 
-// createTokenFactoryDenom creates a tokenfactory denom from the given subdenom
-// and returns the resulting full denom (factory/<creator>/<subdenom>), which is
-// what the IFT module, minting and balance queries operate on.
 // setupSharedDenomCreator recovers the shared denom-creator key from a fixed
 // mnemonic on both chains and funds it. It uses --key-type secp256k1 (like
 // CreateAndFundCosmosUser) because sandbox-ledger defaults `keys add` to
@@ -1180,9 +1177,8 @@ func (s *CosmosIFTTestSuite) setupSharedDenomCreator(ctx context.Context) ibc.Wa
 
 // createTokenFactoryDenom creates the IFT tokenfactory denom under the shared
 // denom creator (see denomCreator) so it resolves to the same string on both
-// chains, and returns that full denom (factory/<creator>/<subdenom>). The user
-// argument is unused: the creator must be identical across chains.
-func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, _ ibc.Wallet, subdenom string) string {
+// chains, and returns that full denom (factory/<creator>/<subdenom>).
+func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, subdenom string) string {
 	creator := s.denomCreator
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: creator.FormattedAddress(),
@@ -1196,8 +1192,8 @@ func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain 
 }
 
 // mintTokens mints the tokenfactory denom to a recipient. It signs as the shared
-// denom creator (the denom admin); the user argument is unused.
-func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, _ ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
+// denom creator, which is the denom admin.
+func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, denom string, amount sdkmath.Int, recipient string) {
 	creator := s.denomCreator
 	msg := &tokenfactorytypes.MsgMint{
 		From:    creator.FormattedAddress(),
@@ -1209,7 +1205,7 @@ func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.Cosmo
 	s.Require().NoError(err)
 }
 
-func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
+func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmos.CosmosChain, denom, clientId, counterpartyIftAddr, constructor string) {
 	govModuleAddr, err := chain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
 
@@ -1221,7 +1217,7 @@ func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmo
 		IftSendCallConstructor: constructor,
 	}
 
-	err = s.ExecuteGovV1Proposal(ctx, msg, chain, user)
+	err = s.ExecuteGovV1Proposal(ctx, msg, chain)
 	s.Require().NoError(err)
 }
 

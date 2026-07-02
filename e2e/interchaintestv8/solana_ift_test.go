@@ -1384,7 +1384,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_AckFailureRefund() 
 			Denom:    cosmosDenom,
 			ClientId: testvalues.FirstAttestationsClientID,
 		}
-		err := s.ExecuteGovV1Proposal(ctx, msg, s.Sandbox, s.CosmosSubmitter)
+		err := s.ExecuteGovV1Proposal(ctx, msg, s.Sandbox)
 		s.Require().NoError(err)
 	}))
 
@@ -1996,7 +1996,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Contex
 		CounterpartyIftAddress: counterpartyIftAddr,
 		IftSendCallConstructor: constructor,
 	}
-	err = s.ExecuteGovV1Proposal(ctx, msg, s.Sandbox, s.CosmosSubmitter)
+	err = s.ExecuteGovV1Proposal(ctx, msg, s.Sandbox)
 	s.Require().NoError(err)
 }
 

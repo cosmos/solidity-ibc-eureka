@@ -388,7 +388,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 
 	// Create Ethereum light client on Cosmos for Eth→Cosmos direction
 	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
-		checksumHex := s.StoreLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simd)
 		// checksumHex is empty for native attestor (no wasm needed)
 		if !s.isEthLcOnCosmosNativeAttestor() {
 			s.Require().NotEmpty(checksumHex)

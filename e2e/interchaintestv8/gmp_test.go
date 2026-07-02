@@ -247,7 +247,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 	}))
 
 	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
-		checksumHex := s.StoreLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simd)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte

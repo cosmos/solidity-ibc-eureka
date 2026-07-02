@@ -35,11 +35,11 @@ type poaGenesisValidator struct {
 	operatorAddress string
 }
 
-// wfchainPreGenesis returns a PreGenesis hook that bootstraps the single PoA
+// sandboxPreGenesis returns a PreGenesis hook that bootstraps the single PoA
 // validator. Because we set SkipGenTx, interchaintest does not create the
 // validator key or its genesis account, so we do that here and additionally
 // capture the node's consensus public key for genesis injection.
-func wfchainPreGenesis(out *poaGenesisValidator) func(ibc.Chain) error {
+func sandboxPreGenesis(out *poaGenesisValidator) func(ibc.Chain) error {
 	return func(chain ibc.Chain) error {
 		ctx := context.Background()
 
@@ -122,7 +122,7 @@ func defaultModifyGenesis() func(ibc.ChainConfig, []byte) ([]byte, error) {
 	}
 }
 
-func wfchainModifyGenesis(poaVal *poaGenesisValidator) func(ibc.ChainConfig, []byte) ([]byte, error) {
+func sandboxModifyGenesis(poaVal *poaGenesisValidator) func(ibc.ChainConfig, []byte) ([]byte, error) {
 	return func(chainConfig ibc.ChainConfig, genBz []byte) ([]byte, error) {
 		appGenesis, err := genutiltypes.AppGenesisFromReader(bytes.NewReader(genBz))
 		if err != nil {

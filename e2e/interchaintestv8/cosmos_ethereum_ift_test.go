@@ -471,7 +471,6 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 		s.Require().True(s.Run("Register IFT bridge on Cosmos", func() {
 			s.registerIFTBridgeOnCosmos(
 				ctx,
-				s.CosmosRelayerSubmitter,
 				tc.cosmosDenom,
 				tc.ethClientIDOnCosmos,
 				tc.ethIFTAddress.Hex(),
@@ -1115,7 +1114,6 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 		s.Require().True(s.Run("Register IFT bridge on Cosmos", func() {
 			s.registerIFTBridgeOnCosmos(
 				ctx,
-				s.CosmosRelayerSubmitter,
 				cosmosDenom,
 				ethClientIDOnCosmos,
 				ethIFTAddress.Hex(),
@@ -1253,7 +1251,7 @@ func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, use
 	s.Require().NoError(err)
 }
 
-func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
+func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Context, denom, clientId, counterpartyIftAddr, constructor string) {
 	govModuleAddr, err := s.Sandbox.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
 
@@ -1265,7 +1263,7 @@ func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Conte
 		IftSendCallConstructor: constructor,
 	}
 
-	err = s.ExecuteGovV1Proposal(ctx, msg, s.Sandbox, user)
+	err = s.ExecuteGovV1Proposal(ctx, msg, s.Sandbox)
 	s.Require().NoError(err)
 }
 

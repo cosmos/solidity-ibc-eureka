@@ -26,12 +26,12 @@ fn attested_config_deserializes_to_attested_mode() {
 }
 
 #[test]
-fn missing_mode_defaults_to_native() {
+fn missing_mode_is_rejected() {
     let json = serde_json::json!({
         "src_rpc_url": "http://a:26657",
         "target_rpc_url": "http://b:26657",
         "signer_address": "cosmos1xyz"
     });
-    let cfg: CosmosToCosmosConfig = serde_json::from_value(json).unwrap();
-    assert!(matches!(cfg.mode, TxBuilderMode::Native));
+    let err = serde_json::from_value::<CosmosToCosmosConfig>(json).unwrap_err();
+    assert!(err.to_string().contains("missing field `mode`"));
 }
