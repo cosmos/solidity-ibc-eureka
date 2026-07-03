@@ -375,7 +375,10 @@ pub async fn unbonding_period_seconds(src_tm_client: &HttpClient) -> Result<i64>
 /// (the staking query path is unknown), rather than a transient failure.
 fn is_staking_module_absent(err: &anyhow::Error) -> bool {
     let msg = err.to_string();
-    msg.contains("unknown query path") || msg.contains("non-zero code 6")
+    // Match the semantic "route not registered" markers cosmos-sdk emits for an
+    // absent module, not a bare "code 6" substring, which would misclassify any
+    // unrelated ErrUnknownRequest-coded failure on the staking query.
+    msg.contains("unknown query path") || msg.contains("unknown request")
 }
 
 /// Generates parameters for creating a new Tendermint IBC light client.

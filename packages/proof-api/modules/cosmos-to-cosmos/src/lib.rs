@@ -63,15 +63,18 @@ pub struct CosmosToCosmosConfig {
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
-    /// Transaction builder mode.
+    /// Transaction builder mode. Defaults to the native `07-tendermint` client
+    /// so existing configs without this key keep working.
+    #[serde(default)]
     pub mode: TxBuilderMode,
 }
 
 /// Transaction builder mode configuration.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// Native mode using `07-tendermint` headers and merkle proofs.
+    #[default]
     Native,
     /// Attested mode using aggregator attestations (for chains whose only
     /// counterparty light client is `attestations`, such as sandbox-ledger).

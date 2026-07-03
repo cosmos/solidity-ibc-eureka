@@ -24,3 +24,19 @@ fn attested_config_deserializes_to_attested_mode() {
         cfg.mode
     );
 }
+
+#[test]
+fn config_without_mode_defaults_to_native() {
+    // Existing deployed configs predate the `mode` key and must keep working.
+    let json = serde_json::json!({
+        "src_rpc_url": "http://a:26657",
+        "target_rpc_url": "http://b:26657",
+        "signer_address": "cosmos1xyz"
+    });
+    let cfg: CosmosToCosmosConfig = serde_json::from_value(json).unwrap();
+    assert!(
+        matches!(cfg.mode, TxBuilderMode::Native),
+        "expected Native, got {:?}",
+        cfg.mode
+    );
+}
