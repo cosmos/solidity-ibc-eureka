@@ -1,5 +1,6 @@
 use super::*;
 use integration_tests::extract_custom_error;
+use solana_sdk::compute_budget::ComputeBudgetInstruction;
 
 /// Pause blocks transfers and admin-mint; unpause restores them.
 ///
@@ -47,24 +48,36 @@ async fn test_ift_pause() {
     assert!(state.paused);
 
     // ── Transfer should fail while paused ──
+    let paused_transfer = ift::build_ift_transfer_ix(
+        user.pubkey(),
+        user.pubkey(),
+        chain.client_id(),
+        mint,
+        TokenKind::Spl,
+        &chain.lc_accounts(),
+        IftTransferParams {
+            sequence: 1,
+            receiver: ift::EVM_RECEIVER.to_string(),
+            amount: TRANSFER_AMOUNT,
+            timeout_timestamp: IFT_TIMEOUT,
+        },
+    );
     let err = user
-        .ift_transfer(
-            &mut chain,
-            mint,
-            TokenKind::Spl,
-            IftTransferParams {
-                sequence: 1,
-                receiver: ift::EVM_RECEIVER.to_string(),
-                amount: TRANSFER_AMOUNT,
-                timeout_timestamp: IFT_TIMEOUT,
-            },
-        )
+        .send_tx(&mut chain, std::slice::from_ref(&paused_transfer.ix))
         .await
         .expect_err("transfer should fail when paused");
 
     let app_paused_code =
         integration_tests::anchor_error_code(::ift::errors::IFTError::AppPaused as u32);
     assert_eq!(extract_custom_error(&err), app_paused_code);
+    assert!(chain
+        .get_account(paused_transfer.pending_transfer_pda)
+        .await
+        .is_none());
+    assert!(chain
+        .get_account(paused_transfer.commitment_pda)
+        .await
+        .is_none());
 
     // ── Admin mint should fail while paused ──
     let err = ift_admin
@@ -86,24 +99,28 @@ async fn test_ift_pause() {
     let state = ift::read_app_state(&chain).await;
     assert!(!state.paused);
 
-    // ── Transfer should succeed after unpause ──
-    //
-    // Use a fresh sequence (2): under `ProgramTest` the blockhash is constant
-    // across transactions, so reusing `sequence: 1` would produce a transaction
-    // byte-identical to the earlier paused attempt. Identical bytes ⇒ identical
-    // signature ⇒ the bank treats it as already-processed and replays the cached
-    // `AppPaused` result instead of re-executing. Sequences are caller-supplied
-    // and single-use in the router, so 2 is independently valid here.
-    user.ift_transfer(
-        &mut chain,
+    // ── Transfer should succeed after unpause with the same sequence ──
+    let retry_transfer = ift::build_ift_transfer_ix(
+        user.pubkey(),
+        user.pubkey(),
+        chain.client_id(),
         mint,
         TokenKind::Spl,
+        &chain.lc_accounts(),
         IftTransferParams {
-            sequence: 2,
+            sequence: 1,
             receiver: ift::EVM_RECEIVER.to_string(),
             amount: TRANSFER_AMOUNT,
             timeout_timestamp: IFT_TIMEOUT,
         },
+    );
+    // Avoid replaying the byte-identical paused transaction under ProgramTest.
+    user.send_tx(
+        &mut chain,
+        &[
+            ComputeBudgetInstruction::set_compute_unit_price(1),
+            retry_transfer.ix,
+        ],
     )
     .await
     .expect("transfer should succeed after unpause");

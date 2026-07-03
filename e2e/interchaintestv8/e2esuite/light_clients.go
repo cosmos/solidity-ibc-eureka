@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/cosmos/interchaintest/v11/chain/cosmos"
-	"github.com/cosmos/interchaintest/v11/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wasm"
@@ -13,7 +12,7 @@ import (
 
 // StoreLightClient stores the light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
 // For native attestor (attestor-native), returns empty string as no wasm binary is needed.
-func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
+func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain) string {
 	// Native attestor doesn't need a wasm binary
 	if s.config.cosmos.lightClientType == testvalues.EthLCOnCosmosTypeAttestorNative {
 		s.T().Log("Using native attestor - no wasm storage needed")
@@ -24,7 +23,7 @@ func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.Co
 	if wasmBinary == nil {
 		return ""
 	}
-	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
+	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, wasmBinary)
 	s.Require().NotEmpty(checksum, "checksum was empty but should not have been")
 
 	s.T().Logf("Stored wasm light client with checksum %s", checksum)
@@ -33,13 +32,13 @@ func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.Co
 }
 
 // StoreSolanaLightClient stores the Solana light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
-func (s *TestSuite) StoreSolanaLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
+func (s *TestSuite) StoreSolanaLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain) string {
 	// For Solana verification, we use the dummy light client for testing
 	s.T().Log("Using dummy Wasm light client for Solana verification")
 	wasmBinary, err := wasm.GetWasmDummyLightClient()
 	s.Require().NoError(err, "Failed to get dummy Wasm light client binary")
 
-	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
+	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, wasmBinary)
 	s.Require().NotEmpty(checksum, "checksum was empty but should not have been")
 
 	s.T().Logf("Stored Solana light client with checksum %s", checksum)

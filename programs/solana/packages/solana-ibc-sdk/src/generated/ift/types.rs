@@ -53,34 +53,6 @@ pub enum CreateTokenParams {
     },
 }
 
-/// Persisted outcome of a cross-chain GMP call.
-/// Created when the ICS26 router delivers an acknowledgement or timeout
-/// callback to the GMP app. Stores either the IBC acknowledgement
-/// commitment hash (on success/failure) or a timeout marker, so the
-/// original sender can query the result on-chain after the round-trip
-/// completes.
-/// # PDA Seeds
-/// `["gmp_result", source_client, sequence (little-endian u64)]`
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct GMPCallResultAccount {
-    /// Account schema version for future upgrades.
-    pub version: Ics27Gmp_State_AccountVersion,
-    /// Original sender pubkey.
-    pub sender: Pubkey,
-    /// Caller-chosen IBC packet sequence number.
-    pub sequence: u64,
-    /// Source client ID (light client on this chain tracking the destination).
-    pub source_client: String,
-    /// Destination client ID (light client on the destination chain).
-    pub dest_client: String,
-    /// Result status: acknowledgement (with IBC commitment) or timeout.
-    pub status: CallResultStatus,
-    /// Unix timestamp (seconds) when the result was recorded.
-    pub result_timestamp: i64,
-    /// PDA bump seed.
-    pub bump: u8,
-}
-
 /// Message for minting IFT tokens (called by GMP)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct IFTMintMsg {

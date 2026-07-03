@@ -75,7 +75,7 @@ type CosmosToCosmosModuleConfig struct {
 	SrcRpcUrl     string        `json:"src_rpc_url"`
 	TargetRpcUrl  string        `json:"target_rpc_url"`
 	SignerAddress string        `json:"signer_address"`
-	Mode          TxBuilderMode `json:"mode,omitempty"`
+	Mode          TxBuilderMode `json:"mode"`
 }
 
 // GetAvailablePort returns a random available TCP port on localhost within a typical ephemeral range.
@@ -201,6 +201,11 @@ type EthToCosmosModuleConfig struct {
 type TxBuilderMode interface {
 	json.Marshaler
 }
+
+// NativeMode uses native 07-tendermint clients.
+type NativeMode struct{}
+
+func (NativeMode) MarshalJSON() ([]byte, error) { return json.Marshal("native") }
 
 // RealMode uses Ethereum beacon chain proofs.
 type RealMode struct{}

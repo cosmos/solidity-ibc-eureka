@@ -123,7 +123,7 @@ func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chai
 	keyName := fmt.Sprintf("e2e-user-%d", cosmosUserKeyCounter.Add(1))
 	node := chain.GetNode()
 
-	stdout, _, err := node.Exec(ctx, []string{
+	_, _, err := node.Exec(ctx, []string{
 		chain.Config().Bin, "keys", "add", keyName,
 		"--key-type", "secp256k1",
 		"--coin-type", chain.Config().CoinType,
@@ -133,17 +133,10 @@ func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chai
 	}, chain.Config().Env)
 	s.Require().NoError(err)
 
-	// Best-effort: the broadcaster signs via the on-disk keyring (by name), so the
-	// mnemonic is only carried on the wallet for completeness.
-	var created struct {
-		Mnemonic string `json:"mnemonic"`
-	}
-	_ = json.Unmarshal(stdout, &created)
-
 	addrBytes, err := chain.GetAddress(ctx, keyName)
 	s.Require().NoError(err)
 
-	wallet := cosmos.NewWallet(keyName, addrBytes, created.Mnemonic, chain.Config())
+	wallet := cosmos.NewWallet(keyName, addrBytes, "", chain.Config())
 
 	s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: wallet.FormattedAddress(),
@@ -177,7 +170,7 @@ func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain *ethereum.Ether
 }
 
 // PushNewWasmClientProposal submits a new wasm client governance proposal to the chain.
-func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, wallet ibc.Wallet, proposalContentReader io.Reader) string {
+func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, proposalContentReader io.Reader) string {
 	zippedContent, err := io.ReadAll(proposalContentReader)
 	s.Require().NoError(err)
 
@@ -190,7 +183,7 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 		WasmByteCode: zippedContent,
 	}
 
-	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
+	err = s.ExecuteGovV1Proposal(ctx, &message, chain)
 	s.Require().NoError(err)
 
 	codeResp, err := GRPCQuery[ibcwasmtypes.QueryCodeResponse](ctx, chain, &ibcwasmtypes.QueryCodeRequest{Checksum: computedChecksum})
@@ -205,7 +198,7 @@ func (s *TestSuite) PushNewWasmClientProposal(ctx context.Context, chain *cosmos
 }
 
 // PushMigrateWasmClientProposal submits a new wasm client governance proposal to the chain.
-func (s *TestSuite) PushMigrateWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, wallet ibc.Wallet, clientId string, checksum string, migrateMsg []byte) {
+func (s *TestSuite) PushMigrateWasmClientProposal(ctx context.Context, chain *cosmos.CosmosChain, clientId string, checksum string, migrateMsg []byte) {
 	checksumBz, err := hex.DecodeString(checksum)
 	s.Require().NoError(err)
 
@@ -216,7 +209,7 @@ func (s *TestSuite) PushMigrateWasmClientProposal(ctx context.Context, chain *co
 		Msg:      migrateMsg,
 	}
 
-	err = s.ExecuteGovV1Proposal(ctx, &message, chain, wallet)
+	err = s.ExecuteGovV1Proposal(ctx, &message, chain)
 	s.Require().NoError(err)
 }
 
@@ -229,8 +222,6 @@ func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) stri
 	return hex.EncodeToString(checksum32[:])
 }
 
-// ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
-// to vote yes on the proposal.
 // govValidatorKeyName is interchaintest's keyring name for the chain's validator key.
 const govValidatorKeyName = "validator"
 
@@ -242,10 +233,9 @@ const govValidatorKeyName = "validator"
 // deposit and voting) to active PoA validators via gov hooks, so a regular
 // account is rejected with "is not an active POA validator". Submitting
 // in-container as the validator key also sidesteps the host-side broadcaster's
-// inability to sign the validator's eth_secp256k1 key. The `user` parameter is
-// retained for API compatibility but is unused; governance always acts as the
-// validator here (which is also valid on the standard simd chains).
-func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
+// inability to sign the validator's eth_secp256k1 key. Governance always acts as
+// the validator here, which is also valid on the standard simd chains.
+func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain) error {
 	proposalID := s.Cosmos.proposalIDs[cosmosChain.Config().ChainID]
 	defer func() {
 		s.Cosmos.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1

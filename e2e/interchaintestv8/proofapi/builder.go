@@ -259,6 +259,7 @@ func (b *ConfigBuilder) CosmosToCosmos(p CosmosToCosmosParams) *ConfigBuilder {
 			SrcRpcUrl:     p.SrcRPC,
 			TargetRpcUrl:  p.DstRPC,
 			SignerAddress: p.SignerAddress,
+			Mode:          NativeMode{},
 		},
 	}
 	b.modules = append(b.modules, module)
