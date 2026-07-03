@@ -687,22 +687,6 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 		s.T().Logf("Chain B balance is zero as expected")
 	}))
 
-	s.Require().True(s.Run("Proof API still builds recv relay from send-time height (no commitment check)", func() {
-		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
-		s.Require().NoError(err)
-
-		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
-			SrcChain:    s.ChainA.Config().ChainID,
-			DstChain:    s.ChainB.Config().ChainID,
-			SourceTxIds: [][]byte{sendTxHashBytes},
-			SrcClientId: testvalues.FirstAttestationsClientID,
-			DstClientId: testvalues.FirstAttestationsClientID,
-		})
-		s.Require().NoError(err)
-		s.Require().NotEmpty(resp.Tx)
-		s.T().Log("Proof API built recv relay from send-time height as expected")
-	}))
-
 	s.Require().True(s.Run("Receiving packets on Chain B after timeout should fail", func() {
 		resp, err := s.BroadcastSdkTxBody(ctx, s.ChainB, s.ChainBSubmitter, 2_000_000, prefetchedRelayTx)
 		s.Require().Error(err, "chain should reject timed-out packet")

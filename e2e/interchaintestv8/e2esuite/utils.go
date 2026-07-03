@@ -123,7 +123,7 @@ func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chai
 	keyName := fmt.Sprintf("e2e-user-%d", cosmosUserKeyCounter.Add(1))
 	node := chain.GetNode()
 
-	stdout, _, err := node.Exec(ctx, []string{
+	_, _, err := node.Exec(ctx, []string{
 		chain.Config().Bin, "keys", "add", keyName,
 		"--key-type", "secp256k1",
 		"--coin-type", chain.Config().CoinType,
@@ -133,17 +133,10 @@ func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chai
 	}, chain.Config().Env)
 	s.Require().NoError(err)
 
-	// Best-effort: the broadcaster signs via the on-disk keyring (by name), so the
-	// mnemonic is only carried on the wallet for completeness.
-	var created struct {
-		Mnemonic string `json:"mnemonic"`
-	}
-	_ = json.Unmarshal(stdout, &created)
-
 	addrBytes, err := chain.GetAddress(ctx, keyName)
 	s.Require().NoError(err)
 
-	wallet := cosmos.NewWallet(keyName, addrBytes, created.Mnemonic, chain.Config())
+	wallet := cosmos.NewWallet(keyName, addrBytes, "", chain.Config())
 
 	s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: wallet.FormattedAddress(),

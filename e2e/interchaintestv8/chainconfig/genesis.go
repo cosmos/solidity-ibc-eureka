@@ -181,19 +181,16 @@ func sandboxModifyGenesis(poaVal *poaGenesisValidator) func(ibc.ChainConfig, []b
 // modifyIFTAppState sets the IFT module authority to governance module
 func modifyIFTAppState(chainConfig ibc.ChainConfig, iftAppState []byte) ([]byte, error) {
 	var iftGenesis map[string]interface{}
-
 	if len(iftAppState) == 0 {
-		iftGenesis = make(map[string]interface{})
-	} else {
-		if err := json.Unmarshal(iftAppState, &iftGenesis); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal ift genesis: %w", err)
-		}
+		return nil, fmt.Errorf("ift app state missing from genesis")
+	}
+	if err := json.Unmarshal(iftAppState, &iftGenesis); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ift genesis: %w", err)
 	}
 
-	// Get or create params
 	params, ok := iftGenesis["params"].(map[string]interface{})
 	if !ok {
-		params = make(map[string]interface{})
+		return nil, fmt.Errorf("ift genesis params missing or not an object")
 	}
 
 	// Set authority to governance module address with chain's bech32 prefix
@@ -221,8 +218,9 @@ func modifyPoAAppState(poaAppState []byte, poaVal *poaGenesisValidator) ([]byte,
 
 	var poaGenesis map[string]interface{}
 	if len(poaAppState) == 0 {
-		poaGenesis = make(map[string]interface{})
-	} else if err := json.Unmarshal(poaAppState, &poaGenesis); err != nil {
+		return nil, fmt.Errorf("poa app state missing from genesis")
+	}
+	if err := json.Unmarshal(poaAppState, &poaGenesis); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal poa genesis: %w", err)
 	}
 
@@ -254,14 +252,15 @@ func modifyPoAAppState(poaAppState []byte, poaVal *poaGenesisValidator) ([]byte,
 func modifyFeemarketAppState(feemarketAppState []byte) ([]byte, error) {
 	var feemarketGenesis map[string]interface{}
 	if len(feemarketAppState) == 0 {
-		feemarketGenesis = make(map[string]interface{})
-	} else if err := json.Unmarshal(feemarketAppState, &feemarketGenesis); err != nil {
+		return nil, fmt.Errorf("feemarket app state missing from genesis")
+	}
+	if err := json.Unmarshal(feemarketAppState, &feemarketGenesis); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal feemarket genesis: %w", err)
 	}
 
 	params, ok := feemarketGenesis["params"].(map[string]interface{})
 	if !ok {
-		params = make(map[string]interface{})
+		return nil, fmt.Errorf("feemarket genesis params missing or not an object")
 	}
 	params["no_base_fee"] = true
 	params["base_fee"] = "0"
