@@ -11,7 +11,10 @@ use ethereum_types::execution::{account_proof::AccountProof, storage_proof::Stor
 use futures::future;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
-use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
+use ibc_eureka_utils::{
+    light_block::LightBlockExt as _,
+    rpc::{AbciQueryError, TendermintRpcExt},
+};
 use ibc_proto_eureka::google::protobuf::Duration;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
@@ -346,9 +349,9 @@ pub const DEFAULT_UNBONDING_PERIOD_SECONDS: i64 = 21 * 24 * 60 * 60;
 /// Fetches the source chain's unbonding period (in seconds) from `x/staking`.
 ///
 /// Falls back to [`DEFAULT_UNBONDING_PERIOD_SECONDS`] when the chain has no
-/// `x/staking` module, which the node reports as an "unknown query path" ABCI
-/// error (code 6). Any other error is propagated so genuine or transient
-/// failures are not silently masked.
+/// `x/staking` module, which the node reports as a structured ABCI unknown
+/// request error (code 6) for the unregistered staking route. Any other error
+/// is propagated so genuine or transient failures are not silently masked.
 ///
 /// # Errors
 /// - The staking query fails for a reason other than a missing module
@@ -372,13 +375,79 @@ pub async fn unbonding_period_seconds(src_tm_client: &HttpClient) -> Result<i64>
 }
 
 /// Returns `true` when the error indicates the chain has no `x/staking` module
-/// (the staking query path is unknown), rather than a transient failure.
+/// (the staking query route is not registered), rather than a transient failure.
+///
+/// cosmos-sdk reports an unregistered gRPC query route as `ErrUnknownRequest`
+/// (code 6) with a route-not-found message. Requiring the structured ABCI code
+/// AND the route marker keeps unrelated errors - including unrelated code-6
+/// errors and non-ABCI failures whose rendered text happens to contain
+/// "unknown request" - on the hard-error path.
 fn is_staking_module_absent(err: &anyhow::Error) -> bool {
-    let msg = err.to_string();
-    // Match the semantic "route not registered" markers cosmos-sdk emits for an
-    // absent module, not a bare "code 6" substring, which would misclassify any
-    // unrelated ErrUnknownRequest-coded failure on the staking query.
-    msg.contains("unknown query path") || msg.contains("unknown request")
+    const ERR_UNKNOWN_REQUEST: u32 = 6; // cosmos-sdk sdkerrors.ErrUnknownRequest
+    err.downcast_ref::<AbciQueryError>().is_some_and(|e| {
+        e.code == ERR_UNKNOWN_REQUEST
+            && (e.log.contains("unknown query path")
+                || e.log.contains("unknown request")
+                || e.log.contains("no query handler"))
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_staking_module_absent;
+    use ibc_eureka_utils::rpc::AbciQueryError;
+
+    fn abci_error(code: u32, log: &str) -> anyhow::Error {
+        AbciQueryError {
+            path: "/cosmos.staking.v1beta1.Query/Params".to_string(),
+            code,
+            codespace: String::new(),
+            log: log.to_string(),
+        }
+        .into()
+    }
+
+    #[test]
+    fn staking_module_absent_for_unknown_query_path() {
+        let err = abci_error(6, "rpc error: unknown query path");
+
+        assert!(is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_absent_for_unknown_request() {
+        let err = abci_error(6, "rpc error: unknown request");
+
+        assert!(is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_unrelated_code_6_error() {
+        let err = abci_error(6, "some other message");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_wrong_code() {
+        let err = abci_error(5, "unknown request");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_untyped_unknown_request_error() {
+        let err = anyhow::anyhow!("transport error: unknown request");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_absent_for_context_wrapped_abci_error() {
+        let err = abci_error(6, "rpc error: unknown request").context("staking params failed");
+
+        assert!(is_staking_module_absent(&err));
+    }
 }
 
 /// Generates parameters for creating a new Tendermint IBC light client.

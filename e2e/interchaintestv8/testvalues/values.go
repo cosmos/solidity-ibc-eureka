@@ -2,6 +2,7 @@ package testvalues
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"time"
@@ -20,6 +21,12 @@ import (
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 )
+
+// TokenFactoryDenom returns the full tokenfactory denom for a creator and
+// subdenom (factory/<creator>/<subdenom>).
+func TokenFactoryDenom(creator, subdenom string) string {
+	return fmt.Sprintf("factory/%s/%s", creator, subdenom)
+}
 
 const (
 	// InitialBalance is the amount of tokens to give to each user at the start of the test.

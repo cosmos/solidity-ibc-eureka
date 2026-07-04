@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -65,6 +64,7 @@ type CosmosEthereumIFTTestSuite struct {
 	// Cosmos wallets
 	CosmosRelayerSubmitter ibc.Wallet
 	CosmosUser             ibc.Wallet
+	iftCosmosDenom         string
 
 	// Relayer
 	ProofApiClient proofapitypes.ProofApiServiceClient
@@ -167,7 +167,8 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 		// On sandbox-ledger the IFT token is the full tokenfactory denom
 		// factory/<creator>/<sub>, so pass that (not the bare subdenom). The creator
 		// is CosmosRelayerSubmitter, which createTokenFactoryDenom uses below.
-		os.Setenv(testvalues.EnvKeyIFTDenom, fmt.Sprintf("factory/%s/%s", s.CosmosRelayerSubmitter.FormattedAddress(), testvalues.IFTTestDenom))
+		s.iftCosmosDenom = testvalues.TokenFactoryDenom(s.CosmosRelayerSubmitter.FormattedAddress(), testvalues.IFTTestDenom)
+		os.Setenv(testvalues.EnvKeyIFTDenom, s.iftCosmosDenom)
 
 		stdout, err := eth.ForgeScript(s.ethDeployer, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)
@@ -443,6 +444,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 
 		s.Require().True(s.Run("Create denom on Cosmos", func() {
 			tc.cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, testvalues.IFTTestDenom)
+			s.Require().Equal(s.iftCosmosDenom, tc.cosmosDenom, "created denom must match the denom baked into the EVM constructor")
 		}))
 
 		s.Require().True(s.Run("Verify CosmosIFTSendCallConstructor deployment", func() {
@@ -1237,7 +1239,7 @@ func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context
 	_, err := s.BroadcastMessages(ctx, s.Sandbox, user, 200_000, msg)
 	s.Require().NoError(err)
 
-	return fmt.Sprintf("factory/%s/%s", user.FormattedAddress(), subdenom)
+	return testvalues.TokenFactoryDenom(user.FormattedAddress(), subdenom)
 }
 
 func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {

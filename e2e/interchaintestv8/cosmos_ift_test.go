@@ -10,11 +10,14 @@ import (
 	"testing"
 	"time"
 
+	gogoproto "github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/sync/errgroup"
 
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
@@ -106,23 +109,32 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 	// container teardown via t.Cleanup, and a subtest's cleanup fires the moment
 	// that subtest returns. Wrapping this in s.Run would bind cleanup to the
 	// subtest's *testing.T (s.T() inside the closure), tearing the attestors down
-	// right after setup — long before the relay needs them.
-	s.chainAAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
-		NumAttestors:         testvalues.NumAttestors,
-		KeystorePathTemplate: cosmosIFTAttestorChainAKeystoreTemplate,
-		ChainType:            attestor.ChainTypeCosmos,
-		AdapterURL:           s.ChainA.GetRPCAddress(),
-		DockerClient:         s.GetDockerClient(),
-		NetworkID:            s.GetNetworkID(),
+	// right after setup — long before the relay needs them. The two fleets are
+	// independent, so start them concurrently.
+	var eg errgroup.Group
+	eg.Go(func() error {
+		s.chainAAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+			NumAttestors:         testvalues.NumAttestors,
+			KeystorePathTemplate: cosmosIFTAttestorChainAKeystoreTemplate,
+			ChainType:            attestor.ChainTypeCosmos,
+			AdapterURL:           s.ChainA.GetRPCAddress(),
+			DockerClient:         s.GetDockerClient(),
+			NetworkID:            s.GetNetworkID(),
+		})
+		return nil
 	})
-	s.chainBAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
-		NumAttestors:         testvalues.NumAttestors,
-		KeystorePathTemplate: cosmosIFTAttestorChainBKeystoreTemplate,
-		ChainType:            attestor.ChainTypeCosmos,
-		AdapterURL:           s.ChainB.GetRPCAddress(),
-		DockerClient:         s.GetDockerClient(),
-		NetworkID:            s.GetNetworkID(),
+	eg.Go(func() error {
+		s.chainBAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+			NumAttestors:         testvalues.NumAttestors,
+			KeystorePathTemplate: cosmosIFTAttestorChainBKeystoreTemplate,
+			ChainType:            attestor.ChainTypeCosmos,
+			AdapterURL:           s.ChainB.GetRPCAddress(),
+			DockerClient:         s.GetDockerClient(),
+			NetworkID:            s.GetNetworkID(),
+		})
+		return nil
 	})
+	s.Require().NoError(eg.Wait())
 
 	var proofApiProcess *os.Process
 	s.Require().True(s.Run("Start Proof API", func() {
@@ -650,6 +662,31 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 		time.Sleep(35 * time.Second)
 	}))
 
+	s.Require().True(s.Run("Relay tx after timeout contains no receive messages", func() {
+		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
+		s.Require().NoError(err)
+
+		// Attested mode does not error on a timed-out packet; it filters the
+		// packet out of the recv messages and returns an update-client-only tx.
+		// Guard against a proof-api regression that would hand a doomed
+		// MsgRecvPacket to a submitter.
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
+			SrcChain:    s.ChainA.Config().ChainID,
+			DstChain:    s.ChainB.Config().ChainID,
+			SourceTxIds: [][]byte{sendTxHashBytes},
+			SrcClientId: testvalues.FirstAttestationsClientID,
+			DstClientId: testvalues.FirstAttestationsClientID,
+		})
+		s.Require().NoError(err)
+
+		var txBody txtypes.TxBody
+		s.Require().NoError(gogoproto.Unmarshal(resp.Tx, &txBody))
+		for _, msg := range txBody.Messages {
+			s.Require().NotContains(msg.TypeUrl, "MsgRecvPacket",
+				"relay tx for a timed-out packet must not contain a receive message, got %s", msg.TypeUrl)
+		}
+	}))
+
 	s.Require().True(s.Run("Relay timeout packet back to Chain A", func() {
 		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
 		s.Require().NoError(err)
@@ -1125,38 +1162,26 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 // Helper functions
 
 // setupSharedDenomCreator recovers the shared denom-creator key from a fixed
-// mnemonic on both chains and funds it. It uses --key-type secp256k1 (like
-// CreateAndFundCosmosUser) because sandbox-ledger defaults `keys add` to
-// eth_secp256k1, which the host broadcaster cannot sign. Recovering the same
-// mnemonic with the same key type and coin type yields the same address on both
-// chains, so `factory/<creator>/<sub>` is the identical denom string on each.
+// mnemonic on both chains and funds it. The e2esuite helper uses --key-type
+// secp256k1 (like CreateAndFundCosmosUser) because sandbox-ledger defaults
+// `keys add` to eth_secp256k1, which the host broadcaster cannot sign.
+// Recovering the same mnemonic with the same key type and coin type yields the
+// same address on both chains, so `factory/<creator>/<sub>` is the identical
+// denom string on each.
 func (s *CosmosIFTTestSuite) setupSharedDenomCreator(ctx context.Context) ibc.Wallet {
 	const keyName = "ift-denom-creator"
 
-	var bech32Addr string
+	var chainAWallet ibc.Wallet
 	for _, chain := range []*cosmos.CosmosChain{s.ChainA, s.ChainB} {
-		node := chain.GetNode()
-		recoverCmd := fmt.Sprintf(
-			"echo %q | %s keys add %s --recover --key-type secp256k1 --coin-type %s --keyring-backend test --home %s --output json",
-			sharedDenomCreatorMnemonic, chain.Config().Bin, keyName, chain.Config().CoinType, node.HomeDir(),
-		)
-		_, _, err := node.Exec(ctx, []string{"sh", "-c", recoverCmd}, chain.Config().Env)
-		s.Require().NoError(err)
-
-		addr, err := node.AccountKeyBech32(ctx, keyName)
-		s.Require().NoError(err)
-		bech32Addr = addr
-
-		s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
-			Address: addr,
-			Amount:  sdkmath.NewInt(testvalues.InitialBalance),
-			Denom:   chain.Config().Denom,
-		}))
+		wallet := s.RecoverAndFundCosmosUser(ctx, chain, keyName, sharedDenomCreatorMnemonic, testvalues.InitialBalance)
+		if chain == s.ChainA {
+			chainAWallet = wallet
+		}
 	}
 
-	addrBytes, err := sdk.GetFromBech32(bech32Addr, s.ChainA.Config().Bech32Prefix)
-	s.Require().NoError(err)
-	return cosmos.NewWallet(keyName, addrBytes, sharedDenomCreatorMnemonic, s.ChainA.Config())
+	// The addresses are identical across chains by construction; return the
+	// ChainA-config wallet exactly as before.
+	return chainAWallet
 }
 
 // createTokenFactoryDenom creates the IFT tokenfactory denom under the shared
@@ -1172,7 +1197,7 @@ func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain 
 	_, err := s.BroadcastMessages(ctx, chain, creator, 200_000, msg)
 	s.Require().NoError(err)
 
-	return fmt.Sprintf("factory/%s/%s", creator.FormattedAddress(), subdenom)
+	return testvalues.TokenFactoryDenom(creator.FormattedAddress(), subdenom)
 }
 
 // mintTokens mints the tokenfactory denom to a recipient. It signs as the shared

@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"testing"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
@@ -1967,7 +1967,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Contex
 	}
 	_, err := s.BroadcastMessages(ctx, s.Sandbox, s.CosmosSubmitter, 200_000, msg)
 	s.Require().NoError(err)
-	return fmt.Sprintf("factory/%s/%s", s.CosmosSubmitter.FormattedAddress(), subdenom)
+	return testvalues.TokenFactoryDenom(s.CosmosSubmitter.FormattedAddress(), subdenom)
 }
 
 // mintTokenFactory mints tokenfactory tokens to a recipient
@@ -2023,8 +2023,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			ClientId:               clientID,
 			CounterpartyIftAddress: counterpartyAddress,
 			ChainOptions: &ift.IftStateChainOptions_Cosmos{
-				Denom:      counterpartyDenom,
-				TypeUrl:    "/ibc.applications.prototypes.ift.v1.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
+				Denom: counterpartyDenom,
+				// Must match the type URL the Cosmos IFT module expects.
+				TypeUrl:    "/" + proto.MessageName(&ifttypes.MsgIFTMint{}),
 				IcaAddress: cosmosIcaAddress,
 			},
 		}

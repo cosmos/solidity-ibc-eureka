@@ -105,9 +105,30 @@ func (s *TestSuite) BroadcastMessagesNoWait(ctx context.Context, chain *cosmos.C
 // cosmosUserKeyCounter generates unique keyring names for e2e-created cosmos users.
 var cosmosUserKeyCounter atomic.Int64
 
+// normalizeHostAddress rewrites the 0.0.0.0 bind address interchaintest
+// reports to 127.0.0.1. 0.0.0.0 is not a valid dial target on macOS
+// (connection refused), though Linux tolerates it.
+func normalizeHostAddress(addr string) string {
+	return strings.Replace(addr, "0.0.0.0", "127.0.0.1", 1)
+}
+
 // CreateAndFundCosmosUser returns a new cosmos user with the initial balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
 	return s.CreateAndFundCosmosUserWithBalance(ctx, chain, testvalues.InitialBalance)
+}
+
+// cosmosKeysAddArgs returns the common flag set for creating/recovering
+// secp256k1 keys on a chain node.
+func cosmosKeysAddArgs(chain *cosmos.CosmosChain, keyName string) []string {
+	node := chain.GetNode()
+	return []string{
+		chain.Config().Bin, "keys", "add", keyName,
+		"--key-type", "secp256k1",
+		"--coin-type", chain.Config().CoinType,
+		"--keyring-backend", "test",
+		"--home", node.HomeDir(),
+		"--output", "json",
+	}
 }
 
 // CreateAndFundCosmosUserWithBalance returns a new cosmos user with the given balance and funds it with the native chain denom.
@@ -123,20 +144,41 @@ func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chai
 	keyName := fmt.Sprintf("e2e-user-%d", cosmosUserKeyCounter.Add(1))
 	node := chain.GetNode()
 
-	_, _, err := node.Exec(ctx, []string{
-		chain.Config().Bin, "keys", "add", keyName,
-		"--key-type", "secp256k1",
-		"--coin-type", chain.Config().CoinType,
-		"--keyring-backend", "test",
-		"--home", node.HomeDir(),
-		"--output", "json",
-	}, chain.Config().Env)
+	_, _, err := node.Exec(ctx, cosmosKeysAddArgs(chain, keyName), chain.Config().Env)
 	s.Require().NoError(err)
 
 	addrBytes, err := chain.GetAddress(ctx, keyName)
 	s.Require().NoError(err)
 
 	wallet := cosmos.NewWallet(keyName, addrBytes, "", chain.Config())
+
+	s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
+		Address: wallet.FormattedAddress(),
+		Amount:  sdkmath.NewInt(balance),
+		Denom:   chain.Config().Denom,
+	}))
+
+	return wallet
+}
+
+// RecoverAndFundCosmosUser recovers a key from the given mnemonic under keyName
+// (creating it with the same secp256k1 key settings as
+// CreateAndFundCosmosUserWithBalance - see that method for why secp256k1) and
+// funds it from the faucet. Unlike plain `keys add`, `--recover` reads the
+// mnemonic from stdin, and node.Exec has no stdin plumbing, so the mnemonic is
+// piped via `sh -c`.
+func (s *TestSuite) RecoverAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain, keyName, mnemonic string, balance int64) ibc.Wallet {
+	node := chain.GetNode()
+
+	args := append(cosmosKeysAddArgs(chain, keyName), "--recover")
+	recoverCmd := fmt.Sprintf("echo %q | %s", mnemonic, strings.Join(args, " "))
+	_, _, err := node.Exec(ctx, []string{"sh", "-c", recoverCmd}, chain.Config().Env)
+	s.Require().NoError(err)
+
+	addrBytes, err := chain.GetAddress(ctx, keyName)
+	s.Require().NoError(err)
+
+	wallet := cosmos.NewWallet(keyName, addrBytes, mnemonic, chain.Config())
 
 	s.Require().NoError(chain.SendFunds(ctx, interchaintest.FaucetAccountKeyName, ibc.WalletAmount{
 		Address: wallet.FormattedAddress(),

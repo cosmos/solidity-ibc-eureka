@@ -3,7 +3,6 @@ package e2esuite
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
@@ -23,13 +22,10 @@ import (
 
 var queryReqToPath = make(map[string]string)
 
-// hostGRPCAddress returns the chain's host gRPC address with 0.0.0.0 normalized
-// to 127.0.0.1. Interchaintest reports the bind address (0.0.0.0:<port>), which
-// is not a valid dial target on macOS (connection refused), though Linux
-// tolerates it. Mirrors the same workaround used for the Ethereum RPC in
-// setup_ethereum.go.
+// hostGRPCAddress returns the chain's host gRPC address; normalizeHostAddress
+// documents why the bind address is rewritten.
 func hostGRPCAddress(chain *cosmos.CosmosChain) string {
-	return strings.Replace(chain.GetHostGRPCAddress(), "0.0.0.0", "127.0.0.1", 1)
+	return normalizeHostAddress(chain.GetHostGRPCAddress())
 }
 
 // waitForGRPCReady blocks until the gRPC connection reaches the Ready state or
