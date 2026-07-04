@@ -271,12 +271,12 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 		}))
 	}))
 
-	s.Require().True(s.Run("Register counterparty on Chain A", func() {
-		// Attestations clients verify a single-element key path (the attestor signs
-		// the commitment directly), unlike tendermint clients which use the
-		// 2-element ["ibc", ""] multistore prefix.
-		merklePathPrefix := [][]byte{[]byte("")}
+	// Attestations clients verify a single-element key path (the attestor signs
+	// the commitment directly), unlike tendermint clients which use the
+	// 2-element ["ibc", ""] multistore prefix.
+	merklePathPrefix := [][]byte{[]byte("")}
 
+	s.Require().True(s.Run("Register counterparty on Chain A", func() {
 		_, err := s.BroadcastMessages(ctx, s.ChainA, s.ChainASubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstAttestationsClientID,
 			CounterpartyClientId:     testvalues.FirstAttestationsClientID,
@@ -287,11 +287,6 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Register counterparty on Chain B", func() {
-		// Attestations clients verify a single-element key path (the attestor signs
-		// the commitment directly), unlike tendermint clients which use the
-		// 2-element ["ibc", ""] multistore prefix.
-		merklePathPrefix := [][]byte{[]byte("")}
-
 		_, err := s.BroadcastMessages(ctx, s.ChainB, s.ChainBSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
 			ClientId:                 testvalues.FirstAttestationsClientID,
 			CounterpartyClientId:     testvalues.FirstAttestationsClientID,

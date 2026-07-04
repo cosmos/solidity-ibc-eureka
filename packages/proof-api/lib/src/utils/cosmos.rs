@@ -392,64 +392,6 @@ fn is_staking_module_absent(err: &anyhow::Error) -> bool {
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::is_staking_module_absent;
-    use ibc_eureka_utils::rpc::AbciQueryError;
-
-    fn abci_error(code: u32, log: &str) -> anyhow::Error {
-        AbciQueryError {
-            path: "/cosmos.staking.v1beta1.Query/Params".to_string(),
-            code,
-            codespace: String::new(),
-            log: log.to_string(),
-        }
-        .into()
-    }
-
-    #[test]
-    fn staking_module_absent_for_unknown_query_path() {
-        let err = abci_error(6, "rpc error: unknown query path");
-
-        assert!(is_staking_module_absent(&err));
-    }
-
-    #[test]
-    fn staking_module_absent_for_unknown_request() {
-        let err = abci_error(6, "rpc error: unknown request");
-
-        assert!(is_staking_module_absent(&err));
-    }
-
-    #[test]
-    fn staking_module_present_for_unrelated_code_6_error() {
-        let err = abci_error(6, "some other message");
-
-        assert!(!is_staking_module_absent(&err));
-    }
-
-    #[test]
-    fn staking_module_present_for_wrong_code() {
-        let err = abci_error(5, "unknown request");
-
-        assert!(!is_staking_module_absent(&err));
-    }
-
-    #[test]
-    fn staking_module_present_for_untyped_unknown_request_error() {
-        let err = anyhow::anyhow!("transport error: unknown request");
-
-        assert!(!is_staking_module_absent(&err));
-    }
-
-    #[test]
-    fn staking_module_absent_for_context_wrapped_abci_error() {
-        let err = abci_error(6, "rpc error: unknown request").context("staking params failed");
-
-        assert!(is_staking_module_absent(&err));
-    }
-}
-
 /// Generates parameters for creating a new Tendermint IBC light client.
 /// # Arguments
 /// * `src_tm_client` - HTTP client connected to the source Tendermint chain
@@ -886,5 +828,63 @@ pub fn inject_mock_proofs(
     for msg in timeout_msgs.iter_mut() {
         msg.proof_unreceived = b"mock".to_vec();
         msg.proof_height = Some(Height::default());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_staking_module_absent;
+    use ibc_eureka_utils::rpc::AbciQueryError;
+
+    fn abci_error(code: u32, log: &str) -> anyhow::Error {
+        AbciQueryError {
+            path: "/cosmos.staking.v1beta1.Query/Params".to_string(),
+            code,
+            codespace: String::new(),
+            log: log.to_string(),
+        }
+        .into()
+    }
+
+    #[test]
+    fn staking_module_absent_for_unknown_query_path() {
+        let err = abci_error(6, "rpc error: unknown query path");
+
+        assert!(is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_absent_for_unknown_request() {
+        let err = abci_error(6, "rpc error: unknown request");
+
+        assert!(is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_unrelated_code_6_error() {
+        let err = abci_error(6, "some other message");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_wrong_code() {
+        let err = abci_error(5, "unknown request");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_untyped_unknown_request_error() {
+        let err = anyhow::anyhow!("transport error: unknown request");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_absent_for_context_wrapped_abci_error() {
+        let err = abci_error(6, "rpc error: unknown request").context("staking params failed");
+
+        assert!(is_staking_module_absent(&err));
     }
 }

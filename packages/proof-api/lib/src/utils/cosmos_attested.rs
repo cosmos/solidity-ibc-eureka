@@ -352,13 +352,18 @@ async fn build_attestor_relay_events_tx_with(
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     }
 
-    let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
+    let required_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
 
     wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
         let finalized_height = aggregator.get_latest_height().await?;
-        Ok(finalized_height >= relay_height)
+        Ok(finalized_height >= required_height)
     })
     .await?;
+
+    // Use a fresh attestor height, not merely the event height. Timeout
+    // filtering below uses the attested state timestamp; using the old send
+    // event height can make an expired packet look relayable.
+    let relay_height = aggregator.get_latest_height().await?;
 
     let attestations = fetch_attestations(
         aggregator,
