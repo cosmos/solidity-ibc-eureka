@@ -22,6 +22,8 @@ impl TryFrom<GmpSolanaPayloadAbi> for RawGmpSolanaPayload {
     type Error = GMPError;
 
     fn try_from(abi: GmpSolanaPayloadAbi) -> std::result::Result<Self, Self::Error> {
+        // `as_chunks` needs Rust 1.88+, but the SBF toolchain is on 1.84.
+        #[allow(clippy::chunks_exact_to_as_chunks)]
         let chunks = abi.packedAccounts.chunks_exact(PACKED_ACCOUNT_SIZE);
         if !chunks.remainder().is_empty() {
             return Err(GMPError::InvalidAbiEncoding);

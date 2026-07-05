@@ -352,18 +352,18 @@ async fn build_attestor_relay_events_tx_with(
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     }
 
-    let required_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
+    // Attest at the event height, NOT the aggregator's latest height: the
+    // newest height races attestor quorum, and after a processed timeout the
+    // send-packet commitment no longer exists on the source chain. The
+    // downside is that the stale state timestamp can make an expired packet
+    // look relayable; that is tracked in issue #363.
+    let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
 
     wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
         let finalized_height = aggregator.get_latest_height().await?;
-        Ok(finalized_height >= required_height)
+        Ok(finalized_height >= relay_height)
     })
     .await?;
-
-    // Use a fresh attestor height, not merely the event height. Timeout
-    // filtering below uses the attested state timestamp; using the old send
-    // event height can make an expired packet look relayable.
-    let relay_height = aggregator.get_latest_height().await?;
 
     let attestations = fetch_attestations(
         aggregator,
