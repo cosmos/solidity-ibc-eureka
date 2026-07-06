@@ -30,6 +30,21 @@ use tendermint_rpc::{Client, HttpClient, Paging, Url};
 
 use crate::merkle::convert_tm_to_ics_merkle_proof;
 
+/// A non-zero ABCI query response, preserving the structured code/codespace
+/// so callers can classify the failure without parsing rendered text.
+#[derive(Debug, thiserror::Error)]
+#[error("ABCI query {path} returned non-zero code {code} (codespace {codespace:?}): {log}")]
+pub struct AbciQueryError {
+    /// The ABCI query path.
+    pub path: String,
+    /// The non-zero ABCI response code.
+    pub code: u32,
+    /// The ABCI response codespace.
+    pub codespace: String,
+    /// The ABCI response log.
+    pub log: String,
+}
+
 /// An extension trait for [`HttpClient`] that provides additional methods for
 /// obtaining light blocks.
 #[async_trait::async_trait]
@@ -161,9 +176,10 @@ impl TendermintRpcExt for HttpClient {
     }
 
     async fn sdk_staking_params(&self) -> Result<Params> {
+        let path = "/cosmos.staking.v1beta1.Query/Params".to_string();
         let res = self
             .abci_query(
-                Some("/cosmos.staking.v1beta1.Query/Params".to_string()),
+                Some(path.clone()),
                 QueryParamsRequest::default().to_bytes()?,
                 None,
                 false,
@@ -171,11 +187,13 @@ impl TendermintRpcExt for HttpClient {
             .await?;
 
         if res.code.is_err() {
-            anyhow::bail!(
-                "ABCI /cosmos.staking.v1beta1.Query/Params returned non-zero code {}: {}",
-                res.code.value(),
-                res.log,
-            );
+            return Err(AbciQueryError {
+                path,
+                code: res.code.value(),
+                codespace: res.codespace,
+                log: res.log,
+            }
+            .into());
         }
 
         QueryParamsResponse::decode(res.value.as_slice())?

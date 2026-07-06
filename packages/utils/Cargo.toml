@@ -20,6 +20,6 @@ ibc-core-host-types              = { workspace = true, features = ["std"] }
 tendermint-light-client-verifier = { workspace = true }
 tendermint-rpc                   = { workspace = true, features = ["http-client"] }
 tendermint                       = { workspace = true }
+thiserror                        = { workspace = true }
 # We need to use 0.11 until tendermint-rpc is updated to use 0.12
 reqwest_0_11                     = { workspace = true }
-

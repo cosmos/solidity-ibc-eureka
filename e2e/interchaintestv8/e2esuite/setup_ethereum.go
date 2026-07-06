@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -90,7 +89,7 @@ func (s *TestSuite) setupAnvilChains(ctx context.Context, chains []ibc.Chain) {
 
 	for _, chain := range chains {
 		if anvil, ok := chain.(*icfoundry.AnvilChain); ok {
-			rpcAddr := strings.Replace(anvil.GetHostRPCAddress(), "0.0.0.0", "127.0.0.1", 1)
+			rpcAddr := normalizeHostAddress(anvil.GetHostRPCAddress())
 			ethChain, err := ethereum.NewEthereum(ctx, rpcAddr, nil, faucet)
 			s.Require().NoError(err)
 			ethChain.DockerRPC = anvil.GetRPCAddress()

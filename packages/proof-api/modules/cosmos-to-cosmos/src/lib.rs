@@ -17,9 +17,11 @@ use std::collections::HashMap;
 
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use proof_api_lib::{
+    aggregator::{Aggregator, Config as AggregatorConfig},
     listener::{cosmos_sdk, ChainListenerService},
     service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
+    utils::RelayEventsParams,
 };
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -34,14 +36,21 @@ use proof_api_core::{
 pub struct CosmosToCosmosProofApiModule;
 
 /// The `CosmosToCosmosProofApiModuleService` defines the proof API service from Cosmos to Cosmos.
-#[allow(dead_code)]
 struct CosmosToCosmosProofApiModuleService {
     /// The souce chain listener for Cosmos SDK.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Cosmos SDK.
     pub target_listener: cosmos_sdk::ChainListener,
     /// The transaction builder from Cosmos to Cosmos.
-    pub tx_builder: tx_builder::TxBuilder,
+    pub tx_builder: CosmosToCosmosTxBuilder,
+}
+
+/// The transaction builder variants for the Cosmos to Cosmos module.
+enum CosmosToCosmosTxBuilder {
+    /// Native `07-tendermint` client: headers and merkle proofs.
+    Native(tx_builder::TxBuilder),
+    /// `attestations` client: aggregator attestations (e.g. sandbox-ledger).
+    Attested(tx_builder::AttestedTxBuilder),
 }
 
 /// The configuration for the Cosmos to Cosmos proof API module.
@@ -54,22 +63,88 @@ pub struct CosmosToCosmosConfig {
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
+    /// Transaction builder mode. Defaults to the native `07-tendermint` client
+    /// so existing configs without this key keep working.
+    #[serde(default)]
+    pub mode: TxBuilderMode,
+}
+
+/// Transaction builder mode configuration.
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TxBuilderMode {
+    /// Native mode using `07-tendermint` headers and merkle proofs.
+    #[default]
+    Native,
+    /// Attested mode using aggregator attestations (for chains whose only
+    /// counterparty light client is `attestations`, such as sandbox-ledger).
+    Attested(AggregatorConfig),
 }
 
 impl CosmosToCosmosProofApiModuleService {
-    fn new(config: CosmosToCosmosConfig) -> Self {
+    async fn new(config: CosmosToCosmosConfig) -> anyhow::Result<Self> {
         let src_client = HttpClient::from_rpc_url(&config.src_rpc_url);
         let src_listener = cosmos_sdk::ChainListener::new(src_client.clone());
         let target_client = HttpClient::from_rpc_url(&config.target_rpc_url);
         let target_listener = cosmos_sdk::ChainListener::new(target_client.clone());
 
         let tx_builder =
-            tx_builder::TxBuilder::new(src_client, target_client, config.signer_address);
+            match config.mode {
+                TxBuilderMode::Native => CosmosToCosmosTxBuilder::Native(
+                    tx_builder::TxBuilder::new(src_client, target_client, config.signer_address),
+                ),
+                TxBuilderMode::Attested(aggregator_config) => {
+                    let aggregator = Aggregator::from_config(aggregator_config)
+                        .await
+                        .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
+                    CosmosToCosmosTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
+                        aggregator,
+                        config.signer_address,
+                    ))
+                }
+            };
 
-        Self {
+        Ok(Self {
             src_listener,
             target_listener,
             tx_builder,
+        })
+    }
+}
+
+impl CosmosToCosmosTxBuilder {
+    const fn is_attested(&self) -> bool {
+        matches!(self, Self::Attested(_))
+    }
+
+    async fn relay_events(&self, params: RelayEventsParams) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Native(tb) => {
+                tb.relay_events(
+                    params.src_events,
+                    params.target_events,
+                    params.src_client_id,
+                    params.dst_client_id,
+                    params.src_packet_seqs,
+                    params.dst_packet_seqs,
+                )
+                .await
+            }
+            Self::Attested(tb) => tb.relay_events(params).await,
+        }
+    }
+
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Native(tb) => tb.create_client(parameters).await,
+            Self::Attested(tb) => tb.create_client(parameters),
+        }
+    }
+
+    async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Native(tb) => tb.update_client(dst_client_id).await,
+            Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
     }
 }
@@ -143,16 +218,30 @@ impl ProofApiService for CosmosToCosmosProofApiModuleService {
             target_events.len()
         );
 
+        // For timeouts in attested mode, non-membership is proven against the
+        // source chain's current height, so the attestation must be taken there.
+        let timeout_relay_height = if self.tx_builder.is_attested() && !target_events.is_empty() {
+            Some(
+                self.src_listener
+                    .get_block_height()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+            )
+        } else {
+            None
+        };
+
         let tx = self
             .tx_builder
-            .relay_events(
+            .relay_events(RelayEventsParams {
                 src_events,
                 target_events,
-                inner_req.src_client_id,
-                inner_req.dst_client_id,
-                inner_req.src_packet_sequences,
-                inner_req.dst_packet_sequences,
-            )
+                timeout_relay_height,
+                src_client_id: inner_req.src_client_id,
+                dst_client_id: inner_req.dst_client_id,
+                src_packet_seqs: inner_req.src_packet_sequences,
+                dst_packet_seqs: inner_req.dst_packet_sequences,
+            })
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -224,6 +313,8 @@ impl ProofApiModule for CosmosToCosmosProofApiModule {
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
         tracing::info!("Starting Cosmos to Cosmos proof API server.");
-        Ok(Box::new(CosmosToCosmosProofApiModuleService::new(config)))
+        Ok(Box::new(
+            CosmosToCosmosProofApiModuleService::new(config).await?,
+        ))
     }
 }

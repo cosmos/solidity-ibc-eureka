@@ -154,7 +154,8 @@
       "config": {
         "src_rpc_url": "https://noble-testnet-rpc.polkachu.com:443",
         "target_rpc_url": "http://public-celestia-mocha5-consensus.numia.xyz/",
-        "signer_address": "cosmos1abcdef1234567890abcdef1234567890"
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
+        "mode": "native"
       }
     },
     {

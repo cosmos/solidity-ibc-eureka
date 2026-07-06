@@ -352,6 +352,9 @@ async fn build_attestor_relay_events_tx_with(
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     }
 
+    // Attest at the event height, NOT the aggregator's latest height: the
+    // newest height races attestor quorum, and after a processed timeout the
+    // send-packet commitment no longer exists on the source chain.
     let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
 
     wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
@@ -388,13 +391,20 @@ async fn build_attestor_relay_events_tx_with(
         timestamp,
     )?;
 
+    // Filter with wall-clock time like the native builders do: the attested
+    // state timestamp lags at the event height, which would let an already
+    // timed-out packet through as a doomed MsgRecvPacket (issue #363).
+    let now_since_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs();
+
     let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
         params.target_events,
         &params.src_client_id,
         &params.dst_client_id,
         &params.dst_packet_seqs,
         signer_address,
-        timestamp,
+        now_since_unix,
     );
 
     let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
@@ -404,7 +414,7 @@ async fn build_attestor_relay_events_tx_with(
         &params.src_packet_seqs,
         &params.dst_packet_seqs,
         signer_address,
-        timestamp,
+        now_since_unix,
     );
 
     tracing::debug!("Timeout messages: #{}", timeout_msgs.len());

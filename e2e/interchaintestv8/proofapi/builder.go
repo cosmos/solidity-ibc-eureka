@@ -249,7 +249,7 @@ type CosmosToCosmosParams struct {
 	SignerAddress string
 }
 
-// CosmosToCosmos adds a Cosmos→Cosmos module.
+// CosmosToCosmos adds a Cosmos→Cosmos module using native 07-tendermint clients.
 func (b *ConfigBuilder) CosmosToCosmos(p CosmosToCosmosParams) *ConfigBuilder {
 	module := ModuleConfig{
 		Name:     ModuleCosmosToCosmos,
@@ -259,6 +259,51 @@ func (b *ConfigBuilder) CosmosToCosmos(p CosmosToCosmosParams) *ConfigBuilder {
 			SrcRpcUrl:     p.SrcRPC,
 			TargetRpcUrl:  p.DstRPC,
 			SignerAddress: p.SignerAddress,
+			Mode:          NativeMode{},
+		},
+	}
+	b.modules = append(b.modules, module)
+	return b
+}
+
+// CosmosToCosmosAttestedParams contains parameters for a Cosmos→Cosmos module
+// that proves against the destination chain's attestations light client.
+type CosmosToCosmosAttestedParams struct {
+	SrcChainID        string
+	DstChainID        string
+	SrcRPC            string
+	DstRPC            string
+	SignerAddress     string
+	AttestorEndpoints []string
+	AttestorTimeout   int // Optional, defaults to 5000
+	QuorumThreshold   int // Optional, defaults to 1
+}
+
+// CosmosToCosmosAttested adds a Cosmos→Cosmos module that relays via the
+// destination chain's attestations light client (e.g. sandbox-ledger, which
+// does not register the native 07-tendermint client). The attestor watches the
+// source Cosmos chain.
+func (b *ConfigBuilder) CosmosToCosmosAttested(p CosmosToCosmosAttestedParams) *ConfigBuilder {
+	aggConfig := DefaultAggregatorConfig()
+	if len(p.AttestorEndpoints) > 0 {
+		aggConfig.Attestor.AttestorEndpoints = p.AttestorEndpoints
+	}
+	if p.AttestorTimeout > 0 {
+		aggConfig.Attestor.AttestorQueryTimeoutMs = p.AttestorTimeout
+	}
+	if p.QuorumThreshold > 0 {
+		aggConfig.Attestor.QuorumThreshold = p.QuorumThreshold
+	}
+
+	module := ModuleConfig{
+		Name:     ModuleCosmosToCosmos,
+		SrcChain: p.SrcChainID,
+		DstChain: p.DstChainID,
+		Config: CosmosToCosmosModuleConfig{
+			SrcRpcUrl:     p.SrcRPC,
+			TargetRpcUrl:  p.DstRPC,
+			SignerAddress: p.SignerAddress,
+			Mode:          AttestedMode{Config: aggConfig},
 		},
 	}
 	b.modules = append(b.modules, module)

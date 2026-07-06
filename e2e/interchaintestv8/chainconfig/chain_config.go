@@ -45,26 +45,46 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 	}
 }
 
-func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
+func SandboxChainSpec(name, chainId string) *interchaintest.ChainSpec {
+	// sandbox-ledger runs the cosmos-sdk enterprise PoA module, which requires
+	// genesis to contain at least one validator with positive power. There is no
+	// genutil/gentx integration (validators are not derived from gentxs), so the
+	// standard interchaintest bootstrap fails: `gentx` validates the whole genesis,
+	// finds zero PoA power and aborts. We therefore skip gentx, run a single
+	// validator, and seed the PoA validator set ourselves — discovering the node's
+	// CometBFT consensus key in PreGenesis and injecting it in ModifyGenesis.
+	numValidators := 1
+	numFullNodes := 0
+	poaVal := &poaGenesisValidator{}
+
 	return &interchaintest.ChainSpec{
+		NumValidators: &numValidators,
+		NumFullNodes:  &numFullNodes,
 		ChainConfig: ibc.ChainConfig{
 			Type:    "cosmos",
 			Name:    name,
 			ChainID: chainId,
 			Images: []ibc.DockerImage{
 				{
-					Repository: "ghcr.io/cosmos/wfchain",
-					Version:    "latest",
-					UIDGID:     "1025:1025",
+					Repository: "ghcr.io/cosmos/sandbox-ledger",
+					Version:    "v0.0.2",
+					// The sandbox-ledger image runs as user `sandbox` (uid/gid 1000).
+					// interchaintest chowns the chain's volume to this UIDGID and runs
+					// every node command as the image's default user, so a mismatch here
+					// makes `init` fail with "couldn't get client config: Config File
+					// \"client\" Not Found".
+					UIDGID: "1000:1000",
 				},
 			},
-			Bin:            "wfchaind",
-			Bech32Prefix:   "wf",
+			Bin:            "sandboxd",
+			Bech32Prefix:   "cosmos",
 			Denom:          "stake",
 			GasPrices:      "0.00stake",
 			GasAdjustment:  1.5,
 			EncodingConfig: SDKEncodingConfig(),
-			ModifyGenesis:  wfchainModifyGenesis(),
+			SkipGenTx:      true,
+			PreGenesis:     sandboxPreGenesis(poaVal),
+			ModifyGenesis:  sandboxModifyGenesis(poaVal),
 			TrustingPeriod: "508h",
 			NoHostMount:    false,
 		},

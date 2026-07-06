@@ -366,7 +366,7 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	// Deploy Ethereum attestor light client on Cosmos (for Eth→Cosmos direction)
 	s.Require().True(s.Run("Deploy attestor light client on Cosmos for Ethereum", func() {
 		// Store wasm binary if needed (not needed for native attestor)
-		checksumHex := s.StoreLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simd)
 		if !s.isNativeAttestor() {
 			s.Require().NotEmpty(checksumHex)
 		}

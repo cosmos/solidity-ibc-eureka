@@ -11,7 +11,10 @@ use ethereum_types::execution::{account_proof::AccountProof, storage_proof::Stor
 use futures::future;
 use ibc_client_tendermint_types::ConsensusState;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
-use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
+use ibc_eureka_utils::{
+    light_block::LightBlockExt as _,
+    rpc::{AbciQueryError, TendermintRpcExt},
+};
 use ibc_proto_eureka::google::protobuf::Duration;
 use ibc_proto_eureka::{
     cosmos::tx::v1beta1::TxBody,
@@ -335,6 +338,60 @@ pub struct TmCreateClientParams {
     pub consensus_state: ConsensusState,
 }
 
+/// Default unbonding period, in seconds, for chains without a staking module.
+///
+/// Some chains, such as proof-of-authority chains, do not expose the cosmos-sdk
+/// `x/staking` module, yet the Tendermint light client still needs a trusting
+/// period. In that case we fall back to the cosmos-sdk default unbonding time
+/// of 21 days.
+pub const DEFAULT_UNBONDING_PERIOD_SECONDS: i64 = 21 * 24 * 60 * 60;
+
+/// Fetches the source chain's unbonding period (in seconds) from `x/staking`.
+///
+/// Falls back to [`DEFAULT_UNBONDING_PERIOD_SECONDS`] when the chain has no
+/// `x/staking` module, which the node reports as a structured ABCI unknown
+/// request error (code 6) for the unregistered staking route. Any other error
+/// is propagated so genuine or transient failures are not silently masked.
+///
+/// # Errors
+/// - The staking query fails for a reason other than a missing module
+/// - The staking params contain no unbonding time
+pub async fn unbonding_period_seconds(src_tm_client: &HttpClient) -> Result<i64> {
+    match src_tm_client.sdk_staking_params().await {
+        Ok(params) => params
+            .unbonding_time
+            .map(|d| d.seconds)
+            .ok_or_else(|| anyhow::anyhow!("No unbonding time found")),
+        Err(err) if is_staking_module_absent(&err) => {
+            tracing::warn!(
+                error = %err,
+                seconds = DEFAULT_UNBONDING_PERIOD_SECONDS,
+                "x/staking params unavailable; falling back to default unbonding period (source chain likely has no staking module, e.g. PoA)"
+            );
+            Ok(DEFAULT_UNBONDING_PERIOD_SECONDS)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+/// Returns `true` when the error indicates the chain has no `x/staking` module
+/// (the staking query route is not registered), rather than a transient failure.
+///
+/// cosmos-sdk reports an unregistered gRPC query route as `ErrUnknownRequest`
+/// (code 6) with a route-not-found message. Requiring the structured ABCI code
+/// AND the route marker keeps unrelated errors - including unrelated code-6
+/// errors and non-ABCI failures whose rendered text happens to contain
+/// "unknown request" - on the hard-error path.
+fn is_staking_module_absent(err: &anyhow::Error) -> bool {
+    const ERR_UNKNOWN_REQUEST: u32 = 6; // cosmos-sdk sdkerrors.ErrUnknownRequest
+    err.downcast_ref::<AbciQueryError>().is_some_and(|e| {
+        e.code == ERR_UNKNOWN_REQUEST
+            && (e.log.contains("unknown query path")
+                || e.log.contains("unknown request")
+                || e.log.contains("no query handler"))
+    })
+}
+
 /// Generates parameters for creating a new Tendermint IBC light client.
 /// # Arguments
 /// * `src_tm_client` - HTTP client connected to the source Tendermint chain
@@ -362,15 +419,15 @@ pub async fn tm_create_client_params(
         revision_number: chain_id.revision_number(),
         revision_height: latest_light_block.height().value(),
     };
-    let unbonding_period = src_tm_client
-        .sdk_staking_params()
-        .await?
-        .unbonding_time
-        .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+    let unbonding_seconds = unbonding_period_seconds(src_tm_client).await?;
+    let unbonding_period = Duration {
+        seconds: unbonding_seconds,
+        nanos: 0,
+    };
 
     // Defaults to the recommended 2/3 of the UnbondingPeriod
     let trusting_period = Duration {
-        seconds: 2 * (unbonding_period.seconds / 3),
+        seconds: 2 * (unbonding_seconds / 3),
         nanos: 0,
     };
 
@@ -771,5 +828,63 @@ pub fn inject_mock_proofs(
     for msg in timeout_msgs.iter_mut() {
         msg.proof_unreceived = b"mock".to_vec();
         msg.proof_height = Some(Height::default());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_staking_module_absent;
+    use ibc_eureka_utils::rpc::AbciQueryError;
+
+    fn abci_error(code: u32, log: &str) -> anyhow::Error {
+        AbciQueryError {
+            path: "/cosmos.staking.v1beta1.Query/Params".to_string(),
+            code,
+            codespace: String::new(),
+            log: log.to_string(),
+        }
+        .into()
+    }
+
+    #[test]
+    fn staking_module_absent_for_unknown_query_path() {
+        let err = abci_error(6, "rpc error: unknown query path");
+
+        assert!(is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_absent_for_unknown_request() {
+        let err = abci_error(6, "rpc error: unknown request");
+
+        assert!(is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_unrelated_code_6_error() {
+        let err = abci_error(6, "some other message");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_wrong_code() {
+        let err = abci_error(5, "unknown request");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_present_for_untyped_unknown_request_error() {
+        let err = anyhow::anyhow!("transport error: unknown request");
+
+        assert!(!is_staking_module_absent(&err));
+    }
+
+    #[test]
+    fn staking_module_absent_for_context_wrapped_abci_error() {
+        let err = abci_error(6, "rpc error: unknown request").context("staking params failed");
+
+        assert!(is_staking_module_absent(&err));
     }
 }

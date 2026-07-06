@@ -31,6 +31,7 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
+	interchaintest "github.com/cosmos/interchaintest/v11"
 	"github.com/cosmos/interchaintest/v11/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ibcerc20"
@@ -80,7 +81,13 @@ func TestWithMultichainTestSuite(t *testing.T) {
 }
 
 func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
-	chainconfig.DefaultChainSpecs = append(chainconfig.DefaultChainSpecs, chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"))
+	// Assign (rather than append) so SetupSuite is idempotent across the suite's
+	// tests; appending to the package-global would accumulate duplicate chain specs
+	// ("a chain with ID simd-2 already exists").
+	chainconfig.DefaultChainSpecs = []*interchaintest.ChainSpec{
+		chainconfig.IbcGoChainSpec("ibc-go-simd-1", "simd-1"),
+		chainconfig.IbcGoChainSpec("ibc-go-simd-2", "simd-2"),
+	}
 
 	s.TestSuite.SetupSuite(ctx)
 
@@ -320,7 +327,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		checksumHex := s.StoreLightClient(ctx, simdA, s.SimdARelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simdA)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
@@ -365,7 +372,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		checksumHex := s.StoreLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simdB)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
