@@ -14,7 +14,6 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
-import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
 import { IPausable } from "./interfaces/IPausable.sol";
 
 import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";

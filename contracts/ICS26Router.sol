@@ -18,7 +18,6 @@ import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ICS26AdminsDeprecated } from "./utils/ICS26AdminsDeprecated.sol";
 
 /// @title IBC Eureka Router
 /// @notice The core router for the IBC Eureka protocol
