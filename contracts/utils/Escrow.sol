@@ -43,12 +43,6 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
     }
 
     /// @inheritdoc IEscrow
-    function initializeV2() external onlyVersion(1) reinitializer(2) {
-        address authority = IAccessManaged(_getEscrowStorage()._ics20).authority();
-        __RateLimit_init(authority);
-    }
-
-    /// @inheritdoc IEscrow
     function send(IERC20 token, address to, uint256 amount) external onlyICS20 {
         _assertAndUpdateRateLimit(address(token), amount);
         token.safeTransfer(to, amount);

@@ -101,14 +101,6 @@ contract ICS20Transfer is
         $._permit2 = ISignatureTransfer(permit2);
     }
 
-    /// @inheritdoc IICS20Transfer
-    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
-        address ics26_ = address(_getICS20TransferStorage()._ics26);
-        require(IDeprecatedIBCUUPSUpgradeable(ics26_).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
-
-        __AccessManaged_init(authority);
-    }
-
     /// @inheritdoc IPausable
     function pause() external restricted {
         _pause();

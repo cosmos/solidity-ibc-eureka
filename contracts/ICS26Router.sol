@@ -62,14 +62,6 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
-        require(ICS26AdminsDeprecated.isAdmin(_msgSender()), IBCUnauthorizedSender(_msgSender()));
-
-        ICS26AdminsDeprecated.__IBCUUPSUpgradeable_deinit();
-        __ICS02Client_init(authority);
-    }
-
-    /// @inheritdoc IICS26Router
     function getIBCApp(string calldata portId) public view returns (IIBCApp) {
         IIBCApp app = _getICS26RouterStorage()._apps[portId];
         require(address(app) != address(0), IBCAppNotFound(portId));
