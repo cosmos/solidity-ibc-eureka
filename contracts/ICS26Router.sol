@@ -18,7 +18,6 @@ import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS02ClientUpgradeable } from "./utils/ICS02ClientUpgradeable.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ICS26AdminsDeprecated } from "./utils/ICS26AdminsDeprecated.sol";
 
 /// @title IBC Eureka Router
 /// @notice The core router for the IBC Eureka protocol
@@ -58,14 +57,6 @@ contract ICS26Router is
     function initialize(address authority) external onlyVersion(0) reinitializer(2) {
         __Multicall_init();
         __IBCStore_init();
-        __ICS02Client_init(authority);
-    }
-
-    /// @inheritdoc IICS26Router
-    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
-        require(ICS26AdminsDeprecated.isAdmin(_msgSender()), IBCUnauthorizedSender(_msgSender()));
-
-        ICS26AdminsDeprecated.__IBCUUPSUpgradeable_deinit();
         __ICS02Client_init(authority);
     }
 

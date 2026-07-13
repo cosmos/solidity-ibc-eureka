@@ -355,19 +355,6 @@
   },
   {
     "type": "function",
-    "name": "initializeV2",
-    "inputs": [
-      {
-        "name": "authority",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "isConsumingScheduledOp",
     "inputs": [],
     "outputs": [

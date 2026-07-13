@@ -14,7 +14,6 @@ import { IICS26Router } from "./interfaces/IICS26Router.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 import { IMintableAndBurnable } from "./interfaces/IMintableAndBurnable.sol";
 import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
-import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
 import { IPausable } from "./interfaces/IPausable.sol";
 
 import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
@@ -99,14 +98,6 @@ contract ICS20Transfer is
         $._ibcERC20Beacon = new UpgradeableBeacon(ibcERC20Logic, address(this));
         $._escrowBeacon = new UpgradeableBeacon(escrowLogic, address(this));
         $._permit2 = ISignatureTransfer(permit2);
-    }
-
-    /// @inheritdoc IICS20Transfer
-    function initializeV2(address authority) external onlyVersion(1) reinitializer(2) {
-        address ics26_ = address(_getICS20TransferStorage()._ics26);
-        require(IDeprecatedIBCUUPSUpgradeable(ics26_).isAdmin(_msgSender()), ICS20Unauthorized(_msgSender()));
-
-        __AccessManaged_init(authority);
     }
 
     /// @inheritdoc IPausable

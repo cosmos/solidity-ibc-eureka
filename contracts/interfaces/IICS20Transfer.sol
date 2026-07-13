@@ -107,12 +107,6 @@ interface IICS20Transfer is IICS20TransferAccessControlled {
     )
         external;
 
-    /// @notice Initializes the contract with a AccessManager authority
-    /// @dev This initializes the contract to the latest version from a previous version
-    /// @dev Must be called before the ICS26Router is upgraded to the latest version
-    /// @param authority The address of the AccessManager contract
-    function initializeV2(address authority) external;
-
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when an IBCERC20 contract is created
