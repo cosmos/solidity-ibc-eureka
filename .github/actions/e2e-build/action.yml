@@ -52,7 +52,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cargo/bin/proof-api
-        key: ${{ runner.os }}-proof-api-${{ hashFiles('programs/proof-api/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'abi/bytecode/**', 'Cargo.lock') }}
+        key: ${{ runner.os }}-proof-api-${{ hashFiles('programs/proof-api/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'ibc-solidity/abi/bytecode/**', 'Cargo.lock') }}
 
     - name: Install proof API
       if: steps.cache-proof-api.outputs.cache-hit != 'true'

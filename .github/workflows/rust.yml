@@ -12,7 +12,7 @@ on:
       - '**.toml'
       - '**.lock'
       - '**.proto'
-      - 'abi/**'
+      - 'ibc-solidity/abi/**'
       - '.github/workflows/rust.yml'
 
 jobs:

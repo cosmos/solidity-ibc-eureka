@@ -10,6 +10,7 @@ on:
   pull_request:
     paths:
       - 'justfile'
+      - 'ibc-solidity/solidity.just'
       - '**.rs'
       - '**.go'
       - '**.toml'
@@ -19,7 +20,7 @@ on:
       - '**.sol'
       - '.github/workflows/e2e-mock.yml'
       - '.github/actions/**'
-      - 'bun.lockb'
+      - 'ibc-solidity/bun.lock'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

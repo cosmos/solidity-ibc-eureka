@@ -23,9 +23,9 @@ go.work
 nitro-testnode
 
 # broadcasts
-!broadcast
-broadcast/*
-broadcast/*/31337/
+!ibc-solidity/broadcast
+ibc-solidity/broadcast/*
+ibc-solidity/broadcast/*/31337/
 
 # ide files
 .idea/
@@ -46,7 +46,7 @@ bacon.toml
 
 # Config files and test artifacts
 programs/relayer/config.json
-scripts/genesis.json
+ibc-solidity/scripts/genesis.json
 network_params.yaml
 test-ledger
 

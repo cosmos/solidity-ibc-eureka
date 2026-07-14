@@ -73,12 +73,12 @@ jobs:
       - name: Build and package the contracts
         env:
           TAG_NAME: ${{ github.ref_name }}
-        run: ./scripts/package-contracts.sh
+        run: ./ibc-solidity/scripts/package-contracts.sh
 
       - name: Upload solidity contract artifacts to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: solidity-contracts-${{ github.ref_name }}.tar.gz
+          file: ibc-solidity/solidity-contracts-${{ github.ref_name }}.tar.gz
           tag: ${{ github.ref }}
           overwrite: true

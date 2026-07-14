@@ -5,6 +5,11 @@ env:
   ETH_RPC_URL: https://ethereum-rpc.publicnode.com
   FOUNDRY_PROFILE: ci
 
+# The Solidity implementation lives in ibc-solidity/
+defaults:
+  run:
+    working-directory: ibc-solidity
+
 permissions:
   contents: read
 
@@ -28,7 +33,8 @@ jobs:
 
       - uses: srdtrk/natlint@main
         with:
-          include: 'contracts/**/*.sol'
+          include: 'ibc-solidity/contracts/**/*.sol'
+          config: 'ibc-solidity/natlint.toml'
 
       - name: Add lint summary
         run: |
@@ -130,6 +136,7 @@ jobs:
 
       - uses: codecov/codecov-action@v5
         with:
+          working-directory: ibc-solidity
           exclude: test
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -13,7 +13,7 @@ alloy_sol_types::sol!(
     #[sol(rpc)]
     #[derive(Debug, PartialEq, Eq)]
     router,
-    "../../abi/ICS26Router.json"
+    "../../ibc-solidity/abi/ICS26Router.json"
 );
 
 // NOTE: Some environments won't compile with the `rpc` features.
@@ -21,7 +21,7 @@ alloy_sol_types::sol!(
 alloy_sol_types::sol!(
     #[derive(Debug, PartialEq, Eq)]
     router,
-    "../../abi/ICS26Router.json"
+    "../../ibc-solidity/abi/ICS26Router.json"
 );
 
 impl IICS26RouterMsgs::Packet {

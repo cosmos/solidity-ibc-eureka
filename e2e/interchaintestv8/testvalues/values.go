@@ -160,13 +160,16 @@ const (
 	// Ics27ProtobufEncoding is the protobuf encoding type for ICS27 packets (used for Solana).
 	Ics27ProtobufEncoding = "application/x-protobuf"
 
+	// SolidityProjectDir is the root of the Foundry project for the Solidity IBC implementation,
+	// relative to the repository root. Forge commands are run from this directory.
+	SolidityProjectDir = "ibc-solidity"
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
-	Sp1GenesisFilePath = "scripts/genesis.json"
+	Sp1GenesisFilePath = "ibc-solidity/scripts/genesis.json"
 	// SolidityFixturesDir is the directory where the Solidity fixtures are stored.
-	SolidityFixturesDir = "test/solidity-ibc/fixtures/"
+	SolidityFixturesDir = "ibc-solidity/test/solidity-ibc/fixtures/"
 	// SP1ICS07FixturesDir is the directory where the SP1ICS07 fixtures are stored.
-	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
+	SP1ICS07FixturesDir = "ibc-solidity/test/sp1-ics07/fixtures"
 	// WasmFixturesDir is the directory where the Rust fixtures are stored.
 	WasmFixturesDir = "packages/ethereum/light-client/src/test_utils/fixtures"
 	// ProofAPIConfigFilePath is the path to generate the proof API config file.
