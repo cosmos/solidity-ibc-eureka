@@ -49,12 +49,6 @@ interface IICS26Router is IICS26RouterAccessControlled {
     /// @param authority The address of the AccessManager contract
     function initialize(address authority) external;
 
-    /// @notice Reinitializes the contract to upgrade it
-    /// @dev This initializes the contract to the latest version from a previous version
-    /// @dev Meant to be called only once from the proxy
-    /// @param authority The address of the AccessManager contract
-    function initializeV2(address authority) external;
-
     // --------------------- Events --------------------- //
 
     /// @notice Emitted when an IBC application is added to the router

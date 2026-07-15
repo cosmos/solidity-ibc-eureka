@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
 import { IEscrowErrors } from "../errors/IEscrowErrors.sol";
-import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 
 import { ContextUpgradeable } from "@openzeppelin-upgradeable/utils/ContextUpgradeable.sol";
 import { RateLimitUpgradeable } from "./RateLimitUpgradeable.sol";
@@ -40,12 +39,6 @@ contract Escrow is IEscrowErrors, IEscrow, ContextUpgradeable, RateLimitUpgradea
 
         EscrowStorage storage $ = _getEscrowStorage();
         $._ics20 = ics20_;
-    }
-
-    /// @inheritdoc IEscrow
-    function initializeV2() external onlyVersion(1) reinitializer(2) {
-        address authority = IAccessManaged(_getEscrowStorage()._ics20).authority();
-        __RateLimit_init(authority);
     }
 
     /// @inheritdoc IEscrow
