@@ -155,7 +155,8 @@ mod tests {
         };
 
         let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
-        app_state.try_serialize(&mut &mut data[..]).unwrap();
+        let mut writer = &mut data[..];
+        app_state.try_serialize(&mut writer).unwrap();
 
         SolanaAccount {
             lamports: 10_000_000,
@@ -180,7 +181,8 @@ mod tests {
         };
 
         let mut data = vec![0u8; 8 + 10000];
-        access_manager.try_serialize(&mut &mut data[..]).unwrap();
+        let mut writer = &mut data[..];
+        access_manager.try_serialize(&mut writer).unwrap();
 
         SolanaAccount {
             lamports: 10_000_000,

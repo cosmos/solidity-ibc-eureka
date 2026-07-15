@@ -31,7 +31,8 @@ pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
     // Use INIT_SPACE to ensure account has enough space for max roles
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    access_manager.serialize(&mut &mut data[8..]).unwrap();
+    let mut writer = &mut data[8..];
+    access_manager.serialize(&mut writer).unwrap();
 
     (
         access_manager_pda,
@@ -80,7 +81,8 @@ pub fn create_access_manager_with_role(
     // Use INIT_SPACE to ensure account has enough space for max roles
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    access_manager.serialize(&mut &mut data[8..]).unwrap();
+    let mut writer = &mut data[8..];
+    access_manager.serialize(&mut writer).unwrap();
 
     (
         access_manager_pda,
@@ -381,7 +383,8 @@ pub fn setup_program_test_with_whitelist(
     };
     let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    am.serialize(&mut &mut am_data[8..]).unwrap();
+    let mut writer = &mut am_data[8..];
+    am.serialize(&mut writer).unwrap();
 
     pt.add_account(
         access_manager_pda,
@@ -565,7 +568,8 @@ pub fn create_access_manager_with_transfers(
     };
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    am.serialize(&mut &mut data[8..]).unwrap();
+    let mut writer = &mut data[8..];
+    am.serialize(&mut writer).unwrap();
     (
         pda,
         Account {

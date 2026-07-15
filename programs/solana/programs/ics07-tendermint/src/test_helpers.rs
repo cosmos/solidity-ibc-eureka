@@ -805,7 +805,8 @@ pub fn setup_program_test_with_whitelist(
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut app_data[..]).unwrap();
+    let mut writer = &mut app_data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -872,7 +873,8 @@ pub fn setup_program_test_with_relayer(
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut app_data[..]).unwrap();
+    let mut writer = &mut app_data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,

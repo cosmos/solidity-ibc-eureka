@@ -60,7 +60,8 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
-    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    router_state.try_serialize(&mut writer).unwrap();
     (router_state_pda, data)
 }
 
@@ -73,7 +74,8 @@ pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
-    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    router_state.try_serialize(&mut writer).unwrap();
     (router_state_pda, data)
 }
 
@@ -975,9 +977,8 @@ pub fn setup_program_test_with_roles_and_whitelist(
         _reserved: [0; 256],
     };
     let mut router_data = vec![0u8; 8 + RouterState::INIT_SPACE];
-    router_state
-        .try_serialize(&mut &mut router_data[..])
-        .unwrap();
+    let mut writer = &mut router_data[..];
+    router_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         router_state_pda,

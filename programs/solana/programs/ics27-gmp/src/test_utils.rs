@@ -37,7 +37,8 @@ pub fn create_gmp_app_state_account(
     };
 
     let mut data = vec![0u8; 8 + GMPAppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     (
         pubkey,
@@ -696,7 +697,8 @@ pub fn setup_program_test_with_access_manager(
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -854,7 +856,8 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,

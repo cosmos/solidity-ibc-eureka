@@ -199,7 +199,8 @@ pub fn add_access_manager_account(
 
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    am.serialize(&mut &mut data[8..]).unwrap();
+    let mut writer = &mut data[8..];
+    am.serialize(&mut writer).unwrap();
 
     pt.add_account(
         pubkey,

@@ -179,7 +179,8 @@ mod integration_tests {
         };
         let mut our_am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
         our_am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-        our_am.serialize(&mut &mut our_am_data[8..]).unwrap();
+        let mut writer = &mut our_am_data[8..];
+        our_am.serialize(&mut writer).unwrap();
         pt.add_account(
             our_am_pda,
             Account {
@@ -233,7 +234,8 @@ mod integration_tests {
         };
         let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
         am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-        source_am.serialize(&mut &mut am_data[8..]).unwrap();
+        let mut writer = &mut am_data[8..];
+        source_am.serialize(&mut writer).unwrap();
         pt.add_account(
             source_am_pda,
             Account {

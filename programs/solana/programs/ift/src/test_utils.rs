@@ -92,7 +92,8 @@ pub fn create_ift_app_state_account_full(
 
     let mut data = vec![0u8; 8 + IFTAppState::INIT_SPACE];
     data[0..8].copy_from_slice(IFTAppState::DISCRIMINATOR);
-    app_state.serialize(&mut &mut data[8..]).unwrap();
+    let mut writer = &mut data[8..];
+    app_state.serialize(&mut writer).unwrap();
 
     SolanaAccount {
         lamports: 1_000_000,
