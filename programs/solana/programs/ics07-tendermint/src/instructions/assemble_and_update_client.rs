@@ -37,7 +37,7 @@ pub struct AssembleAndUpdateClient<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Consensus state the header declares as its trust anchor; validated against PDA seeds.
     #[account(
@@ -65,8 +65,8 @@ pub struct AssembleAndUpdateClient<'info> {
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
     // Remaining accounts are the chunk accounts in order, followed by signature verification accounts.
     // They will be validated and closed in the instruction handler.
 }
@@ -77,7 +77,7 @@ impl AssembleAndUpdateClient<'_> {
 }
 
 pub fn assemble_and_update_client<'info>(
-    mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
+    mut ctx: Context<'info, AssembleAndUpdateClient<'info>>,
     target_height: u64,
     chunk_count: u8,
     trusted_height: u64,
@@ -108,7 +108,7 @@ pub fn assemble_and_update_client<'info>(
     )?;
 
     // Return the UpdateResult as bytes for callers to verify
-    set_return_data(&result.try_to_vec()?);
+    set_return_data(&borsh::to_vec(&result)?);
 
     Ok(result)
 }
@@ -153,7 +153,7 @@ fn assemble_chunks(
 }
 
 fn process_header_update<'info>(
-    ctx: &mut Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
+    ctx: &mut Context<'info, AssembleAndUpdateClient<'info>>,
     header_bytes: Vec<u8>,
     chunk_count: usize,
     target_height: u64,
@@ -223,7 +223,7 @@ fn verify_and_update_header<'info>(
 
     let current_time = crate::secs_to_nanos(Clock::get()?.unix_timestamp);
 
-    let output = tendermint_light_client_update_client::update_client(
+    let output = tendermint_light_client_update_client::update_client_solana(
         &update_client_state,
         &trusted_ibc_state,
         header,

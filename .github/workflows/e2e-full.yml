@@ -41,8 +41,8 @@ env:
   ETH_LC_ON_COSMOS: full
   COSMOS_LC_ON_ETH: sp1
   SP1_VERSION: "6.1.0"
-  SOLANA_VERSION: "2.3.13"
-  ANCHOR_VERSION: "0.32.1"
+  SOLANA_VERSION: "3.1.10"
+  ANCHOR_VERSION: "1.0.0"
   E2E_IBC_GO_DOCKER_TAG: ${{ inputs.ibc-go-docker-tag || 'v11.0.0' }}
 permissions:
   contents: read

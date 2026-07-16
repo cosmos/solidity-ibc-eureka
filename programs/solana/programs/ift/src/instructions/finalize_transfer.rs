@@ -33,7 +33,7 @@ pub struct FinalizeTransfer<'info> {
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused
     )]
-    pub app_state: Account<'info, IFTAppState>,
+    pub app_state: Box<Account<'info, IFTAppState>>,
 
     /// Per-mint IFT app state (mut for rate limit updates)
     #[account(
@@ -41,7 +41,7 @@ pub struct FinalizeTransfer<'info> {
         seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
-    pub app_mint_state: Account<'info, IFTAppMintState>,
+    pub app_mint_state: Box<Account<'info, IFTAppMintState>>,
 
     /// Pending transfer to process
     #[account(
@@ -58,7 +58,7 @@ pub struct FinalizeTransfer<'info> {
         constraint = pending_transfer.client_id == client_id @ IFTError::GmpResultClientMismatch,
         constraint = pending_transfer.sequence == sequence @ IFTError::GmpResultSequenceMismatch,
     )]
-    pub pending_transfer: Account<'info, PendingTransfer>,
+    pub pending_transfer: Box<Account<'info, PendingTransfer>>,
 
     /// GMP result account - proves the ack/timeout happened
     /// This is a cross-program account owned by the GMP program
@@ -67,7 +67,7 @@ pub struct FinalizeTransfer<'info> {
         seeds::program = ics27_gmp::ID,
         bump,
     )]
-    pub gmp_result: Account<'info, ics27_gmp::state::GMPCallResultAccount>,
+    pub gmp_result: Box<Account<'info, ics27_gmp::state::GMPCallResultAccount>>,
 
     /// SPL Token mint
     #[account(mut, address = app_mint_state.mint)]
@@ -79,7 +79,7 @@ pub struct FinalizeTransfer<'info> {
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
         bump = app_mint_state.mint_authority_bump
     )]
-    pub mint_authority: AccountInfo<'info>,
+    pub mint_authority: UncheckedAccount<'info>,
 
     /// Original sender's token account for refunds.
     ///
@@ -109,8 +109,8 @@ pub struct FinalizeTransfer<'info> {
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Finalize a pending transfer based on GMP result
@@ -234,7 +234,7 @@ mod tests {
         solana_sdk::account::Account {
             lamports: 0,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         }

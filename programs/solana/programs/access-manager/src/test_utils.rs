@@ -7,8 +7,8 @@ use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    system_program,
 };
+use solana_sdk_ids::system_program;
 
 pub fn serialize_access_manager(access_manager: &AccessManager) -> Vec<u8> {
     let mut data = AccessManager::DISCRIMINATOR.to_vec();
@@ -168,7 +168,7 @@ pub fn create_instructions_sysvar_account() -> Account {
     Account {
         lamports: 1_000_000,
         data: ixs_data,
-        owner: solana_sdk::sysvar::ID,
+        owner: solana_sdk_ids::sysvar::ID,
         executable: false,
         rent_epoch: 0,
     }
@@ -203,7 +203,7 @@ pub fn create_fake_instructions_sysvar_account(caller_program_id: Pubkey) -> (Pu
         Account {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -264,7 +264,7 @@ pub fn create_cpi_instructions_sysvar_account(caller_program_id: Pubkey) -> Acco
     Account {
         lamports: 1_000_000,
         data: ixs_data,
-        owner: solana_sdk::sysvar::ID,
+        owner: solana_sdk_ids::sysvar::ID,
         executable: false,
         rent_epoch: 0,
     }
@@ -331,7 +331,7 @@ pub fn create_instructions_sysvar_account_with_caller(
         Account {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -498,7 +498,7 @@ pub fn create_rent_sysvar_account() -> (Pubkey, Account) {
         Account {
             lamports: 1_000_000,
             data: vec![0; 17], // Rent sysvar is 17 bytes
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -512,7 +512,7 @@ pub fn create_clock_sysvar_account() -> (Pubkey, Account) {
         Account {
             lamports: 1_000_000,
             data: vec![0; 40], // Clock sysvar is 40 bytes
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -527,7 +527,7 @@ pub fn create_program_data_account(
     program_id: &Pubkey,
     authority: Option<Pubkey>,
 ) -> (Pubkey, Account) {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
@@ -590,7 +590,7 @@ pub fn add_target_program_accounts(
     pt: &mut solana_program_test::ProgramTest,
     target_program: &Pubkey,
 ) {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (upgrade_authority_pda, _) =
         AccessManager::upgrade_authority_pda(target_program, &crate::ID);
@@ -645,8 +645,8 @@ pub fn build_propose_ix(
 }
 
 pub fn build_accept_ix(target_program: Pubkey, new_authority: Pubkey) -> Instruction {
+    use anchor_lang::solana_program::bpf_loader_upgradeable;
     use anchor_lang::InstructionData;
-    use solana_sdk::bpf_loader_upgradeable;
 
     let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
     let (program_data, _) =
@@ -688,7 +688,7 @@ pub async fn get_program_data_authority(
     banks_client: &solana_program_test::BanksClient,
     target_program: Pubkey,
 ) -> Option<Pubkey> {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);

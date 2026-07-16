@@ -124,10 +124,7 @@ fn setup_test_accounts(
 
     accounts.push((app_state_pda, app_state_account));
     accounts.push((access_manager_pda, access_manager_account));
-    accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
-        instructions_sysvar_account,
-    ));
+    accounts.push((solana_instructions_sysvar::ID, instructions_sysvar_account));
 
     TestAccounts {
         submitter,
@@ -153,7 +150,7 @@ fn create_upload_instruction(
             AccountMeta::new_readonly(test_accounts.app_state_pda, false),
             AccountMeta::new_readonly(test_accounts.access_manager_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: instruction_data.data(),

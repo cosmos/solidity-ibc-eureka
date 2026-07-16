@@ -10,7 +10,8 @@ use std::sync::Arc;
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{commitment_config::CommitmentConfig, instruction::Instruction, pubkey::Pubkey};
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use proof_api_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};

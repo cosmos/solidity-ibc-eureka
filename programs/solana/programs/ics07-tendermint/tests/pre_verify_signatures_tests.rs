@@ -7,12 +7,12 @@ use ed25519_dalek::{Signer, SigningKey};
 use ics07_tendermint::state::SignatureVerification;
 use rstest::{fixture, rstest};
 use sha2::{Digest, Sha256};
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_ibc_types::ics07::SignatureData;
 use solana_program_test::{BanksClient, ProgramTest, ProgramTestBanksClientExt};
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, hash::Hash, instruction::Instruction, pubkey::Pubkey,
-    signature::Keypair, signer::Signer as SolSigner, sysvar::instructions as ix_sysvar,
-    transaction::Transaction,
+    hash::Hash, instruction::Instruction, pubkey::Pubkey, signature::Keypair,
+    signer::Signer as SolSigner, sysvar::instructions as ix_sysvar, transaction::Transaction,
 };
 
 const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
@@ -120,7 +120,7 @@ async fn ctx() -> TestContext {
         solana_sdk::account::Account {
             lamports: 10_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -214,7 +214,7 @@ fn create_pre_verify_instruction(
         app_state: app_state_pda,
         access_manager: access_manager_pda,
         submitter,
-        system_program: solana_sdk::system_program::ID,
+        system_program: solana_sdk_ids::system_program::ID,
     };
 
     let ix_data = ics07_tendermint::instruction::PreVerifySignature {

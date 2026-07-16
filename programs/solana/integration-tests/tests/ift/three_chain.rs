@@ -2,7 +2,7 @@ use super::*;
 use integration_tests::chain::{attestation_lc_accounts, ChainConfig};
 use integration_tests::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams};
 use integration_tests::programs::{AttestationLc, ATTESTATION_PROGRAM_ID, TEST_ATTESTATION_ID};
-use solana_sdk::compute_budget::ComputeBudgetInstruction;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_sdk::transaction::Transaction;
 
 /// Three-chain full-circle IFT roundtrip: A→B→C→A→C→B→A.

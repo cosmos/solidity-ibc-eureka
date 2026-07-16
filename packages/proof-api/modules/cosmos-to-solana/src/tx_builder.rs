@@ -36,7 +36,8 @@ use proof_api_lib::{
     },
 };
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::pubkey::Pubkey;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use proof_api_core::api::{self, SolanaPacketTxs};
@@ -197,7 +198,7 @@ impl TxBuilder {
         )?;
 
         let borsh_header = crate::borsh_conversions::header_to_borsh(header);
-        let header_bytes = borsh_header.try_to_vec()?;
+        let header_bytes = borsh::to_vec(&borsh_header)?;
         let chunks = Self::split_into_chunks(&header_bytes);
         let total_chunks = u8::try_from(chunks.len())
             .map_err(|_| anyhow::anyhow!("Too many chunks: {} should fit u8", chunks.len()))?;
@@ -287,7 +288,7 @@ impl TxBuilder {
             trusted_consensus_state,
             new_consensus_state,
             self.fee_payer,
-            solana_sdk::system_program::id(),
+            solana_sdk_ids::system_program::id(),
         ];
 
         alt_accounts.extend((0..total_chunks).map(|chunk_index| {

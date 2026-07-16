@@ -20,7 +20,7 @@ use proof_api_lib::{
         solana_attested, wait_for_condition,
     },
 };
-use solana_sdk::commitment_config::CommitmentConfig;
+use solana_commitment_config::CommitmentConfig;
 
 use proof_api_core::api::{self, SolanaPacketTxs};
 

@@ -36,6 +36,9 @@ solana-ibc-gmp-types = { workspace = true }
 solana-ibc-constants = { workspace = true }
 solana-ibc-proto = { workspace = true }
 solana-sdk = { workspace = true, features = ["full"] }
+solana-sdk-ids.workspace = true
+solana-compute-budget-interface.workspace = true
+solana-system-interface.workspace = true
 solana-program-test = { workspace = true }
 prost = { workspace = true }
 borsh = { workspace = true }

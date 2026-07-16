@@ -6,7 +6,7 @@ use crate::verification::verify_attestation;
 use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
-use solana_keccak_hasher::{hash as keccak256, Hash};
+use solana_keccak_hasher::hash as keccak256;
 
 /// Verifies that a commitment exists at the given path and height using attestor signatures.
 #[derive(Accounts)]
@@ -67,7 +67,7 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     require!(!attestation.packets.is_empty(), ErrorCode::EmptyAttestation);
 
-    let Hash(path_hash) = keccak256(&msg.path[0]);
+    let path_hash = keccak256(&msg.path[0]).to_bytes();
 
     let packet = attestation
         .packets
@@ -105,7 +105,6 @@ mod tests {
     use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
-    use borsh::BorshSerialize;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -219,7 +218,7 @@ mod tests {
         };
         MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![verify_path.to_vec()],
             value: verify_value,
         }
@@ -265,7 +264,7 @@ mod tests {
     #[case::very_long_path(HEIGHT, vec![], vec![vec![0xAB; 1000]], vec![1; 32], Some(ErrorCode::InvalidProof))]
     #[case::attestation_data_too_short(
         HEIGHT,
-        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
+        borsh::to_vec(&MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }).unwrap(),
         vec![b"test/path".to_vec()],
         vec![1; 32],
         Some(ErrorCode::HeightMismatch)
@@ -314,7 +313,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
             value: vec![1; 32],
         };
@@ -334,7 +333,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
             value: vec![1; 32],
         };
@@ -348,7 +347,7 @@ mod tests {
         let test_accounts = setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP);
 
         let path = b"test/path";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [2u8; 32])],
@@ -359,7 +358,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![path.to_vec()],
             value: vec![1; 31],
         };
@@ -380,7 +379,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
             value: vec![1; 32],
         };
@@ -391,7 +390,7 @@ mod tests {
     fn test_verify_membership_invalid_signature_length() {
         let test_accounts = setup_default_test_accounts(HEIGHT);
         let path = b"test/path";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [2u8; 32])],
@@ -402,7 +401,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![path.to_vec()],
             value: vec![2; 32],
         };
@@ -419,7 +418,7 @@ mod tests {
         let test_accounts = setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP);
 
         let path = b"test/path";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [2u8; 32])],
@@ -430,7 +429,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![path.to_vec()],
             value: vec![2; 32],
         };
@@ -443,7 +442,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 2);
 
         let path = b"test/path";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [2u8; 32])],
@@ -456,7 +455,7 @@ mod tests {
         };
         let msg = MembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![path.to_vec()],
             value: vec![2; 32],
         };
@@ -481,7 +480,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let commitment = [0xAB; 32];
 
         let msg = build_signed_msg(
@@ -500,7 +499,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let attested_path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(attested_path_hash) = solana_keccak_hasher::hash(attested_path);
+        let attested_path_hash = solana_keccak_hasher::hash(attested_path).to_bytes();
         let commitment = [0xAB; 32];
 
         let different_path = b"ibc/commitments/channel-0/sequence/999";
@@ -520,7 +519,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let attested_commitment = [0xAB; 32];
         let wrong_commitment = [0xCD; 32];
 
@@ -540,7 +539,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let msg = build_signed_msg(
@@ -562,7 +561,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(addresses, 2);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let commitment = [0xAB; 32];
 
         // Sign with 2 out of 3 attestors (meets quorum)
@@ -585,9 +584,9 @@ mod tests {
         let path2 = b"ibc/commitments/channel-0/sequence/2";
         let path3 = b"ibc/commitments/channel-0/sequence/3";
 
-        let Hash(path1_hash) = solana_keccak_hasher::hash(path1);
-        let Hash(path2_hash) = solana_keccak_hasher::hash(path2);
-        let Hash(path3_hash) = solana_keccak_hasher::hash(path3);
+        let path1_hash = solana_keccak_hasher::hash(path1).to_bytes();
+        let path2_hash = solana_keccak_hasher::hash(path2).to_bytes();
+        let path3_hash = solana_keccak_hasher::hash(path3).to_bytes();
 
         let commitment1 = [0x11; 32];
         let commitment2 = [0x22; 32];
@@ -614,7 +613,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![trusted_attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let commitment = [0xAB; 32];
 
         let msg = build_signed_msg(
@@ -633,7 +632,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let commitment = [0xAB; 32];
 
         let msg = build_signed_msg(
@@ -653,7 +652,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(addresses, 3);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let commitment = [0xAB; 32];
 
         let attestor_refs: Vec<_> = attestors.iter().collect();
@@ -674,7 +673,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![trusted_attestor.eth_address], 2);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let commitment = [0xAB; 32];
 
         let msg = build_signed_msg(
@@ -693,7 +692,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let actual_path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(actual_path);
+        let path_hash = solana_keccak_hasher::hash(actual_path).to_bytes();
         let commitment = [0xAB; 32];
 
         // Empty path[0] won't match the actual path hash

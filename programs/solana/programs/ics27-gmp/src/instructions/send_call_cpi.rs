@@ -3,8 +3,8 @@ use crate::errors::GMPError;
 use crate::instructions::send_call::send_call_inner;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 use ics26_router::state::{Client, IBCApp, RouterState};
+use solana_instructions_sysvar as sysvar_instructions;
 
 /// Sends a GMP call packet via CPI from another program. Rejects direct calls
 /// and nested CPI.
@@ -51,7 +51,7 @@ pub struct SendCallCpi<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub packet_commitment: AccountInfo<'info>,
+    pub packet_commitment: UncheckedAccount<'info>,
 
     /// Port-to-program mapping that authorizes this GMP program for the GMP port.
     #[account(
@@ -72,21 +72,21 @@ pub struct SendCallCpi<'info> {
     /// Light client program used by the router to check client status.
     /// CHECK: Validated against client registry.
     #[account(address = client.client_program_id @ GMPError::InvalidLightClientProgram)]
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// Light client's state account, forwarded to the router for status verification.
     /// CHECK: Ownership validated against light client program.
     #[account(owner = light_client_program.key() @ GMPError::InvalidAccountOwner)]
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
 
     /// Instructions sysvar used to enforce single-level CPI and extract the caller program ID.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 
     /// Consensus state account, forwarded to the router for client expiry check.
     /// CHECK: Forwarded to router CPI; validated by the light client program.
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 
     /// Solana system program used for account allocation.
     pub system_program: Program<'info, System>,
@@ -130,8 +130,8 @@ mod tests {
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
-        system_program,
     };
+    use solana_sdk_ids::system_program;
 
     struct TestContext {
         mollusk: Mollusk,
@@ -531,12 +531,9 @@ mod integration_tests {
                 AccountMeta::new_readonly(client, false),
                 AccountMeta::new_readonly(TEST_LIGHT_CLIENT_ID, false), // light_client_program
                 AccountMeta::new_readonly(TEST_CLIENT_STATE_ID, false), // client_state
-                AccountMeta::new_readonly(
-                    anchor_lang::solana_program::sysvar::instructions::ID,
-                    false,
-                ),
+                AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
                 AccountMeta::new_readonly(Pubkey::new_unique(), false), // consensus_state
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             ],
             data: ix_data.data(),
         }

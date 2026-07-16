@@ -25,7 +25,7 @@ pub struct ClaimUpgradeAuthority<'info> {
         seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
         bump
     )]
-    pub new_upgrade_authority: AccountInfo<'info>,
+    pub new_upgrade_authority: UncheckedAccount<'info>,
 
     /// The source access manager's state PDA.
     /// CHECK: Validated via seeds constraint against `source_access_manager_program`
@@ -35,7 +35,7 @@ pub struct ClaimUpgradeAuthority<'info> {
         bump,
         seeds::program = source_access_manager_program.key()
     )]
-    pub source_access_manager_state: AccountInfo<'info>,
+    pub source_access_manager_state: UncheckedAccount<'info>,
 
     /// The target program's data account (BPF Loader Upgradeable PDA).
     /// CHECK: Validated via seeds constraint against BPF Loader Upgradeable
@@ -45,7 +45,7 @@ pub struct ClaimUpgradeAuthority<'info> {
         bump,
         seeds::program = bpf_loader_upgradeable::ID
     )]
-    pub target_program_data: AccountInfo<'info>,
+    pub target_program_data: UncheckedAccount<'info>,
 
     /// The source access manager's upgrade authority PDA for the target program.
     /// CHECK: Validated via seeds constraint against `source_access_manager_program`
@@ -54,16 +54,16 @@ pub struct ClaimUpgradeAuthority<'info> {
         bump,
         seeds::program = source_access_manager_program.key()
     )]
-    pub source_upgrade_authority: AccountInfo<'info>,
+    pub source_upgrade_authority: UncheckedAccount<'info>,
 
     /// The source access manager program (CPI target).
     /// CHECK: Must be executable
     #[account(executable)]
-    pub source_access_manager_program: AccountInfo<'info>,
+    pub source_access_manager_program: UncheckedAccount<'info>,
 
     /// CHECK: Must be BPF Loader Upgradeable program ID
     #[account(address = bpf_loader_upgradeable::ID)]
-    pub bpf_loader_upgradeable: AccountInfo<'info>,
+    pub bpf_loader_upgradeable: UncheckedAccount<'info>,
 
     /// Access manager state PDA used to verify the caller holds the admin role.
     #[account(seeds = [AccessManager::SEED], bump)]
@@ -73,8 +73,8 @@ pub struct ClaimUpgradeAuthority<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn claim_upgrade_authority(
@@ -102,7 +102,7 @@ pub fn claim_upgrade_authority(
         &bump,
     ][..]];
     let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.source_access_manager_program.to_account_info(),
+        ctx.accounts.source_access_manager_program.key(),
         cpi_accounts,
         signer_seeds,
     );
@@ -122,12 +122,11 @@ mod integration_tests {
     use crate::state::AccessManager;
     use crate::test_utils::*;
     use crate::types::{PendingAuthorityTransfer, RoleData};
-    use anchor_lang::prelude::bpf_loader_upgradeable;
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
     use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space};
     use solana_ibc_types::roles;
     use solana_sdk::{
         account::Account,
-        bpf_loader_upgradeable::UpgradeableLoaderState,
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
         signature::Keypair,
@@ -216,7 +215,7 @@ mod integration_tests {
             source_upgrade_authority,
             Account {
                 lamports: 1_000_000,
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 ..Default::default()
             },
         );
@@ -254,7 +253,7 @@ mod integration_tests {
             new_upgrade_authority,
             Account {
                 lamports: 1_000_000,
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 ..Default::default()
             },
         );

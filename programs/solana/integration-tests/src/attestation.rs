@@ -7,7 +7,6 @@ use crate::attestor::Attestors;
 use alloy_sol_types::SolValue;
 use attestation::crypto::AttestationType;
 use attestation::types::{MembershipProof, PacketAttestation, PacketCompact, StateAttestation};
-use borsh::BorshSerialize;
 use ics26_router::ics24::{
     packet_acknowledgement_commitment_path, packet_commitment_path, packet_receipt_commitment_path,
 };
@@ -40,7 +39,7 @@ pub fn build_update_client_ix_for_program(
         .args(&attestation_sdk::UpdateClientArgs {
             new_height: height,
             params: UpdateClientParams {
-                proof: proof.try_to_vec().expect("MembershipProof serialization"),
+                proof: borsh::to_vec(&proof).expect("MembershipProof serialization"),
             },
         })
         .build()
@@ -149,7 +148,7 @@ pub fn build_packet_membership_proof(
 /// Borsh-serialize a `MembershipProof` into the byte vector expected by
 /// the router's `MsgProof.proof` field.
 pub fn serialize_proof(proof: &MembershipProof) -> Vec<u8> {
-    proof.try_to_vec().expect("MembershipProof serialization")
+    borsh::to_vec(proof).expect("MembershipProof serialization")
 }
 
 /// Build a serialized recv proof: read commitment from the source chain,

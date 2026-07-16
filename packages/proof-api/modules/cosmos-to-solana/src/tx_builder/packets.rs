@@ -2,8 +2,8 @@
 
 use anchor_lang::prelude::*;
 use anyhow::Result;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };

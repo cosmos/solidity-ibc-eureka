@@ -7,8 +7,8 @@ use solana_sdk::{
     native_loader,
     program_error::ProgramError,
     pubkey::Pubkey,
-    system_program,
 };
+use solana_sdk_ids::system_program;
 use test_gmp_app::{state::*, ID};
 
 const fn get_test_gmp_app_program_path() -> &'static str {

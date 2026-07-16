@@ -215,10 +215,7 @@ pub struct ConstrainedBytes<const MIN: usize, const MAX: usize>(ConstrainedVec<u
 
 #[cfg(feature = "borsh")]
 impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedBytes<MIN, MAX> {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> borsh::maybestd::io::Result<()> {
+    fn serialize<W: borsh::io::Write>(&self, writer: &mut W) -> borsh::io::Result<()> {
         borsh::BorshSerialize::serialize(self.0.as_ref(), writer)
     }
 }

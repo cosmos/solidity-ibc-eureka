@@ -16,14 +16,14 @@ pub struct CpiAccountMeta {
 pub struct ProxyCpi<'info> {
     /// CHECK: The target program to CPI into
     #[account(executable)]
-    pub target_program: AccountInfo<'info>,
+    pub target_program: UncheckedAccount<'info>,
 
     /// Transaction fee payer and signer.
     pub payer: Signer<'info>,
 }
 
 pub fn proxy_cpi<'info>(
-    ctx: Context<'_, '_, '_, 'info, ProxyCpi<'info>>,
+    ctx: Context<'info, ProxyCpi<'info>>,
     instruction_data: Vec<u8>,
     account_metas: Vec<CpiAccountMeta>,
 ) -> Result<()> {

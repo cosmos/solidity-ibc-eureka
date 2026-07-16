@@ -25,7 +25,7 @@ pub struct UpgradeProgram<'info> {
         owner = bpf_loader_upgradeable::ID,
         constraint = program.key() == target_program @ AccessManagerError::ProgramMismatch
     )]
-    pub program: AccountInfo<'info>,
+    pub program: UncheckedAccount<'info>,
 
     /// The target program's data account (BPF Loader Upgradeable PDA).
     /// CHECK: Validated via BPF Loader seeds derivation from program account
@@ -35,7 +35,7 @@ pub struct UpgradeProgram<'info> {
         bump,
         seeds::program = bpf_loader_upgradeable::ID
     )]
-    pub program_data: AccountInfo<'info>,
+    pub program_data: UncheckedAccount<'info>,
 
     /// Buffer account containing the new program bytecode.
     /// CHECK: Must be a BPF Loader buffer containing the new bytecode
@@ -43,7 +43,7 @@ pub struct UpgradeProgram<'info> {
         mut,
         owner = bpf_loader_upgradeable::ID
     )]
-    pub buffer: AccountInfo<'info>,
+    pub buffer: UncheckedAccount<'info>,
 
     /// `AccessManager`'s PDA that acts as the upgrade authority for the target program.
     /// CHECK: Validated via seeds constraint
@@ -52,23 +52,23 @@ pub struct UpgradeProgram<'info> {
         seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
         bump
     )]
-    pub upgrade_authority: AccountInfo<'info>,
+    pub upgrade_authority: UncheckedAccount<'info>,
 
     /// Account to receive refunded rent from the old buffer.
     /// CHECK: Can be any account to receive refunded rent
     #[account(mut)]
-    pub spill: AccountInfo<'info>,
+    pub spill: UncheckedAccount<'info>,
 
     /// The admin signer authorizing the upgrade.
     pub authority: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// CHECK: Must be BPF Loader Upgradeable program ID
     #[account(address = bpf_loader_upgradeable::ID)]
-    pub bpf_loader_upgradeable: AccountInfo<'info>,
+    pub bpf_loader_upgradeable: UncheckedAccount<'info>,
 
     /// Rent sysvar required by BPF Loader Upgradeable.
     pub rent: Sysvar<'info, Rent>,
@@ -232,7 +232,7 @@ mod tests {
                 spill,
                 Account {
                     lamports: 1_000_000,
-                    owner: solana_sdk::system_program::ID,
+                    owner: solana_sdk_ids::system_program::ID,
                     ..Default::default()
                 },
             ),
@@ -511,11 +511,10 @@ mod tests {
 mod integration_tests {
     use crate::state::AccessManager;
     use crate::test_utils::*;
-    use anchor_lang::prelude::bpf_loader_upgradeable;
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
     use anchor_lang::InstructionData;
     use solana_sdk::{
         account::Account,
-        bpf_loader_upgradeable::UpgradeableLoaderState,
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
         signature::Keypair,
@@ -605,7 +604,7 @@ mod integration_tests {
             upgrade_authority_pda,
             Account {
                 lamports: 1_000_000,
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 ..Default::default()
             },
         );

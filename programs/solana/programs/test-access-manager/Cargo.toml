@@ -24,11 +24,13 @@ idl-build = ["anchor-lang/idl-build"]
 [dependencies]
 anchor-lang.workspace = true
 solana-ibc-types.workspace = true
+solana-instructions-sysvar.workspace = true
 
 [dev-dependencies]
 bincode.workspace = true
 mollusk-svm.workspace = true
 solana-sdk = { workspace = true, features = ["full"] }
+solana-sdk-ids.workspace = true
 solana-program-test.workspace = true
 tokio = { version = "1", features = ["full"] }
 access-manager = { workspace = true, features = ["no-entrypoint"] }

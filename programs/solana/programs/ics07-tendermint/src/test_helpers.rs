@@ -144,7 +144,6 @@ pub mod fixtures {
     /// Convert Protobuf header bytes to Borsh format (like the relayer does)
     /// Fixtures contain Protobuf-encoded headers, but our program expects Borsh
     pub fn protobuf_to_borsh_header(protobuf_bytes: &[u8]) -> Vec<u8> {
-        use borsh::BorshSerialize;
         use ibc_client_tendermint::types::Header;
         use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
         use ibc_proto::Protobuf;
@@ -156,9 +155,7 @@ pub mod fixtures {
 
         // Convert to BorshHeader and serialize (exactly like the relayer does)
         let borsh_header = header_to_borsh(header);
-        borsh_header
-            .try_to_vec()
-            .expect("Failed to encode header to Borsh")
+        borsh::to_vec(&borsh_header).expect("Failed to encode header to Borsh")
     }
 
     /// Extract header timestamp from update client message
@@ -193,7 +190,6 @@ pub mod fixtures {
 
     /// Corrupt the header signature in the client message bytes
     pub fn corrupt_header_signature(client_message_hex: &str) -> Vec<u8> {
-        use borsh::BorshSerialize;
         use ibc_client_tendermint::types::Header;
         use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
         use ibc_proto::Protobuf;
@@ -224,9 +220,7 @@ pub mod fixtures {
         let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
             .expect("Failed to decode corrupted protobuf header");
         let borsh_header = header_to_borsh(header);
-        borsh_header
-            .try_to_vec()
-            .expect("Failed to encode corrupted header to Borsh")
+        borsh::to_vec(&borsh_header).expect("Failed to encode corrupted header to Borsh")
     }
 
     /// Create client message bytes with wrong trusted height
@@ -234,7 +228,6 @@ pub mod fixtures {
         client_message_hex: &str,
         wrong_height: u64,
     ) -> Vec<u8> {
-        use borsh::BorshSerialize;
         use ibc_client_tendermint::types::Header;
         use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
         use ibc_proto::Protobuf;
@@ -259,9 +252,7 @@ pub mod fixtures {
         let header = <Header as Protobuf<RawHeader>>::decode_vec(&buf)
             .expect("Failed to decode modified protobuf header");
         let borsh_header = header_to_borsh(header);
-        borsh_header
-            .try_to_vec()
-            .expect("Failed to encode modified header to Borsh")
+        borsh::to_vec(&borsh_header).expect("Failed to encode modified header to Borsh")
     }
 
     // Generic test helper functions
@@ -598,7 +589,7 @@ pub mod chunk_test_utils {
     use solana_sdk::account::Account;
     use solana_sdk::keccak;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     pub struct ChunkTestData {
         pub chunk_data: Vec<u8>,
@@ -607,7 +598,7 @@ pub mod chunk_test_utils {
 
     pub fn create_test_chunk_data(index: u8, size: usize) -> ChunkTestData {
         let chunk_data = vec![index + 1; size];
-        let chunk_hash = keccak::hash(&chunk_data).0;
+        let chunk_hash = keccak::hash(&chunk_data).to_bytes();
         ChunkTestData {
             chunk_data,
             chunk_hash,
@@ -756,7 +747,7 @@ pub mod chunk_test_utils {
             full_header.extend(&chunk_data);
         }
 
-        let header_commitment = keccak::hash(&full_header).0;
+        let header_commitment = keccak::hash(&full_header).to_bytes();
 
         (all_chunks, header_commitment)
     }
@@ -924,7 +915,7 @@ pub fn setup_program_test_with_relayer(
         solana_sdk::account::Account {
             lamports: 10_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -942,7 +933,7 @@ pub fn fund_account(
         solana_sdk::account::Account {
             lamports: 10_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -1095,7 +1086,7 @@ pub fn create_program_data_account(
     program_id: &solana_sdk::pubkey::Pubkey,
     authority: Option<solana_sdk::pubkey::Pubkey>,
 ) -> (solana_sdk::pubkey::Pubkey, solana_sdk::account::Account) {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (program_data_pda, _) = solana_sdk::pubkey::Pubkey::find_program_address(
         &[program_id.as_ref()],
@@ -1146,7 +1137,7 @@ pub fn create_instructions_sysvar_account() -> solana_sdk::account::Account {
     solana_sdk::account::Account {
         lamports: 1_000_000,
         data: ixs_data,
-        owner: solana_sdk::sysvar::ID,
+        owner: solana_sdk_ids::sysvar::ID,
         executable: false,
         rent_epoch: 0,
     }

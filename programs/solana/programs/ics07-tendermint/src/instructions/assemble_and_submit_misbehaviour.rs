@@ -36,7 +36,7 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// First trusted consensus state referenced by the misbehaviour evidence.
     #[account(
@@ -58,13 +58,13 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
     // Remaining accounts are the chunk accounts in order, followed by signature verification accounts.
 }
 
 pub fn assemble_and_submit_misbehaviour<'info>(
-    mut ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
+    mut ctx: Context<'info, AssembleAndSubmitMisbehaviour<'info>>,
     chunk_count: u8,
     _trusted_height_1: u64,
     _trusted_height_2: u64,
@@ -152,7 +152,7 @@ fn validate_and_load_chunk(
 }
 
 fn process_misbehaviour<'info>(
-    ctx: &mut Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
+    ctx: &mut Context<'info, AssembleAndSubmitMisbehaviour<'info>>,
     misbehaviour_bytes: Vec<u8>,
     signature_verification_accounts: &'info [AccountInfo<'info>],
 ) -> Result<()> {
@@ -176,7 +176,7 @@ fn process_misbehaviour<'info>(
 
     let current_time = crate::secs_to_nanos(Clock::get()?.unix_timestamp);
 
-    let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
+    let output = tendermint_light_client_misbehaviour::check_for_misbehaviour_solana(
         &tm_client_state,
         &misbehaviour,
         trusted_consensus_state_1,

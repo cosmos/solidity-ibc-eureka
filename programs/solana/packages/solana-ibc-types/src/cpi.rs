@@ -1,12 +1,10 @@
 use anchor_lang::{
     error_code,
     prelude::{AccountInfo, Pubkey},
-    solana_program::{
-        instruction::{get_stack_height, TRANSACTION_LEVEL_STACK_HEIGHT},
-        sysvar::instructions::get_instruction_relative,
-    },
+    solana_program::instruction::{get_stack_height, TRANSACTION_LEVEL_STACK_HEIGHT},
     Key,
 };
+use solana_instructions_sysvar::{get_instruction_relative, ID};
 
 // # How `get_instruction_relative(0, ...)` works
 //
@@ -98,7 +96,7 @@ pub fn reject_direct_calls() -> core::result::Result<(), CpiValidationError> {
 fn validate_instruction_sysvar(
     instruction_sysvar: &AccountInfo<'_>,
 ) -> core::result::Result<(), CpiValidationError> {
-    if instruction_sysvar.key() != anchor_lang::solana_program::sysvar::instructions::ID {
+    if instruction_sysvar.key() != ID {
         return Err(CpiValidationError::InvalidSysvar);
     }
     Ok(())
@@ -185,7 +183,7 @@ pub fn reject_cpi(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anchor_lang::solana_program::sysvar::instructions::ID as INSTRUCTIONS_SYSVAR_ID;
+    use solana_instructions_sysvar::ID as INSTRUCTIONS_SYSVAR_ID;
     use solana_sdk::sysvar::instructions::{
         construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
     };
@@ -211,7 +209,7 @@ mod tests {
         data: &'a mut [u8],
         owner: &'a Pubkey,
     ) -> AccountInfo<'a> {
-        AccountInfo::new(key, false, false, lamports, data, owner, false, 0)
+        AccountInfo::new(key, false, false, lamports, data, owner, false)
     }
 
     #[test]
@@ -221,7 +219,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&authorized_program);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -243,7 +241,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&unauthorized_caller);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -267,7 +265,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&self_program_id);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -291,7 +289,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&self_program_id);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -317,7 +315,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&whitelisted_caller);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -343,7 +341,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&unauthorized_caller);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -370,7 +368,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&self_program_id);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,
@@ -391,7 +389,7 @@ mod tests {
 
         let mut data = create_instructions_sysvar_data(&cpi_caller);
         let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+        let sysvar_owner = solana_sdk_ids::sysvar::ID;
 
         let account_info = create_test_account_info(
             &INSTRUCTIONS_SYSVAR_ID,

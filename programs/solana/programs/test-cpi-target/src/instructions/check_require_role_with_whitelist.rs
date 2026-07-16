@@ -5,11 +5,11 @@ use anchor_lang::prelude::*;
 #[instruction(role_id: u64)]
 pub struct CheckRequireRoleWithWhitelist<'info> {
     /// CHECK: Passed to `access_manager::require_role_with_whitelist` for deserialization
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
     /// Must hold the requested role in the access-manager.
     pub signer: Signer<'info>,
     /// CHECK: Validated inside the helper
-    pub instructions_sysvar: AccountInfo<'info>,
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn check_require_role_with_whitelist(

@@ -23,7 +23,7 @@ pub struct CleanupChunks<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager,
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Relayer reclaiming rent; must hold the `RELAYER_ROLE`.
     /// Receives lamports from closed chunk accounts.
@@ -32,12 +32,12 @@ pub struct CleanupChunks<'info> {
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn cleanup_chunks<'info>(
-    ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>,
+    ctx: Context<'info, CleanupChunks<'info>>,
     msg: MsgCleanupChunks,
 ) -> Result<()> {
     access_manager::require_role(
@@ -159,7 +159,7 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     struct CleanupTestContext {
         instruction: Instruction,
@@ -443,7 +443,7 @@ mod integration_tests {
             solana_sdk::account::Account {
                 lamports: 10_000_000_000,
                 data: vec![],
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 executable: false,
                 rent_epoch: 0,
             },

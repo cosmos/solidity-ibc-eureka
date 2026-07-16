@@ -1,6 +1,7 @@
 use super::*;
 use solana_ibc_proto::{RawGmpSolanaPayload, RawSolanaAccountMeta};
-use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey, system_program};
+use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
+use solana_sdk_ids::system_program;
 
 /// When the target CPI fails (wrong PDA), the entire recv transaction reverts
 /// and no receipt or ack is created.

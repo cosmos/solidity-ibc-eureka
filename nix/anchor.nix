@@ -11,17 +11,16 @@
 }:
 rustPlatform.buildRustPackage rec {
   pname = "anchor";
-  version = "0.32.1";
+  version = "1.0.0";
 
   src = fetchFromGitHub {
     owner = "solana-foundation";
     repo = "anchor";
     tag = "v${version}";
-    hash = "sha256-oyCe8STDciRtdhOWgJrT+k50HhUWL2LSG8m4Ewnu2dc=";
-    fetchSubmodules = true;
+    hash = "sha256-+VCY7By3Xh71opOSY+/xXd9LmsmYq0SstwKOfrI9KKU=";
   };
 
-  cargoHash = "sha256-XrVvhJ1lFLBA+DwWgTV34jufrcjszpbCgXpF+TUoEvo=";
+  cargoHash = "sha256-GH/R7S8jQAWGTz8Ig/u/yb9o6FPtmkAaOzgl0uiB0dk=";
 
   nativeBuildInputs = [perl pkg-config];
 

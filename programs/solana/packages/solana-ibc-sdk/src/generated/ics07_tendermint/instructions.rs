@@ -207,7 +207,7 @@ impl ProposeAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -286,7 +286,7 @@ impl AcceptAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.new_am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -360,7 +360,7 @@ impl CancelAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -620,7 +620,7 @@ impl UploadHeaderChunkBuilder {
             AccountMeta::new_readonly(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new(accounts.submitter, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
@@ -745,7 +745,7 @@ impl AssembleAndUpdateClientBuilder {
             AccountMeta::new(new_consensus_state_store, false),
             AccountMeta::new(accounts.submitter, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -896,7 +896,7 @@ impl UploadMisbehaviourChunkBuilder {
             AccountMeta::new_readonly(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new(accounts.submitter, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
@@ -1028,7 +1028,7 @@ impl AssembleAndSubmitMisbehaviourBuilder {
             AccountMeta::new_readonly(trusted_consensus_state_1, false),
             AccountMeta::new_readonly(trusted_consensus_state_2, false),
             AccountMeta::new(accounts.submitter, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1168,7 +1168,7 @@ impl PreVerifySignatureBuilder {
         let accounts = self.accounts.expect("accounts required");
         let (app_state, _) = PreVerifySignature::app_state_pda(&self.program_id);
         let mut account_metas = vec![
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new(accounts.signature_verification, false),
             AccountMeta::new_readonly(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),

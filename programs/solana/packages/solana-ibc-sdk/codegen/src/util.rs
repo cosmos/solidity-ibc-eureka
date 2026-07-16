@@ -89,7 +89,7 @@ pub fn address_to_rust_expr(address: &str) -> String {
             "anchor_lang::solana_program::system_program::ID".to_string()
         }
         "Sysvar1nstructions1111111111111111111111111" => {
-            "anchor_lang::solana_program::sysvar::instructions::ID".to_string()
+            "solana_instructions_sysvar::ID".to_string()
         }
         other => format!("Pubkey::from_str_const(\"{other}\")"),
     }
@@ -172,7 +172,7 @@ mod tests {
         );
         assert_eq!(
             address_to_rust_expr("Sysvar1nstructions1111111111111111111111111"),
-            "anchor_lang::solana_program::sysvar::instructions::ID"
+            "solana_instructions_sysvar::ID"
         );
         assert_eq!(
             address_to_rust_expr("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"),

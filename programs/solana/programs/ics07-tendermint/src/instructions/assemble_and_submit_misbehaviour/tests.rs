@@ -3,10 +3,10 @@ use crate::state::{ConsensusStateStore, MisbehaviourChunk};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
 use crate::types::{AppState, ClientState, ConsensusState, IbcHeight};
 use access_manager::AccessManagerState;
+use anchor_lang::prelude::Clock;
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    sysvar::clock::Clock,
 };
 use anchor_lang::AccountSerialize;
 use anchor_lang::InstructionData;
@@ -114,7 +114,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         Account {
             lamports: 10_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -208,7 +208,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
             Account {
                 lamports: 0,
                 data: vec![],
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -219,7 +219,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
             Account {
                 lamports: 0,
                 data: vec![],
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -248,7 +248,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -325,7 +325,7 @@ fn create_assemble_instruction(test_accounts: &TestAccounts) -> Instruction {
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
         AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
         AccountMeta::new(test_accounts.submitter, true),
-        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
     ];
 
     for chunk_pda in &test_accounts.chunk_pdas {

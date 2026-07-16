@@ -7,7 +7,7 @@ use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
-use solana_keccak_hasher::{hash as keccak256, Hash};
+use solana_keccak_hasher::hash as keccak256;
 
 /// Verifies that no commitment exists at the given path and height. Returns the consensus
 /// timestamp via return data.
@@ -71,7 +71,7 @@ pub fn verify_non_membership(
 
     require!(!attestation.packets.is_empty(), ErrorCode::EmptyAttestation);
 
-    let Hash(path_hash) = keccak256(&msg.path[0]);
+    let path_hash = keccak256(&msg.path[0]).to_bytes();
 
     let packet = attestation
         .packets
@@ -103,7 +103,6 @@ mod tests {
     use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
-    use borsh::BorshSerialize;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -216,7 +215,7 @@ mod tests {
         };
         NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![verify_path.to_vec()],
         }
     }
@@ -251,7 +250,7 @@ mod tests {
     #[rstest::rstest]
     #[case::invalid_proof(vec![0xFF; 100], None)]
     #[case::attestation_data_too_short(
-        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
+        borsh::to_vec(&MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }).unwrap(),
         Some(ErrorCode::HeightMismatch)
     )]
     fn test_verify_non_membership_rejects_bad_input(
@@ -291,7 +290,7 @@ mod tests {
         };
         let msg = NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
         };
         expect_error(&test_accounts, msg, ErrorCode::HeightMismatch);
@@ -310,7 +309,7 @@ mod tests {
         };
         let msg = NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
         };
         expect_error(&test_accounts, msg, ErrorCode::EmptySignatures);
@@ -327,7 +326,7 @@ mod tests {
         };
         let msg = NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
         };
         expect_error(&test_accounts, msg, ErrorCode::InvalidSignature);
@@ -346,7 +345,7 @@ mod tests {
         };
         let msg = NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
         };
         expect_error(&test_accounts, msg, ErrorCode::ThresholdNotMet);
@@ -368,7 +367,7 @@ mod tests {
         };
         let msg = NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![b"test/path".to_vec()],
         };
         expect_error(&test_accounts, msg, ErrorCode::DuplicateSigner);
@@ -378,7 +377,7 @@ mod tests {
     fn test_verify_non_membership_invalid_signature_length() {
         let test_accounts = setup_default_test_accounts(HEIGHT);
         let path = b"test/path";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [0u8; 32])],
@@ -389,7 +388,7 @@ mod tests {
         };
         let msg = NonMembershipMsg {
             height: HEIGHT,
-            proof: proof.try_to_vec().unwrap(),
+            proof: borsh::to_vec(&proof).unwrap(),
             path: vec![path.to_vec()],
         };
         expect_error(&test_accounts, msg, ErrorCode::InvalidSignature);
@@ -412,7 +411,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let msg = build_signed_msg(&[&attestor], HEIGHT, &[(path_hash, zero_commitment)], path);
@@ -425,7 +424,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let non_zero_commitment = [0xAB; 32];
 
         let msg = build_signed_msg(
@@ -446,7 +445,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(addresses, 2);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         // Sign with 2 out of 3 attestors
@@ -466,7 +465,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![trusted_attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let msg = build_signed_msg(
@@ -484,7 +483,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let attested_path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(attested_path_hash) = solana_keccak_hasher::hash(attested_path);
+        let attested_path_hash = solana_keccak_hasher::hash(attested_path).to_bytes();
 
         let different_path = b"ibc/commitments/channel-0/sequence/999";
         let msg = build_signed_msg(
@@ -502,7 +501,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let msg = build_signed_msg(
@@ -521,7 +520,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(addresses, 3);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let attestor_refs: Vec<_> = attestors.iter().collect();
@@ -541,7 +540,7 @@ mod tests {
         let test_accounts = setup_attestor_accounts(vec![trusted_attestor.eth_address], 2);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let msg = build_signed_msg(
@@ -569,7 +568,7 @@ mod tests {
         let test_accounts = setup_test_accounts(HEIGHT, client_state, timestamp);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let path_hash = solana_keccak_hasher::hash(path).to_bytes();
         let zero_commitment = [0u8; 32];
 
         let msg = build_signed_msg(&[&attestor], HEIGHT, &[(path_hash, zero_commitment)], path);

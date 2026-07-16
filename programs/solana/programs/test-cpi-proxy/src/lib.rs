@@ -36,7 +36,7 @@ pub mod test_cpi_proxy {
     /// This program intentionally does NOT validate anything - it's designed
     /// to test that OTHER programs properly validate their CPI callers.
     pub fn proxy_cpi<'info>(
-        ctx: Context<'_, '_, '_, 'info, ProxyCpi<'info>>,
+        ctx: Context<'info, ProxyCpi<'info>>,
         instruction_data: Vec<u8>,
         account_metas: Vec<CpiAccountMeta>,
     ) -> Result<()> {
@@ -83,7 +83,7 @@ pub struct ProxyCpi<'info> {
     /// unconstrained beyond executable check, as this is a test utility program
     /// designed to proxy arbitrary CPI calls for security testing.
     #[account(executable)]
-    pub target_program: AccountInfo<'info>,
+    pub target_program: UncheckedAccount<'info>,
 
     /// Payer/signer for this transaction
     pub payer: Signer<'info>,

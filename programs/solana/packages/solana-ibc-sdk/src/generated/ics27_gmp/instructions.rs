@@ -229,7 +229,7 @@ impl SendCallBuilder {
             AccountMeta::new_readonly(accounts.client, false),
             AccountMeta::new_readonly(accounts.light_client_program, false),
             AccountMeta::new_readonly(accounts.client_state, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(accounts.consensus_state, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ];
@@ -358,7 +358,7 @@ impl SendCallCpiBuilder {
             AccountMeta::new_readonly(accounts.client, false),
             AccountMeta::new_readonly(accounts.light_client_program, false),
             AccountMeta::new_readonly(accounts.client_state, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(accounts.consensus_state, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ];
@@ -438,7 +438,7 @@ impl OnRecvPacketBuilder {
         let (app_state, _) = OnRecvPacket::app_state_pda(&self.program_id);
         let mut account_metas = vec![
             AccountMeta::new(app_state, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ];
@@ -541,7 +541,7 @@ impl<'a> OnAcknowledgementPacketBuilder<'a> {
         );
         let mut account_metas = vec![
             AccountMeta::new_readonly(app_state, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
             AccountMeta::new(result_account, false),
@@ -645,7 +645,7 @@ impl<'a> OnTimeoutPacketBuilder<'a> {
         );
         let mut account_metas = vec![
             AccountMeta::new_readonly(app_state, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
             AccountMeta::new(result_account, false),
@@ -722,7 +722,7 @@ impl PauseAppBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new_readonly(accounts.authority, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -796,7 +796,7 @@ impl UnpauseAppBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new_readonly(accounts.authority, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -882,7 +882,7 @@ impl ProposeAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -961,7 +961,7 @@ impl AcceptAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.new_am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1035,7 +1035,7 @@ impl CancelAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {

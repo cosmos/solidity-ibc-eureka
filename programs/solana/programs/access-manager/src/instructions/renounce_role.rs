@@ -21,8 +21,8 @@ pub struct RenounceRole<'info> {
 
     /// Instructions sysvar for CPI validation
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn renounce_role(ctx: Context<RenounceRole>, role_id: u64) -> Result<()> {

@@ -22,7 +22,7 @@ pub struct AddIbcApp<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// PDA mapping `port_id` to its IBC application program.
     #[account(
@@ -51,8 +51,8 @@ pub struct AddIbcApp<'info> {
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
@@ -94,7 +94,7 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     #[test]
     fn test_add_ibc_app_happy_path() {
@@ -511,7 +511,7 @@ mod integration_tests {
                 AccountMeta::new_readonly(access_manager::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(authority, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: crate::instruction::AddIbcApp {

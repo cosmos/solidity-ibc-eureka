@@ -37,7 +37,7 @@ pub struct AckPacket<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager,
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// PDA mapping the source port to its registered IBC application.
     #[account(
@@ -61,12 +61,12 @@ pub struct AckPacket<'info> {
     /// IBC application program to notify via CPI.
     /// CHECK: IBC app program, validated against `IBCApp` account
     #[account(address = ibc_app.app_program_id @ RouterError::IbcAppNotFound)]
-    pub ibc_app_program: AccountInfo<'info>,
+    pub ibc_app_program: UncheckedAccount<'info>,
 
     /// Mutable state account of the IBC application (passed into the CPI).
     /// CHECK: Ownership validated against IBC app program
     #[account(mut, owner = ibc_app.app_program_id @ RouterError::InvalidAccountOwner)]
-    pub ibc_app_state: AccountInfo<'info>,
+    pub ibc_app_state: UncheckedAccount<'info>,
 
     /// Relayer submitting the acknowledgement; must hold the `RELAYER_ROLE`.
     /// Receives rent from the closed `packet_commitment` account.
@@ -78,8 +78,8 @@ pub struct AckPacket<'info> {
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// Client PDA for the source client; must be active.
     #[account(
@@ -92,23 +92,20 @@ pub struct AckPacket<'info> {
     /// Light client program used to verify the acknowledgement proof.
     /// CHECK: Validated against client registry
     #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// Client state account owned by the light client program.
     /// CHECK: Ownership validated against light client program
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
 
     /// Consensus state account owned by the light client program.
     /// CHECK: Ownership validated against light client program
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 }
 
-pub fn ack_packet<'info>(
-    ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
-    msg: MsgAckPacket,
-) -> Result<()> {
+pub fn ack_packet<'info>(ctx: Context<'info, AckPacket<'info>>, msg: MsgAckPacket) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::RELAYER_ROLE,
@@ -192,10 +189,10 @@ pub fn ack_packet<'info>(
     );
 
     let cpi_ctx = CpiContext::new(
-        ctx.accounts.ibc_app_program.clone(),
+        ctx.accounts.ibc_app_program.key(),
         OnAcknowledgementPacket {
-            app_state: ctx.accounts.ibc_app_state.clone(),
-            instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
+            app_state: ctx.accounts.ibc_app_state.to_account_info(),
+            instructions_sysvar: ctx.accounts.instructions_sysvar.to_account_info(),
             payer: ctx.accounts.relayer.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
         },
@@ -235,7 +232,7 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     struct AckPacketTestContext {
         instruction: Instruction,

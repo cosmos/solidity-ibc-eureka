@@ -64,7 +64,7 @@ pub struct SendPacket<'info> {
     /// Will be created by the router
     /// CHECK: PDA will be validated by router program
     #[account(mut)]
-    pub packet_commitment: AccountInfo<'info>,
+    pub packet_commitment: UncheckedAccount<'info>,
 
     /// Client registration entry for the source client.
     #[account(
@@ -75,13 +75,13 @@ pub struct SendPacket<'info> {
     pub client: Account<'info, Client>,
 
     /// CHECK: Light client program, forwarded to router for status check
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// CHECK: Client state account, forwarded to router for status check
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
 
     /// CHECK: Consensus state account, forwarded to router for expiry check
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 
     /// ICS26 router program for CPI.
     pub router_program: Program<'info, Ics26Router>,
@@ -133,11 +133,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     let bump = ctx.bumps.app_state;
     let signer_seeds: &[&[u8]] = &[IBCAppState::SEED, &[bump]];
     let seeds = [signer_seeds];
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.router_program.to_account_info(),
-        cpi_accounts,
-        &seeds,
-    );
+    let cpi_ctx =
+        CpiContext::new_with_signer(ctx.accounts.router_program.key(), cpi_accounts, &seeds);
     let sequence_result = router_cpi::send_packet(cpi_ctx, router_msg)?;
     let sequence = sequence_result.get();
 

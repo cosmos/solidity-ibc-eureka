@@ -16,8 +16,8 @@ use solana_sdk::account::Account;
 use solana_sdk::clock::Clock;
 use solana_sdk::instruction::{AccountMeta, Instruction};
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::system_program;
 use solana_sdk::sysvar;
+use solana_sdk_ids::system_program;
 
 fn setup_mollusk() -> Mollusk {
     let mut mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
@@ -159,7 +159,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
         AccountMeta::new(params.new_consensus_state_pda, false),
         AccountMeta::new(params.submitter, true),
         AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
     ];
 
     // Add chunk accounts
@@ -304,7 +304,7 @@ fn test_successful_assembly_and_update() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -443,7 +443,7 @@ fn test_assembly_with_corrupted_chunk() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -549,7 +549,7 @@ fn test_assembly_wrong_submitter() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -657,7 +657,7 @@ fn test_assembly_chunks_in_wrong_order() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -773,7 +773,7 @@ fn test_rent_reclaim_after_assembly() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -910,7 +910,7 @@ fn test_assemble_and_update_client_happy_path() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1086,7 +1086,7 @@ fn test_assemble_with_frozen_client() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1235,7 +1235,7 @@ fn test_assemble_with_existing_consensus_state() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1378,7 +1378,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1504,7 +1504,7 @@ fn test_assemble_updates_latest_height() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1656,7 +1656,7 @@ fn test_assemble_and_update_with_invalid_signature() {
             Account {
                 lamports: 0,
                 data: vec![],
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -1666,13 +1666,13 @@ fn test_assemble_and_update_with_invalid_signature() {
             Account {
                 lamports: 1_000_000_000,
                 data: vec![],
-                owner: solana_sdk::system_program::ID,
+                owner: solana_sdk_ids::system_program::ID,
                 executable: false,
                 rent_epoch: 0,
             },
         ),
         (
-            solana_sdk::system_program::ID,
+            solana_sdk_ids::system_program::ID,
             Account {
                 lamports: 1,
                 data: vec![],
@@ -1694,8 +1694,8 @@ fn test_assemble_and_update_with_invalid_signature() {
         AccountMeta::new_readonly(trusted_consensus_pda, false),
         AccountMeta::new(new_consensus_pda, false),
         AccountMeta::new(submitter, true),
-        AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
-        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
+        AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
     ];
 
     // Add chunk accounts to instruction
@@ -1737,7 +1737,7 @@ fn test_assemble_and_update_with_invalid_signature() {
 
     // Add instructions sysvar for CPI validation
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1832,7 +1832,7 @@ fn test_assemble_wrong_client_state_pda() {
     ));
 
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -1927,7 +1927,7 @@ fn test_assemble_wrong_new_consensus_state_pda() {
     ));
 
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 
@@ -2040,7 +2040,7 @@ fn test_assemble_target_height_mismatch() {
     ];
 
     accounts.push((
-        anchor_lang::solana_program::sysvar::instructions::ID,
+        solana_instructions_sysvar::ID,
         crate::test_helpers::create_instructions_sysvar_account(),
     ));
 

@@ -31,6 +31,7 @@ test-cpi-proxy = { path = "../test-cpi-proxy", features = ["cpi"] }
 rstest.workspace = true
 solana-program-test.workspace = true
 solana-sdk = { workspace = true, features = ["full"] }
+solana-sdk-ids.workspace = true
 tokio = { version = "1", features = ["full"] }
 
 [lints]

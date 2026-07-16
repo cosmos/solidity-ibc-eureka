@@ -1,7 +1,7 @@
 use super::*;
 use integration_tests::chain::attestation_lc_accounts as att_lc_accounts;
 use integration_tests::programs::{ATTESTATION_PROGRAM_ID, TEST_ATTESTATION_ID};
-use solana_sdk::compute_budget::ComputeBudgetInstruction;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_sdk::transaction::Transaction;
 
 /// Three-chain full-circle roundtrip: A→B→C→A→C→B→A.

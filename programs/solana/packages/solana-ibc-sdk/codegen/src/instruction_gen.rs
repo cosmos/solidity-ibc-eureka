@@ -880,7 +880,7 @@ mod tests {
         let mut output = String::new();
         generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
-        assert!(output.contains("anchor_lang::solana_program::sysvar::instructions::ID"));
+        assert!(output.contains("solana_instructions_sysvar::ID"));
         assert!(output.contains("AccountMeta::new_readonly"));
     }
 

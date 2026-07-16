@@ -11,8 +11,7 @@ categories = ["cryptography", "blockchain"]
 
 [dependencies]
 anchor-lang.workspace = true
-# Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
-borsh = { version = "0.10.4", default-features = false }
+borsh = { version = "=1.5.7", default-features = false }
 solana-sha256-hasher.workspace = true
 solana-ibc-proto = { path = "../solana-ibc-proto" }
 

@@ -19,7 +19,6 @@ use tendermint_light_client_verifier::{
     options::Options, types::TrustThreshold as TmTrustThreshold,
 };
 
-#[cfg(not(feature = "solana"))]
 use tendermint_light_client_verifier::ProdVerifier;
 
 /// Output from misbehaviour verification
@@ -70,7 +69,6 @@ pub enum MisbehaviourError {
 /// Returns `MisbehaviourError::MisbehaviourVerificationFailed` if misbehaviour verification fails.
 /// Returns `MisbehaviourError::CheckForMisbehaviourFailed` if misbehaviour check fails.
 /// Returns `MisbehaviourError::MisbehaviourNotDetected` if no misbehaviour is detected.
-#[cfg(not(feature = "solana"))]
 pub fn check_for_misbehaviour(
     client_state: &ClientState,
     misbehaviour: &Misbehaviour,
@@ -99,7 +97,7 @@ pub fn check_for_misbehaviour(
 /// Returns `MisbehaviourError::CheckForMisbehaviourFailed` if misbehaviour check fails.
 /// Returns `MisbehaviourError::MisbehaviourNotDetected` if no misbehaviour is detected.
 #[cfg(feature = "solana")]
-pub fn check_for_misbehaviour<'a>(
+pub fn check_for_misbehaviour_solana<'a>(
     client_state: &ClientState,
     misbehaviour: &Misbehaviour,
     trusted_consensus_state_1: ConsensusState,

@@ -5,17 +5,16 @@
 //! `cosmos-to-solana` proof API modules delegate to these helpers.
 
 use anyhow::Result;
+use solana_address_lookup_table_interface::{
+    instruction::{create_lookup_table, extend_lookup_table},
+    state::AddressLookupTable,
+};
 use solana_client::rpc_client::RpcClient;
+use solana_commitment_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_sdk::{
-    address_lookup_table::{
-        instruction::{create_lookup_table, extend_lookup_table},
-        state::AddressLookupTable,
-        AddressLookupTableAccount,
-    },
-    commitment_config::CommitmentConfig,
-    compute_budget::ComputeBudgetInstruction,
     instruction::Instruction,
-    message::{v0, VersionedMessage},
+    message::{v0, AddressLookupTableAccount, VersionedMessage},
     pubkey::Pubkey,
     transaction::VersionedTransaction,
 };
@@ -235,6 +234,6 @@ pub fn extend_compute_ix_with_heap() -> Vec<Instruction> {
 pub fn derive_alt_address(slot: u64, authority: Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[authority.as_ref(), &slot.to_le_bytes()],
-        &solana_sdk::address_lookup_table::program::id(),
+        &solana_address_lookup_table_interface::program::id(),
     )
 }

@@ -91,7 +91,7 @@ pub mod ics07_tendermint {
     /// Assemble chunks and update the client
     /// Automatically cleans up all chunks after successful update
     pub fn assemble_and_update_client<'info>(
-        ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
+        ctx: Context<'info, AssembleAndUpdateClient<'info>>,
         target_height: u64,
         chunk_count: u8,
         trusted_height: u64,
@@ -122,7 +122,7 @@ pub mod ics07_tendermint {
     /// Assemble chunks and submit misbehaviour
     /// Automatically freezes the client and cleans up all chunks
     pub fn assemble_and_submit_misbehaviour<'info>(
-        ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
+        ctx: Context<'info, AssembleAndSubmitMisbehaviour<'info>>,
         chunk_count: u8,
         trusted_height_1: u64,
         trusted_height_2: u64,
@@ -144,7 +144,7 @@ pub mod ics07_tendermint {
     }
 
     pub fn pre_verify_signature<'info>(
-        ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
+        ctx: Context<'info, PreVerifySignature<'info>>,
         signature: solana_ibc_types::ics07::SignatureData,
     ) -> Result<()> {
         instructions::pre_verify_signatures::pre_verify_signature(ctx, signature)

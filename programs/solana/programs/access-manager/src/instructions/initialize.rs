@@ -27,8 +27,8 @@ pub struct Initialize<'info> {
 
     /// Instructions sysvar for CPI validation
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// BPF Loader Upgradeable `ProgramData` account for this program.
     #[account(
@@ -67,8 +67,9 @@ mod tests {
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
     use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::native_loader;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::{native_loader, system_program};
+    use solana_sdk_ids::system_program;
 
     #[test]
     fn test_initialize_happy_path() {
@@ -675,9 +676,9 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use crate::test_utils::*;
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
     use anchor_lang::InstructionData;
     use solana_sdk::{
-        bpf_loader_upgradeable::{self, UpgradeableLoaderState},
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
         signature::Keypair,
@@ -729,7 +730,7 @@ mod integration_tests {
             accounts: vec![
                 AccountMeta::new(access_manager_pda, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new_readonly(program_data_pda, false),
                 AccountMeta::new_readonly(authority, true),

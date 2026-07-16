@@ -17,8 +17,8 @@ use solana_ibc_sdk::ics26_router::types::{
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    system_program,
 };
+use solana_sdk_ids::system_program;
 
 /// Default source port used by `test_ibc_app`.
 pub const PORT_ID: &str = "transfer";

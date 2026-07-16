@@ -53,13 +53,12 @@ pub fn accept_upgrade_authority_transfer<'info>(
 
     let account_metas = ctx.accounts.to_account_metas(None);
     let instruction = anchor_lang::solana_program::instruction::Instruction {
-        program_id: *ctx.program.key,
+        program_id: ctx.program_id,
         accounts: account_metas,
         data: ix_data,
     };
 
-    let mut account_infos = ctx.accounts.to_account_infos();
-    account_infos.push(ctx.program.clone());
+    let account_infos = ctx.accounts.to_account_infos();
 
     anchor_lang::solana_program::program::invoke_signed(
         &instruction,

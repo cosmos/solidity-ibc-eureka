@@ -40,8 +40,7 @@ pub fn mint_to_account<'info>(
         to: token_account.to_account_info(),
         authority: mint_authority.to_account_info(),
     };
-    let mint_ctx =
-        CpiContext::new_with_signer(token_program.to_account_info(), mint_accounts, signer_seeds);
+    let mint_ctx = CpiContext::new_with_signer(token_program.key(), mint_accounts, signer_seeds);
     token_interface::mint_to(mint_ctx, amount)?;
 
     mint.reload()?;

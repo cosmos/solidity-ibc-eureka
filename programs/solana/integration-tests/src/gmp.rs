@@ -16,8 +16,8 @@ use solana_ibc_sdk::ics27_gmp::types::{OnRecvPacketMsg, Payload, SendCallMsg};
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    system_program,
 };
+use solana_sdk_ids::system_program;
 
 /// IBC port identifier used by `ics27_gmp`.
 pub const GMP_PORT_ID: &str = "gmpport";

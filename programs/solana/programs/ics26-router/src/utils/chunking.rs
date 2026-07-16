@@ -520,7 +520,6 @@ mod tests {
             &mut data,
             &crate::ID,
             false,
-            0,
         );
 
         let params = ReconstructPacketParams {
@@ -577,7 +576,6 @@ mod tests {
             &mut data,
             &crate::ID,
             false,
-            0,
         );
 
         let params = ReconstructPacketParams {
@@ -618,7 +616,6 @@ mod tests {
             &mut data,
             &crate::ID,
             false,
-            0,
         );
 
         let params = ReconstructPacketParams {
@@ -645,7 +642,7 @@ mod tests {
         data: &'a mut [u8],
         owner: &'a Pubkey,
     ) -> AccountInfo<'a> {
-        AccountInfo::new(key, false, false, lamports, data, owner, false, 0)
+        AccountInfo::new(key, false, false, lamports, data, owner, false)
     }
 
     #[test]

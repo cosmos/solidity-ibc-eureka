@@ -131,9 +131,7 @@ pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Ics24Resul
 /// # Errors
 /// Returns `Ics24Error::PacketSerializationError` if the packet cannot be serialized.
 pub fn packet_receipt_commitment_bytes32(packet: &Packet) -> Ics24Result<[u8; 32]> {
-    let packet_bytes = packet
-        .try_to_vec()
-        .map_err(|_| Ics24Error::PacketSerializationError)?;
+    let packet_bytes = borsh::to_vec(packet).map_err(|_| Ics24Error::PacketSerializationError)?;
     Ok(keccak256(&packet_bytes).to_bytes())
 }
 

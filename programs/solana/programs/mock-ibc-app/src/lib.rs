@@ -47,10 +47,10 @@ pub mod mock_ibc_app {
 #[instruction(msg: OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
     /// CHECK: Mock app doesn't validate or use this account
-    pub app_state: AccountInfo<'info>,
+    pub app_state: UncheckedAccount<'info>,
 
     /// CHECK: Mock app doesn't validate the router
-    pub router_program: AccountInfo<'info>,
+    pub router_program: UncheckedAccount<'info>,
 }
 
 /// Accounts for mock `on_acknowledgement_packet` (no validation, always succeeds).
@@ -58,10 +58,10 @@ pub struct OnRecvPacket<'info> {
 #[instruction(_msg: OnAcknowledgementPacketMsg)]
 pub struct OnAcknowledgementPacket<'info> {
     /// CHECK: Mock app doesn't validate or use this account
-    pub app_state: AccountInfo<'info>,
+    pub app_state: UncheckedAccount<'info>,
 
     /// CHECK: Mock app doesn't validate the router
-    pub router_program: AccountInfo<'info>,
+    pub router_program: UncheckedAccount<'info>,
 }
 
 /// Accounts for mock `on_timeout_packet` (no validation, always succeeds).
@@ -69,8 +69,8 @@ pub struct OnAcknowledgementPacket<'info> {
 #[instruction(_msg: OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {
     /// CHECK: Mock app doesn't validate or use this account
-    pub app_state: AccountInfo<'info>,
+    pub app_state: UncheckedAccount<'info>,
 
     /// CHECK: Mock app doesn't validate the router
-    pub router_program: AccountInfo<'info>,
+    pub router_program: UncheckedAccount<'info>,
 }

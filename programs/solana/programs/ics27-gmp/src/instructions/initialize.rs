@@ -82,7 +82,7 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     fn create_initialize_instruction(
         app_state: Pubkey,

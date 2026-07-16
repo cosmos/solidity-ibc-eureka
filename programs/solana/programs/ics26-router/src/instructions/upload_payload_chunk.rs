@@ -22,7 +22,7 @@ pub struct UploadPayloadChunk<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager,
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Temporary storage for one payload chunk, keyed by relayer, client,
     /// sequence, payload index and chunk index.
@@ -51,8 +51,8 @@ pub struct UploadPayloadChunk<'info> {
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn upload_payload_chunk(ctx: Context<UploadPayloadChunk>, msg: MsgUploadChunk) -> Result<()> {
@@ -91,7 +91,7 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     struct UploadPayloadChunkTestContext {
         instruction: Instruction,

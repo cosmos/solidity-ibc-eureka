@@ -10,10 +10,8 @@ keywords = ["cosmos", "ibc", "solana", "tendermint", "borsh"]
 categories = ["cryptography", "blockchain"]
 
 [dependencies]
-# Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
-# This ensures correct version even when built from root workspace context via path dependencies.
 # std feature required because direct deserialization uses std::io.
-borsh = { version = "0.10.4", default-features = false, features = ["std"] }
+borsh = { version = "=1.5.7", default-features = false, features = ["std"] }
 
 # Dependencies for light-client feature
 ibc-client-tendermint = { workspace = true, optional = true }

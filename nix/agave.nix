@@ -21,15 +21,11 @@
     "cargo-build-sbf"
     "cargo-test-sbf"
     "solana"
-    "solana-bench-tps"
     "solana-faucet"
     "solana-gossip"
     "solana-keygen"
-    "solana-log-analyzer"
-    "solana-net-shaper"
     "solana-test-validator"
     "solana-genesis"
-    "agave-ledger-tool"
     "agave-install"
     "agave-validator"
   ],
@@ -38,9 +34,22 @@
   inherit (stdenv) hostPlatform isLinux;
 
   versions = {
-    agave = "2.3.13";
-    platformTools = "v1.48";
+    agave = "3.1.10";
+    platformTools = "v1.52";
   };
+
+  criterion =
+    if isLinux
+    then {
+      version = "v2.3.3";
+      archive = "criterion-v2.3.3-linux-x86_64.tar.bz2";
+      hash = "sha256-7n+S1yaFY4SKo66Qu/XfhmBLjQ+w5JQrDs+/YgFZZVA=";
+    }
+    else {
+      version = "v2.3.2";
+      archive = "criterion-v2.3.2-osx-x86_64.tar.bz2";
+      hash = "sha256-pw12DJO7CgNk1HaZxJgTFxF8oTX6vskURIvqAu3c7fI=";
+    };
 
   # Create nightly toolchain from rust-bin (used for IDL generation)
   rustNightly = rust-bin.nightly.latest.default.override {
@@ -50,19 +59,19 @@
   platformConfig = {
     x86_64-darwin = {
       archive = "platform-tools-osx-x86_64.tar.bz2";
-      sha256 = "sha256-vLTtCmUkxxkd8KKQa8qpQ7kb5S52EI/DVllgtu8zM2I=";
+      sha256 = "sha256-HdTysfe1MWwvGJjzfHXtSV7aoIMzM0kVP+lV5Wg3kdE=";
     };
     aarch64-darwin = {
       archive = "platform-tools-osx-aarch64.tar.bz2";
-      sha256 = "sha256-eZ5M/O444icVXIP7IpT5b5SoQ9QuAcA1n7cSjiIW0t0=";
+      sha256 = "sha256-Fyffsx6DPOd30B5wy0s869JrN2vwnYBSfwJFfUz2/QA=";
     };
     x86_64-linux = {
       archive = "platform-tools-linux-x86_64.tar.bz2";
-      sha256 = "sha256-qdMVf5N9X2+vQyGjWoA14PgnEUpmOwFQ20kuiT7CdZc=";
+      sha256 = "sha256-izhh6T2vCF7BK2XE+sN02b7EWHo94Whx2msIqwwdkH4=";
     };
     aarch64-linux = {
       archive = "platform-tools-linux-aarch64.tar.bz2";
-      sha256 = "sha256-rsYCIiL3ueJHkDZkhLzGz59mljd7uY9UHIhp4vMecPI=";
+      sha256 = "sha256-sfhbLsR+9tUPZoPjUUv0apUmlQMVUXjN+0i9aUszH5g=";
     };
   };
 
@@ -77,7 +86,12 @@
   # Download SBF SDK archive from Agave releases
   sbfSdkArchive = fetchurl {
     url = "https://github.com/anza-xyz/agave/releases/download/v${versions.agave}/sbf-sdk.tar.bz2";
-    sha256 = "sha256-zdGtFHxj/I4ID3RN3BNx27LakxzhwOuvSZpVb3M93YM=";
+    sha256 = "sha256-H+BQutp7cdju1C/ux6l+ZrzZpJtzkjza97czP7e35Ag=";
+  };
+
+  criterionArchive = fetchurl {
+    url = "https://github.com/Snaipe/Criterion/releases/download/${criterion.version}/${criterion.archive}";
+    sha256 = criterion.hash;
   };
 
   # SBF SDK derivation
@@ -94,6 +108,12 @@
       # Create symlink to platform tools
       mkdir -p $out/dependencies
       ln -s ${platformTools} $out/dependencies/platform-tools
+      touch $out/dependencies/platform-tools-${versions.platformTools}.md
+
+      # strip.sh sources install.sh, which expects Criterion to be present.
+      mkdir -p $out/dependencies/criterion
+      tar --strip-components 1 -xjf ${criterionArchive} -C $out/dependencies/criterion
+      touch $out/dependencies/criterion-${criterion.version}.md
 
       # Extract scripts from agave/platform-tools-sdk/sbf/scripts/
       if [ -d "${agave.src}/platform-tools-sdk/sbf/scripts" ]; then
@@ -158,11 +178,10 @@
         owner = "anza-xyz";
         repo = "agave";
         rev = "v${versions.agave}";
-        hash = "sha256-RSucqvbshaaby4fALhAQJtZztwsRdA+X7yRnoBxQvsg=";
-        fetchSubmodules = true;
+        hash = "sha256-9fVjwEnZqleeS5CAA4IB1ZGCljUNTT0HhxUGu3Bm8Zg=";
       };
 
-      cargoHash = "sha256-yTS++bUu+4wmbXXZkU4eDq4sGNzls1euptJoY6OYZOM=";
+      cargoHash = "sha256-SvKpmZ6I7sTh7lMYZLnk4GlIlUL3s4HfjL2Zf+5+G8M=";
 
       cargoBuildFlags = map (n: "--bin=${n}") solanaPkgs;
 
@@ -541,7 +560,7 @@
           setup_nightly
 
           echo "🧪 Running tests with nightly toolchain..."
-          "$REAL_ANCHOR" test --skip-build "''${extra_args[@]}"
+          "$REAL_ANCHOR" test --skip-build --validator legacy "''${extra_args[@]}"
         }
 
         # Function to run unit tests with cargo test

@@ -31,8 +31,8 @@ pub struct SetMintRateLimit<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn set_mint_rate_limit(ctx: Context<SetMintRateLimit>, msg: SetMintRateLimitMsg) -> Result<()> {

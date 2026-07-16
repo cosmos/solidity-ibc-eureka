@@ -19,8 +19,8 @@ pub struct OnTimeoutPacket<'info> {
 
     /// Instructions sysvar for CPI validation
     /// CHECK: Validated via address constraint
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 
     /// Payer for account creation if needed
     #[account(mut)]

@@ -23,15 +23,15 @@ pub struct Pause<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager,
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Signer authorized to pause the router.
     pub pauser: Signer<'info>,
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn pause(ctx: Context<Pause>) -> Result<()> {

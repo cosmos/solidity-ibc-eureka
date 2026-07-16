@@ -8,18 +8,13 @@ use crate::actors::admin::Admin;
 use crate::actors::deployer::Deployer;
 use crate::actors::relayer::Relayer;
 use crate::Actor;
+use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
 use solana_sdk::{
-    account::Account,
-    bpf_loader_upgradeable::{self, UpgradeableLoaderState},
-    hash::Hash,
-    instruction::Instruction,
-    pubkey::Pubkey,
-    signature::Keypair,
-    system_program,
-    sysvar::Sysvar as _,
-    transaction::Transaction,
+    account::Account, hash::Hash, instruction::Instruction, pubkey::Pubkey, signature::Keypair,
+    sysvar::SysvarSerialize as _, transaction::Transaction,
 };
+use solana_sdk_ids::system_program;
 
 const DEPLOY_DIR: &str = "../target/deploy";
 /// Deterministic Unix timestamp used for every test chain clock.
@@ -391,7 +386,7 @@ fn build_program_test(config: &ChainConfig<'_>) -> ProgramTest {
         Account {
             lamports: 1,
             data: clock_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },

@@ -340,7 +340,7 @@ mod tests {
                 Account {
                     lamports: 0,
                     data: vec![],
-                    owner: solana_sdk::system_program::ID,
+                    owner: solana_sdk_ids::system_program::ID,
                     executable: false,
                     rent_epoch: 0,
                 },

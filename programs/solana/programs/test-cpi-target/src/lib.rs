@@ -74,7 +74,7 @@ pub mod test_cpi_target {
     }
 
     pub fn proxy_cpi<'info>(
-        ctx: Context<'_, '_, '_, 'info, ProxyCpi<'info>>,
+        ctx: Context<'info, ProxyCpi<'info>>,
         instruction_data: Vec<u8>,
         account_metas: Vec<CpiAccountMeta>,
     ) -> Result<()> {

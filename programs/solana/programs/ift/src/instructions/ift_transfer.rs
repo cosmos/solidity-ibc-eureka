@@ -23,14 +23,14 @@ pub struct IFTTransfer<'info> {
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused,
     )]
-    pub app_state: Account<'info, IFTAppState>,
+    pub app_state: Box<Account<'info, IFTAppState>>,
 
     /// Per-mint IFT app state (read-only, for mint and bridge references)
     #[account(
         seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump,
     )]
-    pub app_mint_state: Account<'info, IFTAppMintState>,
+    pub app_mint_state: Box<Account<'info, IFTAppMintState>>,
 
     /// IFT bridge for the destination.
     /// Boxed to reduce stack frame size and avoid BPF stack overflow.
@@ -81,7 +81,7 @@ pub struct IFTTransfer<'info> {
         bump,
         seeds::program = gmp_program.key()
     )]
-    pub gmp_app_state: AccountInfo<'info>,
+    pub gmp_app_state: UncheckedAccount<'info>,
 
     /// Router program
     pub router_program: Program<'info, ics26_router::program::Ics26Router>,
@@ -89,7 +89,7 @@ pub struct IFTTransfer<'info> {
     /// Router state account
     /// CHECK: Router program validates this
     #[account()]
-    pub router_state: AccountInfo<'info>,
+    pub router_state: UncheckedAccount<'info>,
 
     /// Packet commitment account; initialized by the router via GMP CPI.
     /// CHECK: PDA seeds verified against the router program.
@@ -103,30 +103,30 @@ pub struct IFTTransfer<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub packet_commitment: AccountInfo<'info>,
+    pub packet_commitment: UncheckedAccount<'info>,
 
     /// GMP's IBC app registration account — required by the router for authorization.
     /// CHECK: Router program validates this
     #[account()]
-    pub gmp_ibc_app: AccountInfo<'info>,
+    pub gmp_ibc_app: UncheckedAccount<'info>,
     /// IBC client account
     /// CHECK: Router program validates this
     #[account()]
-    pub ibc_client: AccountInfo<'info>,
+    pub ibc_client: UncheckedAccount<'info>,
 
     /// CHECK: Light client program, forwarded through GMP to router
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// CHECK: Client state for light client status check
-    pub light_client_state: AccountInfo<'info>,
+    pub light_client_state: UncheckedAccount<'info>,
 
     /// Instructions sysvar for CPI caller detection by GMP
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 
     #[account(
         init,
@@ -140,7 +140,7 @@ pub struct IFTTransfer<'info> {
         ],
         bump,
     )]
-    pub pending_transfer: Account<'info, PendingTransfer>,
+    pub pending_transfer: Box<Account<'info, PendingTransfer>>,
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
@@ -174,7 +174,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         from: ctx.accounts.sender_token_account.to_account_info(),
         authority: ctx.accounts.sender.to_account_info(),
     };
-    let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
+    let burn_ctx = CpiContext::new(ctx.accounts.token_program.key(), burn_accounts);
     token_interface::burn(burn_ctx, msg.amount)?;
     ctx.accounts.mint.reload()?;
     ctx.accounts.sender_token_account.reload()?;
@@ -187,17 +187,17 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let gmp_accounts = SendGmpCallAccounts {
         gmp_program: ctx.accounts.gmp_program.to_account_info(),
-        gmp_app_state: ctx.accounts.gmp_app_state.clone(),
+        gmp_app_state: ctx.accounts.gmp_app_state.to_account_info(),
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
-        router_state: ctx.accounts.router_state.clone(),
-        packet_commitment: ctx.accounts.packet_commitment.clone(),
-        ibc_app: ctx.accounts.gmp_ibc_app.clone(),
-        client: ctx.accounts.ibc_client.clone(),
-        light_client_program: ctx.accounts.light_client_program.clone(),
-        client_state: ctx.accounts.light_client_state.clone(),
-        instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
-        consensus_state: ctx.accounts.consensus_state.clone(),
+        router_state: ctx.accounts.router_state.to_account_info(),
+        packet_commitment: ctx.accounts.packet_commitment.to_account_info(),
+        ibc_app: ctx.accounts.gmp_ibc_app.to_account_info(),
+        client: ctx.accounts.ibc_client.to_account_info(),
+        light_client_program: ctx.accounts.light_client_program.to_account_info(),
+        client_state: ctx.accounts.light_client_state.to_account_info(),
+        instruction_sysvar: ctx.accounts.instruction_sysvar.to_account_info(),
+        consensus_state: ctx.accounts.consensus_state.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -904,7 +904,7 @@ mod tests {
         let pending_transfer_account = solana_sdk::account::Account {
             lamports: 0,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
