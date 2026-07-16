@@ -29,9 +29,4 @@ interface IEscrow {
     /// @param ics20_ The ICS20 contract address, can send funds from the escrow
     /// @param authority The address of the AccessManager contract
     function initialize(address ics20_, address authority) external;
-
-    /// @notice Reinitializes the RateLimit contract
-    /// @dev This initializes the contract to the latest version from a previous version
-    /// @dev Requires ICS20Transfer to have been initialized to the latest version
-    function initializeV2() external;
 }
