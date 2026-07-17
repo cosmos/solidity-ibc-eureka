@@ -77,8 +77,8 @@ keywords = [
 ]
 
 [workspace.dependencies]
-anchor-lang = { version = "=1.0.0", default-features = false }
-anchor-spl = { version = "=1.0.0" }
+anchor-lang = { version = "=1.1.2", default-features = false }
+anchor-spl = { version = "=1.1.2" }
 
 # Parent workspace packages referenced via path dependencies (not added to root workspace.dependencies)
 tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }

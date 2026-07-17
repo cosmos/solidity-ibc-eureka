@@ -2,6 +2,8 @@
   lib,
   stdenv,
   rustPlatform,
+  curl,
+  jq,
   fetchFromGitHub,
   pkg-config,
   openssl,
@@ -11,18 +13,18 @@
 }:
 rustPlatform.buildRustPackage rec {
   pname = "anchor";
-  version = "1.0.0";
+  version = "1.1.2";
 
   src = fetchFromGitHub {
-    owner = "solana-foundation";
+    owner = "otter-sec";
     repo = "anchor";
     tag = "v${version}";
-    hash = "sha256-+VCY7By3Xh71opOSY+/xXd9LmsmYq0SstwKOfrI9KKU=";
+    hash = "sha256-UV5aquH0YqCpex9LDrDdmZmdebhUXKqqsM6X/d2vJIs=";
   };
 
-  cargoHash = "sha256-GH/R7S8jQAWGTz8Ig/u/yb9o6FPtmkAaOzgl0uiB0dk=";
+  cargoHash = "sha256-oEgWfklxjP8+TxrhDKJgcTsanpqJpEiHXJyir8neYj8=";
 
-  nativeBuildInputs = [perl pkg-config];
+  nativeBuildInputs = [perl pkg-config curl jq];
 
   buildInputs = [openssl] ++ lib.optionals stdenv.isLinux [hidapi udev];
 
@@ -34,8 +36,8 @@ rustPlatform.buildRustPackage rec {
 
   meta = with lib; {
     description = "Solana Sealevel Framework";
-    homepage = "https://github.com/solana-foundation/anchor";
-    changelog = "https://github.com/solana-foundation/anchor/blob/${src.rev}/CHANGELOG.md";
+    homepage = "https://github.com/otter-sec/anchor";
+    changelog = "https://github.com/otter-sec/anchor/blob/${src.rev}/CHANGELOG.md";
     license = licenses.asl20;
     mainProgram = "anchor";
   };

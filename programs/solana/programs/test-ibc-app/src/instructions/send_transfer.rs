@@ -1,14 +1,12 @@
 use crate::{errors::TestIbcAppError, state::*};
 use anchor_lang::prelude::*;
 use ibc_proto::ibc::applications::transfer::v2::FungibleTokenPacketData;
-use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
-use ics26_router::{
-    cpi::accounts::SendPacket as RouterSendPacket,
-    state::{Client, IBCApp, MsgSendPacket, RouterState},
-};
+use ics26_router::state::{Client, IBCApp, MsgSendPacket, RouterState};
 use prost::Message;
 use solana_ibc_types::Payload;
+
+use super::send_packet::send_packet_cpi;
 
 /// Message for sending a transfer via IBC
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -205,27 +203,21 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         payload,
     };
 
-    let cpi_accounts = RouterSendPacket {
-        router_state: ctx.accounts.router_state.to_account_info(),
-        ibc_app: ctx.accounts.ibc_app.to_account_info(),
-        packet_commitment: ctx.accounts.packet_commitment.to_account_info(),
-        app_signer: ctx.accounts.app_state.to_account_info(),
-        payer: ctx.accounts.user.to_account_info(),
-        system_program: ctx.accounts.system_program.to_account_info(),
-        client: ctx.accounts.client.to_account_info(),
-        light_client_program: ctx.accounts.light_client_program.to_account_info(),
-        client_state: ctx.accounts.client_state.to_account_info(),
-        consensus_state: ctx.accounts.consensus_state.to_account_info(),
-    };
-
-    // Sign the app_state PDA to prove this app is the immediate caller
-    let bump = ctx.bumps.app_state;
-    let signer_seeds: &[&[u8]] = &[IBCAppState::SEED, &[bump]];
-    let seeds = [signer_seeds];
-    let cpi_ctx =
-        CpiContext::new_with_signer(ctx.accounts.router_program.key(), cpi_accounts, &seeds);
-    let sequence_result = router_cpi::send_packet(cpi_ctx, router_msg)?;
-    let sequence = sequence_result.get();
+    let sequence = send_packet_cpi(
+        &ctx.accounts.router_program.to_account_info(),
+        &ctx.accounts.router_state.to_account_info(),
+        &ctx.accounts.ibc_app.to_account_info(),
+        &ctx.accounts.packet_commitment.to_account_info(),
+        &ctx.accounts.app_state.to_account_info(),
+        ctx.bumps.app_state,
+        &ctx.accounts.user.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &ctx.accounts.client.to_account_info(),
+        &ctx.accounts.light_client_program.to_account_info(),
+        &ctx.accounts.client_state.to_account_info(),
+        &ctx.accounts.consensus_state.to_account_info(),
+        router_msg,
+    )?;
 
     // Update app state - track packets sent
     let app_state = &mut ctx.accounts.app_state;

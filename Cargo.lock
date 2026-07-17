@@ -1627,66 +1627,66 @@ source = "git+https://github.com/Snowfork/milagro_bls?rev=bc2b5b5e8d48b7e2e1bfaa
 
 [[package]]
 name = "anchor-attribute-access-control"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b972f5fbd02524c92e4eb487c3c648904572702670f3d6fc81aef5f1751b1569"
+checksum = "9fc4b6b3c3f3e37a0b7d537e03a36bfb0415ee11b4443fa4190437cf26a874b6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-attribute-account"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9acfcb07a92084bcfa9f6cc49a5c2e8e0e986f25f4b7caa184b7a2c9c9e561c2"
+checksum = "48e8b1468add67e6a69732883e58d23a18be51538994adaae69c9b3fe967e6be"
 dependencies = [
  "anchor-syn",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-attribute-constant"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f46cc38f819377f07663b8eb492a701427950065e79d2d7b622a782443deb7a"
+checksum = "80e1e3ade39ba05716ddc3b792859d838cccf43f5f4913ae8a163de7a2ed7f7e"
 dependencies = [
  "anchor-syn",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-attribute-error"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c34748789107c9838329e058ca7b253e67f37b39ceae5a0a6c8d99f5d1bf1fe"
+checksum = "d4e026f0ff09d740fd1821bbf97d9ac649c123ff92f04b9197b002494af4acf1"
 dependencies = [
  "anchor-syn",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-attribute-event"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a28a3e5eefa03d9c5ef02b2139198f652547d38dddafc9c5545152dfba54556"
+checksum = "7aafc8e26eb16a0c4129661f6857c42f301859fc2ee10f4e5287d571f0ea07f5"
 dependencies = [
  "anchor-syn",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-attribute-program"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfaa03865053cb168bfc4debe5992be87f397aa027dd81b69a2e44f2e5bae1c5"
+checksum = "6844e657ffe049b073389efb843bb281d08579b8a47ef294365f729b35ed3dca"
 dependencies = [
  "anchor-lang-idl",
  "anchor-syn",
@@ -1694,49 +1694,49 @@ dependencies = [
  "heck 0.3.3",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-derive-accounts"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eef330db08f9ceee45c18ef96b15b869883d280c0ab5c6ff5d2e2f6481da7911"
+checksum = "2c87a6769d7cf2deed8d3351d6d1d8aa05a3a07751f1418ab6b34aaa307bd34b"
 dependencies = [
  "anchor-syn",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-derive-serde"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0e80ff4e3ddb8c85aafd37926335c28f820516311e7106e5b7482b42e798aaa"
+checksum = "1f014d99530ae48a81f710f150688c5c542fdeee3af8998010e147a64d7a697c"
 dependencies = [
  "anchor-syn",
  "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-derive-space"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2672af0ef4dfd5f5b6199355867b580cd8b4048093ef5208dd2b441305c15b8b"
+checksum = "33ba30c2d844e7440c491ad5f3e25f93115c6c9319df480eda460ce96030832b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.117",
 ]
 
 [[package]]
 name = "anchor-lang"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8de9dce227fa0c08be20fef008c5b04681e1e0a15cb396e9619a9a1f800ff6cd"
+checksum = "aa6708f356398752b8d7a08fb701c9c17395e103786fb1b33615a7267a6f4774"
 dependencies = [
  "anchor-attribute-access-control",
  "anchor-attribute-account",
@@ -1747,6 +1747,7 @@ dependencies = [
  "anchor-derive-accounts",
  "anchor-derive-serde",
  "anchor-derive-space",
+ "anchor-lang-error",
  "anchor-lang-idl",
  "base64 0.21.7",
  "bincode",
@@ -1778,10 +1779,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "anchor-lang-idl"
-version = "0.1.2"
+name = "anchor-lang-error"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e8599d21995f68e296265aa5ab0c3cef582fd58afec014d01bd0bce18a4418"
+checksum = "20760a8d5b7ddd1aea7a347c43c702ea4e962ccb7b9908c952e4b372b2d9e1f7"
+dependencies = [
+ "anchor-attribute-error",
+ "borsh",
+ "solana-msg",
+ "solana-program-error",
+ "solana-pubkey 3.0.0",
+]
+
+[[package]]
+name = "anchor-lang-idl"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47914b4290ae2bdf4ec203aa821e6eba86d7c78ef497918938038dcc6919f953"
 dependencies = [
  "anchor-lang-idl-spec",
  "anyhow",
@@ -1804,9 +1818,9 @@ dependencies = [
 
 [[package]]
 name = "anchor-syn"
-version = "1.0.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c62f42cb7e348c033bd9bfba59979bcd66431c026ba23490af94045aa357a950"
+checksum = "f8f6c61ef5b47db60700087bb6e419284b3461ba8f59040e1f6827aa9e9a5bc4"
 dependencies = [
  "anyhow",
  "bs58",
@@ -1815,8 +1829,8 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "sha2 0.10.9",
- "syn 1.0.109",
+ "sha2 0.11.0",
+ "syn 2.0.117",
  "thiserror 1.0.69",
 ]
 
@@ -3327,12 +3341,12 @@ dependencies = [
 
 [[package]]
 name = "cargo_toml"
-version = "0.19.2"
+version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a98356df42a2eb1bd8f1793ae4ee4de48e384dd974ce5eac8eee802edb7492be"
+checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
 dependencies = [
  "serde",
- "toml",
+ "toml 0.9.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -3351,7 +3365,7 @@ dependencies = [
  "serde_json",
  "syn 2.0.117",
  "tempfile",
- "toml",
+ "toml 0.8.23",
 ]
 
 [[package]]
@@ -10264,6 +10278,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14683,7 +14706,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tendermint",
- "toml",
+ "toml 0.8.23",
  "url",
 ]
 
@@ -15087,9 +15110,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
 dependencies = [
  "serde",
- "serde_spanned",
+ "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
  "toml_edit 0.22.27",
+]
+
+[[package]]
+name = "toml"
+version = "0.9.12+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
+dependencies = [
+ "indexmap 2.14.0",
+ "serde_core",
+ "serde_spanned 1.1.1",
+ "toml_datetime 0.7.5+spec-1.1.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.15",
 ]
 
 [[package]]
@@ -15099,6 +15137,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "0.7.5+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
+dependencies = [
+ "serde_core",
 ]
 
 [[package]]
@@ -15129,7 +15176,7 @@ checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
 dependencies = [
  "indexmap 2.14.0",
  "serde",
- "serde_spanned",
+ "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
  "toml_write",
  "winnow 0.7.15",
@@ -15161,6 +15208,12 @@ name = "toml_write"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
+
+[[package]]
+name = "toml_writer"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tonic"
@@ -15580,7 +15633,7 @@ dependencies = [
  "serde_json",
  "target-triple",
  "termcolor",
- "toml",
+ "toml 0.8.23",
 ]
 
 [[package]]
