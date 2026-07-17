@@ -1,7 +1,7 @@
 use crate::types::AppState;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
 use solana_ibc_types::ics07::SignatureData;
+use solana_instructions_sysvar as ix_sysvar;
 use solana_sdk_ids::ed25519_program;
 
 /// Verifies an Ed25519 signature by introspecting a preceding `Ed25519Program` instruction
@@ -11,8 +11,8 @@ use solana_sdk_ids::ed25519_program;
 pub struct PreVerifySignature<'info> {
     /// Instructions sysvar used to load and introspect the preceding Ed25519 verify instruction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// PDA that stores the Ed25519 verification outcome, keyed by the signature hash.
     #[account(
@@ -41,7 +41,7 @@ pub struct PreVerifySignature<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Relayer that signs the transaction and pays for the verification PDA creation.
     #[account(mut)]
@@ -51,7 +51,7 @@ pub struct PreVerifySignature<'info> {
 }
 
 pub fn pre_verify_signature<'info>(
-    ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
+    ctx: Context<'info, PreVerifySignature<'info>>,
     signature: SignatureData,
 ) -> Result<()> {
     access_manager::require_role(
@@ -218,7 +218,7 @@ mod integration_tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(submitter, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             ],
             data: crate::instruction::PreVerifySignature { signature }.data(),
         }

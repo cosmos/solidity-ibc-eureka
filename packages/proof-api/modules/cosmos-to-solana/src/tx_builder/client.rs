@@ -1,9 +1,10 @@
 //! Client operations - create/update client and signature verification.
 
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anyhow::{Context, Result};
 use ibc_client_tendermint::types::Header as TmHeader;
+use solana_ed25519_program::{Ed25519SignatureOffsets, DATA_START};
 use solana_sdk::{
-    ed25519_instruction::{Ed25519SignatureOffsets, DATA_START},
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
@@ -40,7 +41,7 @@ impl super::TxBuilder {
 
         let (program_data_pda, _) = Pubkey::find_program_address(
             &[solana_ics07_program_id.as_ref()],
-            &solana_sdk::bpf_loader_upgradeable::id(),
+            &bpf_loader_upgradeable::id(),
         );
 
         Initialize::builder(&solana_ics07_program_id)
@@ -359,8 +360,8 @@ impl super::TxBuilder {
     }
 
     /// Builds a single signature pre-verification transaction
-    /// NOTE: Can't use `solana_sdk` `ed25519_instruction` because it requires tx signing which we do
-    /// in the grpc caller, not here
+    /// NOTE: Can't use the SDK Ed25519 instruction helper because it requires tx signing, which is
+    /// done in the gRPC caller instead.
     pub(crate) fn build_pre_verify_signature_transaction(
         &self,
         sig_data: &SignatureData,

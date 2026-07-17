@@ -160,7 +160,7 @@ pub fn on_recv_packet<'info>(
     // calling set_return_data(), which prepends a 4-byte LE length prefix
     // for Vec<u8>. We must deserialize to recover the raw ack bytes.
     match get_return_data() {
-        Some((program_id, data)) if program_id == *ctx.program.key => {
+        Some((program_id, data)) if program_id == ctx.program_id => {
             let ack = borsh::BorshDeserialize::try_from_slice(&data)
                 .map_err(|_| error!(IbcAppError::InvalidAppResponse))?;
             Ok(ack)
@@ -228,13 +228,12 @@ where
     }));
 
     let instruction = anchor_lang::solana_program::instruction::Instruction {
-        program_id: *ctx.program.key,
+        program_id: ctx.program_id,
         accounts: account_metas,
         data,
     };
 
     let mut account_infos = ctx.accounts.to_account_infos();
-    account_infos.push(ctx.program.clone());
     account_infos.extend(ctx.remaining_accounts.iter().cloned());
 
     anchor_lang::solana_program::program::invoke(&instruction, &account_infos)?;

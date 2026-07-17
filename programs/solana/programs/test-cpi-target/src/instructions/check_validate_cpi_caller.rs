@@ -6,7 +6,7 @@ use solana_ibc_types::cpi::validate_cpi_caller;
 #[instruction(authorized_program: Pubkey)]
 pub struct CheckValidateCpiCaller<'info> {
     /// CHECK: Validated inside the CPI validation functions
-    pub instruction_sysvar: AccountInfo<'info>,
+    pub instruction_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn check_validate_cpi_caller(

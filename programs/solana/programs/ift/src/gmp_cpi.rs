@@ -68,7 +68,7 @@ impl From<SendGmpCallMsg> for ics27_gmp::state::SendCallMsg {
 /// The calling program's ID is automatically extracted by GMP from the
 /// instruction sysvar and used as the sender.
 pub fn send_gmp_call(accounts: SendGmpCallAccounts, msg: SendGmpCallMsg) -> Result<u64> {
-    let gmp_program = accounts.gmp_program.clone();
+    let gmp_program = accounts.gmp_program.key();
     let cpi_ctx = CpiContext::new(gmp_program, accounts.into());
     let sequence = ics27_gmp::cpi::send_call_cpi(cpi_ctx, msg.into())
         .map_err(|_| error!(crate::errors::IFTError::GmpCallFailed))?;

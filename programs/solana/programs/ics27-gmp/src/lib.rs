@@ -53,7 +53,7 @@ pub mod ics27_gmp {
 
     /// IBC packet receive handler (called by router via CPI)
     pub fn on_recv_packet<'info>(
-        ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
+        ctx: Context<'info, OnRecvPacket<'info>>,
         msg: solana_ibc_types::OnRecvPacketMsg,
     ) -> Result<Vec<u8>> {
         instructions::on_recv_packet(ctx, msg)
@@ -61,7 +61,7 @@ pub mod ics27_gmp {
 
     /// IBC acknowledgement handler (called by router via CPI)
     pub fn on_acknowledgement_packet<'info>(
-        ctx: Context<'_, '_, 'info, 'info, OnAckPacket<'info>>,
+        ctx: Context<'info, OnAckPacket<'info>>,
         msg: solana_ibc_types::OnAcknowledgementPacketMsg,
     ) -> Result<()> {
         instructions::on_acknowledgement_packet(ctx, msg)
@@ -69,7 +69,7 @@ pub mod ics27_gmp {
 
     /// IBC timeout handler (called by router via CPI)
     pub fn on_timeout_packet<'info>(
-        ctx: Context<'_, '_, 'info, 'info, OnTimeoutPacket<'info>>,
+        ctx: Context<'info, OnTimeoutPacket<'info>>,
         msg: solana_ibc_types::OnTimeoutPacketMsg,
     ) -> Result<()> {
         instructions::on_timeout_packet(ctx, msg)

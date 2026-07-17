@@ -20,7 +20,6 @@ use tendermint_light_client_verifier::{
     options::Options, types::TrustThreshold as TmTrustThreshold,
 };
 
-#[cfg(not(feature = "solana"))]
 use tendermint_light_client_verifier::ProdVerifier;
 
 /// Trust threshold
@@ -107,7 +106,6 @@ pub enum UpdateClientError {
 /// - The client ID cannot be created
 /// - The chain ID is invalid
 /// - Header verification fails
-#[cfg(not(feature = "solana"))]
 pub fn update_client(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
@@ -132,7 +130,7 @@ pub fn update_client(
 /// # Errors
 /// Returns error if client/chain ID is invalid or header verification fails.
 #[cfg(feature = "solana")]
-pub fn update_client<'a>(
+pub fn update_client_solana<'a>(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,
@@ -140,7 +138,7 @@ pub fn update_client<'a>(
     verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
     program_id: &'a anchor_lang::prelude::Pubkey,
 ) -> Result<UpdateClientOutput, UpdateClientError> {
-    update_client_impl(
+    update_client_solana_impl(
         client_state,
         trusted_consensus_state,
         proposed_header,
@@ -150,7 +148,6 @@ pub fn update_client<'a>(
     )
 }
 
-#[cfg(not(feature = "solana"))]
 fn update_client_impl(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
@@ -168,7 +165,7 @@ fn update_client_impl(
 }
 
 #[cfg(feature = "solana")]
-fn update_client_impl<'a>(
+fn update_client_solana_impl<'a>(
     client_state: &ClientState,
     trusted_consensus_state: &ConsensusState,
     proposed_header: Header,

@@ -3,7 +3,6 @@
 use std::io::{self, Read};
 
 use anyhow::{Context, Result};
-use borsh_0_10::BorshSerialize;
 use ibc_client_tendermint::types::Misbehaviour;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use prost::Message;
@@ -30,9 +29,7 @@ pub fn run() -> Result<()> {
 
     let borsh_misbehaviour = misbehaviour_to_borsh(&misbehaviour);
 
-    let borsh_bytes = borsh_misbehaviour
-        .try_to_vec()
-        .context("Failed to serialize to Borsh")?;
+    let borsh_bytes = borsh::to_vec(&borsh_misbehaviour).context("Failed to serialize to Borsh")?;
 
     println!("{}", hex::encode(borsh_bytes));
 

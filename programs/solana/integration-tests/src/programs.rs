@@ -7,6 +7,7 @@
 use crate::accounts::account_owned_by;
 use crate::attestor::Attestors;
 use crate::chain::{add_program_data, mock_ibc_app_state_pda, ChainProgram, InitStepSigner};
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anchor_lang::InstructionData;
 use solana_ibc_sdk::access_manager::instructions as am_sdk;
 use solana_ibc_sdk::attestation::instructions as attestation_sdk;
@@ -19,8 +20,8 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer as _,
-    system_program,
 };
+use solana_sdk_ids::system_program;
 
 /// Program ID of the primary attestation light client.
 pub const ATTESTATION_PROGRAM_ID: Pubkey = attestation::ID;
@@ -269,7 +270,7 @@ impl ChainProgram for AttestationLc {
         let payer = deployer.pubkey();
         let pid = self.program_id;
         let (program_data_pda, _) =
-            Pubkey::find_program_address(&[pid.as_ref()], &solana_sdk::bpf_loader_upgradeable::ID);
+            Pubkey::find_program_address(&[pid.as_ref()], &bpf_loader_upgradeable::ID);
 
         let ix = attestation_sdk::Initialize::builder(&pid)
             .accounts(attestation_sdk::InitializeAccounts {
@@ -310,7 +311,7 @@ impl ChainProgram for TestAccessManager {
         let payer = deployer.pubkey();
         let (program_data_pda, _) = Pubkey::find_program_address(
             &[test_access_manager::ID.as_ref()],
-            &solana_sdk::bpf_loader_upgradeable::ID,
+            &bpf_loader_upgradeable::ID,
         );
 
         let init_ix = am_sdk::Initialize::builder(&test_access_manager::ID)

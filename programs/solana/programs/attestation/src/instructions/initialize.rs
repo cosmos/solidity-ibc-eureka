@@ -104,7 +104,7 @@ mod tests {
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     struct TestAccounts {
         payer: Pubkey,

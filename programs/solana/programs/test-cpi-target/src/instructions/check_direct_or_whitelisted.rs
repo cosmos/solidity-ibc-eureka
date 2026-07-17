@@ -6,7 +6,7 @@ use solana_ibc_types::cpi::require_direct_call_or_whitelisted_caller;
 #[instruction(whitelisted_programs: Vec<Pubkey>)]
 pub struct CheckDirectOrWhitelisted<'info> {
     /// CHECK: Validated inside the CPI validation functions
-    pub instruction_sysvar: AccountInfo<'info>,
+    pub instruction_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn check_direct_or_whitelisted(

@@ -24,6 +24,9 @@ alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls
 # Solana dependencies
 solana-client.workspace             = true
 solana-sdk.workspace                = true
+solana-commitment-config.workspace  = true
+solana-sdk-ids.workspace            = true
+solana-system-interface.workspace   = true
 solana-transaction-status.workspace = true
 bincode.workspace                   = true
 sha2.workspace                      = true
@@ -38,8 +41,8 @@ solana-ibc-constants                = { path = "../../../../programs/solana/pack
 solana-ibc-proto                    = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
 
 # SPL Token dependencies
-spl-token                    = "8.0"
-spl-associated-token-account = "7.0"
+spl-token                    = "9.0"
+spl-associated-token-account = "8.0"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

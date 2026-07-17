@@ -20,15 +20,15 @@ pub struct PauseApp<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Signer whose `PAUSER_ROLE` membership is verified by the access manager.
     pub authority: Signer<'info>,
 
     /// Instructions sysvar used to detect and reject unauthorized CPI callers.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn pause_app(ctx: Context<PauseApp>) -> Result<()> {
@@ -73,15 +73,15 @@ pub struct UnpauseApp<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Signer whose `UNPAUSER_ROLE` membership is verified by the access manager.
     pub authority: Signer<'info>,
 
     /// Instructions sysvar used to detect and reject unauthorized CPI callers.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn unpause_app(ctx: Context<UnpauseApp>) -> Result<()> {
@@ -126,8 +126,8 @@ mod tests {
         account::Account as SolanaAccount,
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
-        system_program,
     };
+    use solana_sdk_ids::system_program;
 
     #[test]
     fn test_initialize_success() {

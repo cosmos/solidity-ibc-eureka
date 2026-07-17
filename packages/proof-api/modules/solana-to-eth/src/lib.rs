@@ -22,7 +22,7 @@ use proof_api_lib::{
     service_utils::{parse_eth_tx_hashes, parse_solana_tx_hashes, to_tonic_status},
     utils::RelayEventsParams,
 };
-use solana_sdk::commitment_config::CommitmentConfig;
+use solana_commitment_config::CommitmentConfig;
 use tonic::{Request, Response};
 
 use proof_api_core::{

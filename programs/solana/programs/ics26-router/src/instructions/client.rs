@@ -29,7 +29,7 @@ pub struct AddClient<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// PDA mapping `client_id` to its light client program and counterparty info.
     #[account(
@@ -43,15 +43,15 @@ pub struct AddClient<'info> {
 
     /// Light client program to associate with this client.
     /// CHECK: Unchecked; the caller decides which light client to associate
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Updates an existing client's program ID, counterparty info or active status.
@@ -77,7 +77,7 @@ pub struct MigrateClient<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Mutable client PDA whose fields will be updated.
     #[account(
@@ -89,8 +89,8 @@ pub struct MigrateClient<'info> {
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Parameters for migrating a client
@@ -203,7 +203,7 @@ mod tests {
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     /// Helper struct for test configuration
     struct AddClientTestConfig<'a> {
@@ -997,7 +997,7 @@ mod integration_tests {
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new_readonly(Pubkey::new_unique(), false),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: crate::instruction::AddClient {
@@ -1069,7 +1069,7 @@ mod integration_tests {
         solana_sdk::account::Account {
             lamports: 10_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         }

@@ -44,12 +44,12 @@ pub struct UpdateClient<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Instructions sysvar for CPI and role validation.
     /// CHECK: Instructions sysvar for role verification
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// The relayer submitting the attestation proof (must have relayer role).
     #[account(mut)]
@@ -66,7 +66,7 @@ pub struct UpdateClientParams {
 }
 
 pub fn update_client<'info>(
-    ctx: Context<'_, '_, 'info, 'info, UpdateClient<'info>>,
+    ctx: Context<'info, UpdateClient<'info>>,
     new_height: u64,
     params: UpdateClientParams,
 ) -> Result<()> {
@@ -143,12 +143,11 @@ mod tests {
     use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
-    use borsh::BorshSerialize;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::system_program;
+    use solana_sdk_ids::system_program;
 
     const HEIGHT: u64 = 100;
     const NEW_HEIGHT: u64 = 200;
@@ -289,11 +288,10 @@ mod tests {
             .map(|a| a.sign(&attestation_data, crate::crypto::AttestationType::State))
             .collect();
         UpdateClientParams {
-            proof: MembershipProof {
+            proof: borsh::to_vec(&MembershipProof {
                 attestation_data,
                 signatures,
-            }
-            .try_to_vec()
+            })
             .unwrap(),
         }
     }
@@ -303,11 +301,10 @@ mod tests {
         signatures: Vec<Vec<u8>>,
     ) -> UpdateClientParams {
         UpdateClientParams {
-            proof: MembershipProof {
+            proof: borsh::to_vec(&MembershipProof {
                 attestation_data,
                 signatures,
-            }
-            .try_to_vec()
+            })
             .unwrap(),
         }
     }
@@ -326,7 +323,7 @@ mod tests {
     #[rstest::rstest]
     #[case::invalid_proof(vec![0xFF; 100], None)]
     #[case::attestation_data_too_short(
-        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
+        borsh::to_vec(&MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }).unwrap(),
         Some(ErrorCode::InvalidSignature)
     )]
     fn test_update_client_rejects_bad_proof(

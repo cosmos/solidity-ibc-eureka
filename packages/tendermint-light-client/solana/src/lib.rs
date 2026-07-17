@@ -213,8 +213,6 @@ mod tests {
     use super::*;
     use rstest::rstest;
     use solana_ibc_types::ics07::SIGNATURE_VERIFICATION_IS_VALID_OFFSET;
-    use std::cell::RefCell;
-    use std::rc::Rc;
     use tendermint::crypto::signature::Verifier;
 
     fn create_verification_account_data(is_valid: u8) -> Vec<u8> {
@@ -229,16 +227,7 @@ mod tests {
         lamports: &'a mut u64,
         owner: &'a Pubkey,
     ) -> AccountInfo<'a> {
-        AccountInfo {
-            key,
-            is_signer: false,
-            is_writable: false,
-            lamports: Rc::new(RefCell::new(lamports)),
-            data: Rc::new(RefCell::new(data)),
-            owner,
-            executable: false,
-            rent_epoch: 0,
-        }
+        AccountInfo::new(key, false, false, lamports, data, owner, false)
     }
 
     fn compute_sig_verify_pda(

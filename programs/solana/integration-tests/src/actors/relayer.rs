@@ -9,8 +9,9 @@ use crate::chain::Chain;
 use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacketParams};
 use crate::ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, TokenKind};
 use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, TimeoutPacketParams};
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_program_test::BanksClientError;
-use solana_sdk::{compute_budget::ComputeBudgetInstruction, pubkey::Pubkey, signature::Keypair};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// Relayer actor that uploads chunks and delivers IBC packets.
 pub struct Relayer {

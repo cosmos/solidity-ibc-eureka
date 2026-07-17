@@ -195,7 +195,7 @@ impl ProposeAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -274,7 +274,7 @@ impl AcceptAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.new_am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -348,7 +348,7 @@ impl CancelAccessManagerTransferBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -620,7 +620,7 @@ impl UpdateClientBuilder {
             AccountMeta::new(consensus_state_store, false),
             AccountMeta::new_readonly(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new(accounts.submitter, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ];

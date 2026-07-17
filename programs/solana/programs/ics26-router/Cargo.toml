@@ -25,6 +25,7 @@ idl-build = ["anchor-lang/idl-build", "solana-ibc-types/idl-build"]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 solana-ibc-types.workspace = true
 solana-ibc-constants.workspace = true
+solana-instructions-sysvar.workspace = true
 ics25-handler.workspace = true
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
@@ -34,6 +35,7 @@ access-manager = { workspace = true, features = ["test-utils"] }
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk = { workspace = true, features = ["full"] }
+solana-sdk-ids.workspace = true
 solana-program-test.workspace = true
 tokio = { version = "1", features = ["full"] }
 bincode.workspace = true

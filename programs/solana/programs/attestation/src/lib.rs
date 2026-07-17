@@ -68,7 +68,7 @@ pub mod attestation {
     }
 
     pub fn update_client<'info>(
-        ctx: Context<'_, '_, 'info, 'info, UpdateClient<'info>>,
+        ctx: Context<'info, UpdateClient<'info>>,
         new_height: u64,
         params: UpdateClientParams,
     ) -> Result<()> {

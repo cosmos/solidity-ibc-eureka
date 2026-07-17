@@ -20,7 +20,7 @@ pub struct IFTMint<'info> {
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused,
     )]
-    pub app_state: Account<'info, IFTAppState>,
+    pub app_state: Box<Account<'info, IFTAppState>>,
 
     /// Per-mint IFT app state (mut, for rate limits)
     #[account(
@@ -28,7 +28,7 @@ pub struct IFTMint<'info> {
         seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
-    pub app_mint_state: Account<'info, IFTAppMintState>,
+    pub app_mint_state: Box<Account<'info, IFTAppMintState>>,
 
     /// IFT bridge - provides counterparty info for GMP account validation.
     /// Seeds use self-referencing `ift_bridge.client_id` (Anchor deserializes before checking seeds).
@@ -38,7 +38,7 @@ pub struct IFTMint<'info> {
         constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive
     )]
-    pub ift_bridge: Account<'info, IFTBridge>,
+    pub ift_bridge: Box<Account<'info, IFTBridge>>,
 
     /// SPL Token mint
     #[account(
@@ -55,7 +55,7 @@ pub struct IFTMint<'info> {
         // The bump is needed for PDA signing during the mint CPI call.
         bump = app_mint_state.mint_authority_bump
     )]
-    pub mint_authority: AccountInfo<'info>,
+    pub mint_authority: UncheckedAccount<'info>,
 
     /// Receiver's token account (will be created if needed)
     #[account(
@@ -72,7 +72,7 @@ pub struct IFTMint<'info> {
     #[account(
         constraint = receiver_owner.key() == msg.receiver @ IFTError::InvalidReceiver
     )]
-    pub receiver_owner: AccountInfo<'info>,
+    pub receiver_owner: UncheckedAccount<'info>,
 
     /// GMP account PDA - validated to match counterparty bridge
     pub gmp_account: Signer<'info>,

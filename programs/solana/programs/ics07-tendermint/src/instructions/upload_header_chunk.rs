@@ -46,7 +46,7 @@ pub struct UploadHeaderChunk<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Relayer that signs the transaction and pays for chunk account creation.
     #[account(mut)]
@@ -54,8 +54,8 @@ pub struct UploadHeaderChunk<'info> {
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// Required by Anchor for PDA creation via the System Program.
     pub system_program: Program<'info, System>,
@@ -177,7 +177,7 @@ mod integration_tests {
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(submitter, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             ],
             data: crate::instruction::UploadHeaderChunk { params }.data(),
         }

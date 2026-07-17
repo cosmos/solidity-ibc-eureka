@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
@@ -490,7 +490,7 @@ impl super::TxBuilder {
         }
 
         tracing::info!("GMP PDA {gmp_pda}: pre-funding {capped} lamports");
-        Ok(Some(solana_sdk::system_instruction::transfer(
+        Ok(Some(solana_system_interface::instruction::transfer(
             &self.fee_payer,
             &gmp_pda,
             capped,
@@ -528,8 +528,8 @@ impl super::TxBuilder {
         // Add fee payer and system program first (these always exist)
         alt_accounts.push(self.fee_payer);
         seen.insert(self.fee_payer);
-        alt_accounts.push(solana_sdk::system_program::id());
-        seen.insert(solana_sdk::system_program::id());
+        alt_accounts.push(solana_sdk_ids::system_program::id());
+        seen.insert(solana_sdk_ids::system_program::id());
 
         // Add all accounts from instructions, but only if they exist on-chain
         for ix in instructions {

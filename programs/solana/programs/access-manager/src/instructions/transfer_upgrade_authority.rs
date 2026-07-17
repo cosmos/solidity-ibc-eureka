@@ -29,8 +29,8 @@ pub struct ProposeUpgradeAuthorityTransfer<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn propose_upgrade_authority_transfer(
@@ -117,7 +117,7 @@ pub struct AcceptUpgradeAuthorityTransfer<'info> {
         bump,
         seeds::program = bpf_loader_upgradeable::ID
     )]
-    pub program_data: AccountInfo<'info>,
+    pub program_data: UncheckedAccount<'info>,
 
     /// `AccessManager`'s PDA that acts as the current upgrade authority.
     /// CHECK: Validated via seeds constraint
@@ -125,14 +125,14 @@ pub struct AcceptUpgradeAuthorityTransfer<'info> {
         seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
         bump
     )]
-    pub upgrade_authority: AccountInfo<'info>,
+    pub upgrade_authority: UncheckedAccount<'info>,
 
     /// The proposed new upgrade authority. Must match the pending transfer.
     pub new_authority: Signer<'info>,
 
     /// CHECK: Must be BPF Loader Upgradeable program ID
     #[account(address = bpf_loader_upgradeable::ID)]
-    pub bpf_loader_upgradeable: AccountInfo<'info>,
+    pub bpf_loader_upgradeable: UncheckedAccount<'info>,
 }
 
 pub fn accept_upgrade_authority_transfer(
@@ -212,8 +212,8 @@ pub struct CancelUpgradeAuthorityTransfer<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn cancel_upgrade_authority_transfer(

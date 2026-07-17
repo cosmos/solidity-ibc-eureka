@@ -5,7 +5,7 @@ use solana_ibc_types::cpi::reject_cpi;
 #[derive(Accounts)]
 pub struct CheckRejectCpi<'info> {
     /// CHECK: Validated inside the CPI validation functions
-    pub instruction_sysvar: AccountInfo<'info>,
+    pub instruction_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn check_reject_cpi(ctx: Context<CheckRejectCpi>) -> Result<()> {

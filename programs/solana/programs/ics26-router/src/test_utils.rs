@@ -4,7 +4,7 @@ use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::roles;
 use solana_ibc_types::{ics24, Payload};
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::sysvar::Sysvar;
+use solana_sdk::sysvar::SysvarSerialize as _;
 
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
@@ -60,7 +60,8 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
-    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    router_state.try_serialize(&mut writer).unwrap();
     (router_state_pda, data)
 }
 
@@ -73,7 +74,8 @@ pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
-    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    router_state.try_serialize(&mut writer).unwrap();
     (router_state_pda, data)
 }
 
@@ -236,7 +238,7 @@ pub fn create_clock_account() -> (Pubkey, solana_sdk::account::Account) {
         solana_sdk::account::Account {
             lamports: 1,
             data: vec![1u8; solana_sdk::clock::Clock::size_of()],
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -251,7 +253,7 @@ pub fn create_clock_account_with_data(
         solana_sdk::account::Account {
             lamports: 1,
             data: clock_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -296,7 +298,7 @@ pub fn create_instructions_sysvar_account_with_caller(
         solana_sdk::account::Account {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -334,7 +336,7 @@ pub fn create_fake_instructions_sysvar_account(
         solana_sdk::account::Account {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -368,7 +370,7 @@ pub fn create_system_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Ac
         solana_sdk::account::Account {
             lamports: 10_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -397,7 +399,7 @@ pub fn create_system_account_with_lamports(
         solana_sdk::account::Account {
             lamports,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -432,7 +434,7 @@ pub fn create_uninitialized_commitment_account(
         solana_sdk::account::Account {
             lamports: 0,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -448,7 +450,7 @@ pub fn create_uninitialized_account(
         solana_sdk::account::Account {
             lamports,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -506,20 +508,11 @@ pub fn setup_mollusk_with_mock_programs() -> mollusk_svm::Mollusk {
     use mollusk_svm::Mollusk;
 
     let mut mollusk = Mollusk::new(&crate::ID, get_router_program_path());
-    mollusk.add_program(
-        &MOCK_LIGHT_CLIENT_ID,
-        get_mock_client_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
-    );
-    mollusk.add_program(
-        &MOCK_IBC_APP_PROGRAM_ID,
-        get_mock_ibc_app_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
-    );
+    mollusk.add_program(&MOCK_LIGHT_CLIENT_ID, get_mock_client_program_path());
+    mollusk.add_program(&MOCK_IBC_APP_PROGRAM_ID, get_mock_ibc_app_program_path());
     mollusk.add_program(
         &access_manager::ID,
         access_manager::get_access_manager_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk
 }
@@ -531,15 +524,10 @@ pub fn setup_mollusk_with_light_client() -> mollusk_svm::Mollusk {
     use mollusk_svm::Mollusk;
 
     let mut mollusk = Mollusk::new(&crate::ID, get_router_program_path());
-    mollusk.add_program(
-        &MOCK_LIGHT_CLIENT_ID,
-        get_mock_client_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
-    );
+    mollusk.add_program(&MOCK_LIGHT_CLIENT_ID, get_mock_client_program_path());
     mollusk.add_program(
         &access_manager::ID,
         access_manager::get_access_manager_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk
 }
@@ -572,7 +560,7 @@ pub fn create_bpf_program_account(pubkey: Pubkey) -> (Pubkey, solana_sdk::accoun
         solana_sdk::account::Account {
             lamports: 0,
             data: vec![],
-            owner: solana_sdk::bpf_loader_upgradeable::ID,
+            owner: anchor_lang::solana_program::bpf_loader_upgradeable::ID,
             executable: true,
             rent_epoch: 0,
         },
@@ -765,7 +753,7 @@ pub fn create_signer_account() -> solana_sdk::account::Account {
     solana_sdk::account::Account {
         lamports: 1_000_000_000,
         data: vec![],
-        owner: solana_sdk::system_program::ID,
+        owner: solana_sdk_ids::system_program::ID,
         executable: false,
         rent_epoch: 0,
     }
@@ -784,7 +772,6 @@ pub fn setup_mollusk() -> mollusk_svm::Mollusk {
     mollusk.add_program(
         &access_manager::ID,
         access_manager::get_access_manager_program_path(),
-        &solana_sdk::bpf_loader_upgradeable::ID,
     );
     mollusk
 }
@@ -866,7 +853,7 @@ pub fn create_cpi_instructions_sysvar_account(
     solana_sdk::account::Account {
         lamports: 1_000_000,
         data: ixs_data,
-        owner: solana_sdk::sysvar::ID,
+        owner: solana_sdk_ids::sysvar::ID,
         executable: false,
         rent_epoch: 0,
     }
@@ -877,7 +864,7 @@ pub fn create_program_data_account(
     program_id: &Pubkey,
     authority: Option<Pubkey>,
 ) -> (Pubkey, solana_sdk::account::Account) {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
@@ -975,9 +962,8 @@ pub fn setup_program_test_with_roles_and_whitelist(
         _reserved: [0; 256],
     };
     let mut router_data = vec![0u8; 8 + RouterState::INIT_SPACE];
-    router_state
-        .try_serialize(&mut &mut router_data[..])
-        .unwrap();
+    let mut writer = &mut router_data[..];
+    router_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         router_state_pda,

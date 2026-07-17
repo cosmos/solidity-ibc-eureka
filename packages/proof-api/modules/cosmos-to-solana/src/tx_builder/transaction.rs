@@ -1,8 +1,10 @@
 //! Transaction building utilities for Solana.
 
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anyhow::{Context, Result};
-use solana_sdk::{commitment_config::CommitmentConfig, instruction::Instruction, pubkey::Pubkey};
+use solana_commitment_config::CommitmentConfig;
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use proof_api_lib::utils::solana_v0_tx;
@@ -31,7 +33,7 @@ impl super::TxBuilder {
 
         let (program_data_pda, _) = Pubkey::find_program_address(
             &[solana_ics07_program_id.as_ref()],
-            &solana_sdk::bpf_loader_upgradeable::id(),
+            &bpf_loader_upgradeable::id(),
         );
 
         let account = self
@@ -41,12 +43,12 @@ impl super::TxBuilder {
             .value
             .ok_or_else(|| anyhow::anyhow!("ICS07 ProgramData account not found"))?;
 
-        let loader_state: solana_sdk::bpf_loader_upgradeable::UpgradeableLoaderState =
+        let loader_state: bpf_loader_upgradeable::UpgradeableLoaderState =
             bincode::deserialize(&account.data)
                 .map_err(|e| anyhow::anyhow!("Failed to deserialize ProgramData: {e}"))?;
 
         match loader_state {
-            solana_sdk::bpf_loader_upgradeable::UpgradeableLoaderState::ProgramData {
+            bpf_loader_upgradeable::UpgradeableLoaderState::ProgramData {
                 upgrade_authority_address: Some(authority),
                 ..
             } => Ok(authority),

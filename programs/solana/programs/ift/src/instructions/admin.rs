@@ -31,8 +31,8 @@ pub struct ProposeAdmin<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Propose a new admin. The proposed admin must call `accept_admin` to finalize.
@@ -81,8 +81,8 @@ pub struct AcceptAdmin<'info> {
     pub pending_admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Accept a pending admin proposal. Must be called by the proposed admin.
@@ -120,8 +120,8 @@ pub struct CancelAdminProposal<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Cancel a pending admin proposal. Must be called by the current admin.
@@ -178,11 +178,11 @@ pub struct RevokeMintAuthority<'info> {
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
         bump = app_mint_state.mint_authority_bump
     )]
-    pub mint_authority: AccountInfo<'info>,
+    pub mint_authority: UncheckedAccount<'info>,
 
     /// New mint authority to receive ownership
     /// CHECK: Can be any pubkey chosen by admin
-    pub new_mint_authority: AccountInfo<'info>,
+    pub new_mint_authority: UncheckedAccount<'info>,
 
     /// Admin signer (receives rent from closed `app_mint_state`)
     #[account(
@@ -195,8 +195,8 @@ pub struct RevokeMintAuthority<'info> {
     pub token_program: Interface<'info, TokenInterface>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Revoke mint authority and transfer it to the specified new authority.
@@ -215,7 +215,7 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
 
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.mint_authority.to_account_info(),
                 account_or_mint: ctx.accounts.mint.to_account_info(),
@@ -269,7 +269,7 @@ pub struct AdminMint<'info> {
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
         bump = app_mint_state.mint_authority_bump
     )]
-    pub mint_authority: AccountInfo<'info>,
+    pub mint_authority: UncheckedAccount<'info>,
 
     /// Receiver's token account (will be created if needed)
     #[account(
@@ -285,7 +285,7 @@ pub struct AdminMint<'info> {
     #[account(
         constraint = receiver_owner.key() == msg.receiver @ IFTError::InvalidReceiver
     )]
-    pub receiver_owner: AccountInfo<'info>,
+    pub receiver_owner: UncheckedAccount<'info>,
 
     /// Admin signer
     #[account(
@@ -305,8 +305,8 @@ pub struct AdminMint<'info> {
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 /// Mint tokens to any account (admin only). Respects rate limits and pause state.

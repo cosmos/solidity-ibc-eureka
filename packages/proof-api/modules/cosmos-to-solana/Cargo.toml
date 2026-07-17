@@ -25,13 +25,15 @@ ed25519-consensus = "2.1"
 # Solana specific dependencies
 solana-client.workspace             = true
 solana-sdk.workspace                = true
+solana-commitment-config.workspace  = true
+solana-sdk-ids.workspace            = true
+solana-system-interface.workspace   = true
+solana-ed25519-program.workspace    = true
 solana-transaction-status.workspace = true
 bincode.workspace                   = true
 hex.workspace                       = true
 anchor-lang.workspace               = true
-anchor-client.workspace             = true
-# Pin borsh 0.10.4 for Anchor/Solana type compatibility (not workspace borsh 1.x)
-borsh                               = { version = "0.10.4", default-features = false }
+borsh.workspace                     = true
 
 ibc-proto-eureka.workspace      = true
 ibc-proto.workspace             = true
@@ -50,8 +52,8 @@ solana-ibc-proto                    = { path = "../../../../programs/solana/pack
 solana-ibc-gmp-types                = { path = "../../../../programs/solana/packages/solana-ibc-gmp-types" }
 
 # SPL Token dependencies
-spl-token                    = "8.0"
-spl-associated-token-account = "7.0"
+spl-token                    = "9.0"
+spl-associated-token-account = "8.0"
 
 # Encoding
 base64.workspace = true

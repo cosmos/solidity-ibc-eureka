@@ -17,15 +17,15 @@ pub struct ProposeAccessManagerTransfer<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// Admin signer authorized to propose the transfer.
     pub admin: Signer<'info>,
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn propose_access_manager_transfer(
@@ -62,15 +62,15 @@ pub struct AcceptAccessManagerTransfer<'info> {
         bump,
         seeds::program = app_state.am_state.pending_access_manager.unwrap()
     )]
-    pub new_am_state: AccountInfo<'info>,
+    pub new_am_state: UncheckedAccount<'info>,
 
     /// Admin signer authorized on the **new** access manager.
     pub admin: Signer<'info>,
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
@@ -97,15 +97,15 @@ pub struct CancelAccessManagerTransfer<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub am_state: AccountInfo<'info>,
+    pub am_state: UncheckedAccount<'info>,
 
     /// Admin signer authorized to cancel the transfer.
     pub admin: Signer<'info>,
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
@@ -136,7 +136,7 @@ mod tests {
         SolanaAccount {
             lamports: 1_000_000_000,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         }
@@ -155,7 +155,8 @@ mod tests {
         };
 
         let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
-        app_state.try_serialize(&mut &mut data[..]).unwrap();
+        let mut writer = &mut data[..];
+        app_state.try_serialize(&mut writer).unwrap();
 
         SolanaAccount {
             lamports: 10_000_000,
@@ -180,7 +181,8 @@ mod tests {
         };
 
         let mut data = vec![0u8; 8 + 10000];
-        access_manager.try_serialize(&mut &mut data[..]).unwrap();
+        let mut writer = &mut data[..];
+        access_manager.try_serialize(&mut writer).unwrap();
 
         SolanaAccount {
             lamports: 10_000_000,
@@ -215,7 +217,7 @@ mod tests {
             SolanaAccount {
                 lamports: 1_000_000,
                 data: ixs_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },

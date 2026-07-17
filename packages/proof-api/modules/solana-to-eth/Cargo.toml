@@ -19,7 +19,8 @@ tracing = { workspace = true, default-features = true }
 alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls-tls"] }
 
 # Solana specific dependencies
-solana-sdk.workspace = true
+solana-sdk.workspace               = true
+solana-commitment-config.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

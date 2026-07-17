@@ -1,5 +1,6 @@
 [toolchain]
-anchor_version = "0.32.1"
+anchor_version = "1.1.2"
+solana_version = "3.1.10"
 
 [features]
 resolution = true
@@ -26,9 +27,6 @@ test_cpi_proxy = "CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc"
 test_cpi_target = "GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu"
 test_ibc_app = "5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC"
 test_gmp_app = "GdEUjpVtKvHKStM3Hph6PnLSUMsJXvcVqugubhtQ5QUD"
-
-[registry]
-url = "https://api.apr.dev"
 
 [provider]
 cluster = "localnet"

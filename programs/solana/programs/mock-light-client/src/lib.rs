@@ -80,7 +80,7 @@ pub struct Initialize<'info> {
         seeds = [b"client", chain_id.as_bytes()],
         bump
     )]
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
     /// CHECK: Mock consensus state - account will be created but not used
     #[account(
         init,
@@ -89,7 +89,7 @@ pub struct Initialize<'info> {
         seeds = [b"consensus_state", client_state.key().as_ref(), &latest_height.to_le_bytes()],
         bump
     )]
-    pub consensus_state_store: AccountInfo<'info>,
+    pub consensus_state_store: UncheckedAccount<'info>,
     /// Fee payer for PDA creation.
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -101,9 +101,9 @@ pub struct Initialize<'info> {
 #[instruction(_msg: MembershipMsg)]
 pub struct VerifyMembership<'info> {
     /// CHECK: Mock client state - not actually used
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
     /// CHECK: Mock consensus state - not actually used
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 }
 
 /// Accounts for mock non-membership verification (always succeeds).
@@ -111,18 +111,18 @@ pub struct VerifyMembership<'info> {
 #[instruction(_msg: NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
     /// CHECK: Mock client state - not actually used
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
     /// CHECK: Mock consensus state - not actually used
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 }
 
 /// Accounts for mock client status check (always returns `Active`).
 #[derive(Accounts)]
 pub struct ClientStatusCheck<'info> {
     /// CHECK: Mock client state - not actually used
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
     /// CHECK: Mock consensus state - not actually used
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 }
 
 /// Accounts for mock client update (always returns `Update`).
@@ -130,15 +130,15 @@ pub struct ClientStatusCheck<'info> {
 #[instruction(_msg: UpdateClientMsg)]
 pub struct UpdateClient<'info> {
     /// CHECK: Mock client state - not actually used
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
     /// CHECK: Mock trusted consensus state - not actually used
-    pub trusted_consensus_state: AccountInfo<'info>,
+    pub trusted_consensus_state: UncheckedAccount<'info>,
     /// CHECK: Mock new consensus state - not actually used
-    pub new_consensus_state: AccountInfo<'info>,
+    pub new_consensus_state: UncheckedAccount<'info>,
     /// CHECK: Mock payer - not actually used
-    pub payer: AccountInfo<'info>,
+    pub payer: UncheckedAccount<'info>,
     /// CHECK: Mock system program - not actually used
-    pub system_program: AccountInfo<'info>,
+    pub system_program: UncheckedAccount<'info>,
 }
 
 #[error_code]

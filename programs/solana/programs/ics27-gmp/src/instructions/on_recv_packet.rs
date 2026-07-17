@@ -47,8 +47,8 @@ pub struct OnRecvPacket<'info> {
 
     /// Instructions sysvar used to verify the CPI caller is the authorized router.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 
     /// Relayer-provided fee payer. Required for router interface compatibility.
     /// NOT forwarded to the target CPI — target programs use the GMP PDA
@@ -61,7 +61,7 @@ pub struct OnRecvPacket<'info> {
 }
 
 pub fn on_recv_packet<'info>(
-    ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
+    ctx: Context<'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
 ) -> Result<Vec<u8>> {
     // Verify this function is called via CPI from the authorized router
@@ -204,6 +204,7 @@ mod tests {
     use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
+    use anchor_lang::solana_program::bpf_loader_upgradeable;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -211,13 +212,12 @@ mod tests {
     use solana_ibc_proto::ProstMessage;
     use solana_ibc_types::{GMPAccount, GmpPacketData};
     use solana_sdk::account::Account;
-    use solana_sdk::bpf_loader_upgradeable;
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction as SolanaInstructionSDK},
         pubkey::Pubkey,
-        system_program,
     };
+    use solana_sdk_ids::system_program;
     use test_gmp_app::ID as COUNTER_APP_ID;
 
     /// Helper function to create a `GMPAccount` from test data
@@ -869,11 +869,7 @@ mod tests {
 
     fn create_counter_cpi_mollusk() -> Mollusk {
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-        mollusk.add_program(
-            &COUNTER_APP_ID,
-            "../../target/deploy/test_gmp_app",
-            &bpf_loader_upgradeable::ID,
-        );
+        mollusk.add_program(&COUNTER_APP_ID, "../../target/deploy/test_gmp_app");
         mollusk
     }
 
@@ -1243,7 +1239,7 @@ mod tests {
         // The GMP payload embeds this as the CPI the target program will execute.
         let stolen_lamports: u64 = 1_000_000_000; // 1 SOL
         let transfer_ix =
-            solana_sdk::system_instruction::transfer(&ctx.payer, &attacker, stolen_lamports);
+            solana_system_interface::instruction::transfer(&ctx.payer, &attacker, stolen_lamports);
 
         // The malicious payload: relayer is marked `is_signer: true`.
         // Because the relayer signs the outer transaction, Solana's account
@@ -1458,12 +1454,7 @@ mod tests {
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         // Add the counter app program so CPI will work
-        // Use BPF loader upgradeable for Anchor programs
-        mollusk.add_program(
-            &COUNTER_APP_ID,
-            "../../target/deploy/test_gmp_app",
-            &bpf_loader_upgradeable::ID,
-        );
+        mollusk.add_program(&COUNTER_APP_ID, "../../target/deploy/test_gmp_app");
 
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
@@ -1703,18 +1694,14 @@ mod tests {
     /// so pre-funding is harmless — the PDA works as a signer regardless of its
     /// lamport balance.
     ///
-    /// The test chains two instructions via `process_instruction_chain`:
+    /// The test processes two instructions while carrying account state forward:
     /// 1. Adversary transfer → GMP PDA (real system program transfer)
     /// 2. `on_recv_packet` using the now-funded PDA as CPI signer
     #[allow(clippy::doc_markdown)]
     #[test]
     fn test_on_recv_packet_prefunded_gmp_pda_not_blocked() {
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-        mollusk.add_program(
-            &COUNTER_APP_ID,
-            "../../target/deploy/test_gmp_app",
-            &bpf_loader_upgradeable::ID,
-        );
+        mollusk.add_program(&COUNTER_APP_ID, "../../target/deploy/test_gmp_app");
 
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
@@ -1740,7 +1727,7 @@ mod tests {
 
         // Step 1: adversary pre-funds the GMP PDA via system transfer
         let adversary_lamports: u64 = 50_000_000;
-        let prefund_ix = solana_sdk::system_instruction::transfer(
+        let prefund_ix = solana_system_interface::instruction::transfer(
             &adversary,
             &gmp_account_pda,
             adversary_lamports,
@@ -1886,9 +1873,12 @@ mod tests {
             create_system_program_account(),
         ];
 
-        // Chain: adversary transfer → on_recv_packet
-        // The transfer funds the GMP PDA; on_recv_packet uses it as a signer.
-        let result = mollusk.process_instruction_chain(&[prefund_ix, recv_ix], &accounts);
+        // Carry the funded PDA into a separate simulated router invocation. Mollusk
+        // assigns chain elements increasing top-level instruction indexes, while the
+        // mocked router instructions sysvar contains a single caller instruction.
+        let prefund_result = mollusk.process_instruction(&prefund_ix, &accounts);
+        assert!(!prefund_result.program_result.is_err());
+        let result = mollusk.process_instruction(&recv_ix, &prefund_result.resulting_accounts);
 
         assert!(
             !result.program_result.is_err(),
@@ -1923,11 +1913,7 @@ mod tests {
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         // Add the counter app program so CPI will be attempted
-        mollusk.add_program(
-            &COUNTER_APP_ID,
-            "../../target/deploy/test_gmp_app",
-            &bpf_loader_upgradeable::ID,
-        );
+        mollusk.add_program(&COUNTER_APP_ID, "../../target/deploy/test_gmp_app");
 
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
@@ -2260,12 +2246,9 @@ mod integration_tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(
-                    anchor_lang::solana_program::sysvar::instructions::ID,
-                    false,
-                ),
+                AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             ],
             data: ix_data.data(),
         }

@@ -38,21 +38,21 @@ pub mod ics26_router {
     }
 
     pub fn recv_packet<'info>(
-        ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
+        ctx: Context<'info, RecvPacket<'info>>,
         msg: MsgRecvPacket,
     ) -> Result<()> {
         instructions::recv_packet(ctx, msg)
     }
 
     pub fn ack_packet<'info>(
-        ctx: Context<'_, '_, '_, 'info, AckPacket<'info>>,
+        ctx: Context<'info, AckPacket<'info>>,
         msg: MsgAckPacket,
     ) -> Result<()> {
         instructions::ack_packet(ctx, msg)
     }
 
     pub fn timeout_packet<'info>(
-        ctx: Context<'_, '_, '_, 'info, TimeoutPacket<'info>>,
+        ctx: Context<'info, TimeoutPacket<'info>>,
         msg: MsgTimeoutPacket,
     ) -> Result<()> {
         instructions::timeout_packet(ctx, msg)
@@ -86,7 +86,7 @@ pub mod ics26_router {
     }
 
     pub fn cleanup_chunks<'info>(
-        ctx: Context<'_, '_, '_, 'info, CleanupChunks<'info>>,
+        ctx: Context<'info, CleanupChunks<'info>>,
         msg: MsgCleanupChunks,
     ) -> Result<()> {
         instructions::cleanup_chunks(ctx, msg)

@@ -4,8 +4,8 @@ use std::collections::HashSet;
 
 use anchor_lang::prelude::*;
 use anyhow::Result;
+use solana_commitment_config::CommitmentConfig;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
@@ -639,8 +639,8 @@ impl super::SolanaTxBuilder {
 
         alt_accounts.push(self.fee_payer);
         seen.insert(self.fee_payer);
-        alt_accounts.push(solana_sdk::system_program::id());
-        seen.insert(solana_sdk::system_program::id());
+        alt_accounts.push(solana_sdk_ids::system_program::id());
+        seen.insert(solana_sdk_ids::system_program::id());
 
         for ix in instructions {
             if seen.insert(ix.program_id) {
@@ -761,7 +761,7 @@ impl super::SolanaTxBuilder {
         }
 
         tracing::info!("GMP PDA {gmp_pda}: pre-funding {capped} lamports");
-        Ok(Some(solana_sdk::system_instruction::transfer(
+        Ok(Some(solana_system_interface::instruction::transfer(
             &self.fee_payer,
             &gmp_pda,
             capped,

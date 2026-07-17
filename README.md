@@ -146,7 +146,7 @@ Or directly:
 ```sh
 cd programs/solana
 anchor build
-anchor test
+anchor test --validator legacy
 anchor deploy
 ```
 

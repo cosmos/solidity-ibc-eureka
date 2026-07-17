@@ -13,9 +13,8 @@ categories = ["cryptography", "blockchain"]
 anchor-lang.workspace = true
 solana-sha256-hasher.workspace = true
 solana-keccak-hasher.workspace = true
-# Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
-# This ensures correct version even when built from root workspace context via path dependencies.
-borsh = { version = "0.10.4", default-features = false }
+solana-instructions-sysvar.workspace = true
+borsh = { version = "=1.5.7", default-features = false }
 solana-ibc-constants = { path = "../solana-ibc-constants" }
 solana-ibc-proto = { path = "../solana-ibc-proto" }
 solana-ibc-macros = { path = "../solana-ibc-macros" }
@@ -28,6 +27,7 @@ idl-build = ["anchor-lang/idl-build"]
 [dev-dependencies]
 bincode.workspace = true
 solana-sdk.workspace = true
+solana-sdk-ids.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]

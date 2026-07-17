@@ -38,7 +38,7 @@ pub struct InitializeExistingToken<'info> {
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
         bump
     )]
-    pub mint_authority: AccountInfo<'info>,
+    pub mint_authority: UncheckedAccount<'info>,
 
     /// Current mint authority that must sign to transfer ownership to the IFT PDA
     #[account(
@@ -61,7 +61,7 @@ pub fn initialize_existing_token(ctx: Context<InitializeExistingToken>) -> Resul
         account_or_mint: ctx.accounts.mint.to_account_info(),
         current_authority: ctx.accounts.current_authority.to_account_info(),
     };
-    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts);
     set_authority(
         cpi_ctx,
         AuthorityType::MintTokens,
@@ -169,7 +169,7 @@ mod tests {
                 AccountMeta::new_readonly(ctx.current_authority, true),
                 AccountMeta::new(ctx.payer, true),
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             ],
             data: crate::instruction::InitializeExistingToken {}.data(),
         }
@@ -196,7 +196,7 @@ mod tests {
                 solana_sdk::account::Account {
                     lamports: 0,
                     data: vec![],
-                    owner: solana_sdk::system_program::ID,
+                    owner: solana_sdk_ids::system_program::ID,
                     executable: false,
                     rent_epoch: 0,
                 },
@@ -240,7 +240,7 @@ mod tests {
                 solana_sdk::account::Account {
                     lamports: 0,
                     data: vec![],
-                    owner: solana_sdk::system_program::ID,
+                    owner: solana_sdk_ids::system_program::ID,
                     executable: false,
                     rent_epoch: 0,
                 },
@@ -292,7 +292,7 @@ mod tests {
                 solana_sdk::account::Account {
                     lamports: 0,
                     data: vec![],
-                    owner: solana_sdk::system_program::ID,
+                    owner: solana_sdk_ids::system_program::ID,
                     executable: false,
                     rent_epoch: 0,
                 },
@@ -331,7 +331,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };

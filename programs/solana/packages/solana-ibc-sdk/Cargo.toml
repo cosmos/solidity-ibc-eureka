@@ -11,6 +11,8 @@ categories = ["cryptography", "blockchain"]
 
 [dependencies]
 anchor-lang.workspace = true
+borsh.workspace = true
+solana-instructions-sysvar.workspace = true
 
 [build-dependencies]
 solana-ibc-sdk-codegen = { path = "codegen" }

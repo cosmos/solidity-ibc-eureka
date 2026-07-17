@@ -63,7 +63,7 @@ mod integration_tests {
         let accounts = crate::accounts::CheckIsCpi {
             result: result_pda,
             payer,
-            system_program: solana_sdk::system_program::ID,
+            system_program: solana_sdk_ids::system_program::ID,
         };
         Instruction {
             program_id: crate::ID,

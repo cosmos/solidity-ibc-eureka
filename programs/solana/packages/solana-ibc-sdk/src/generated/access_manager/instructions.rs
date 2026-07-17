@@ -99,7 +99,7 @@ impl InitializeBuilder {
             AccountMeta::new(access_manager, false),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(accounts.program_data, false),
             AccountMeta::new_readonly(accounts.authority, true),
         ];
@@ -186,7 +186,7 @@ impl GrantRoleBuilder {
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -271,7 +271,7 @@ impl RevokeRoleBuilder {
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -355,7 +355,7 @@ impl RenounceRoleBuilder {
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
             AccountMeta::new_readonly(accounts.caller, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -456,7 +456,7 @@ impl UpgradeProgramBuilder {
             AccountMeta::new(upgrade_authority, false),
             AccountMeta::new(accounts.spill, false),
             AccountMeta::new_readonly(accounts.authority, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(
                 Pubkey::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111"),
                 false,
@@ -554,7 +554,7 @@ impl ProposeUpgradeAuthorityTransferBuilder {
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -740,7 +740,7 @@ impl CancelUpgradeAuthorityTransferBuilder {
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -824,7 +824,7 @@ impl SetWhitelistedProgramsBuilder {
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -944,7 +944,7 @@ impl ClaimUpgradeAuthorityBuilder {
             ),
             AccountMeta::new_readonly(am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {

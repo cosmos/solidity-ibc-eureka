@@ -24,8 +24,8 @@ pub struct SetPaused<'info> {
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn set_paused(ctx: Context<SetPaused>, msg: SetPausedMsg) -> Result<()> {

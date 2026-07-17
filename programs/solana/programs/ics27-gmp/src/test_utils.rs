@@ -11,8 +11,8 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signer::Signer,
-    system_program,
 };
+use solana_sdk_ids::system_program;
 
 // Anchor error code offset (all Anchor errors start from 6000)
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
@@ -37,7 +37,8 @@ pub fn create_gmp_app_state_account(
     };
 
     let mut data = vec![0u8; 8 + GMPAppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     (
         pubkey,
@@ -149,7 +150,7 @@ pub fn create_program_data_account(
     program_id: &Pubkey,
     authority: Option<Pubkey>,
 ) -> (Pubkey, SolanaAccount) {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
@@ -236,7 +237,7 @@ pub fn create_instructions_sysvar_account_with_caller(
         SolanaAccount {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -274,7 +275,7 @@ pub fn create_fake_instructions_sysvar_account(
         SolanaAccount {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -519,7 +520,7 @@ pub fn create_cpi_instructions_sysvar_account(caller_program_id: Pubkey) -> Sola
     SolanaAccount {
         lamports: 1_000_000,
         data: ixs_data,
-        owner: solana_sdk::sysvar::ID,
+        owner: solana_sdk_ids::sysvar::ID,
         executable: false,
         rent_epoch: 0,
     }
@@ -696,7 +697,8 @@ pub fn setup_program_test_with_access_manager(
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -854,7 +856,8 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut data[..]).unwrap();
+    let mut writer = &mut data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,

@@ -202,7 +202,7 @@ impl CreateAndInitializeSplTokenBuilder {
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(accounts.token_program, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -395,7 +395,7 @@ impl RegisterIftBridgeBuilder {
             AccountMeta::new_readonly(accounts.admin, true),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -499,7 +499,7 @@ impl RemoveIftBridgeBuilder {
             AccountMeta::new_readonly(accounts.admin, true),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -667,7 +667,7 @@ impl IftTransferBuilder {
             AccountMeta::new_readonly(accounts.ibc_client, false),
             AccountMeta::new_readonly(accounts.light_client_program, false),
             AccountMeta::new_readonly(accounts.light_client_state, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
             AccountMeta::new_readonly(accounts.consensus_state, false),
             AccountMeta::new(accounts.pending_transfer, false),
         ];
@@ -927,7 +927,7 @@ impl FinalizeTransferBuilder {
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(accounts.token_program, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1011,7 +1011,7 @@ impl ProposeAdminBuilder {
         let mut account_metas = vec![
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1083,7 +1083,7 @@ impl AcceptAdminBuilder {
         let mut account_metas = vec![
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.pending_admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1155,7 +1155,7 @@ impl CancelAdminProposalBuilder {
         let mut account_metas = vec![
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1249,7 +1249,7 @@ impl RevokeMintAuthorityBuilder {
             AccountMeta::new_readonly(accounts.new_mint_authority, false),
             AccountMeta::new(accounts.admin, true),
             AccountMeta::new_readonly(accounts.token_program, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1335,7 +1335,7 @@ impl SetMintRateLimitBuilder {
             AccountMeta::new_readonly(app_state, false),
             AccountMeta::new(accounts.app_mint_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1414,7 +1414,7 @@ impl SetPausedBuilder {
         let mut account_metas = vec![
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -1522,7 +1522,7 @@ impl AdminMintBuilder {
                 false,
             ),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {

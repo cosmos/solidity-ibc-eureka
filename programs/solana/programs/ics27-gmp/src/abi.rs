@@ -22,11 +22,12 @@ impl TryFrom<GmpSolanaPayloadAbi> for RawGmpSolanaPayload {
     type Error = GMPError;
 
     fn try_from(abi: GmpSolanaPayloadAbi) -> std::result::Result<Self, Self::Error> {
-        let chunks = abi.packedAccounts.chunks_exact(PACKED_ACCOUNT_SIZE);
-        if !chunks.remainder().is_empty() {
+        let (chunks, remainder) = abi.packedAccounts.as_chunks::<PACKED_ACCOUNT_SIZE>();
+        if !remainder.is_empty() {
             return Err(GMPError::InvalidAbiEncoding);
         }
         let accounts = chunks
+            .iter()
             .map(|chunk| {
                 Ok(RawSolanaAccountMeta {
                     pubkey: chunk[..32].to_vec(),

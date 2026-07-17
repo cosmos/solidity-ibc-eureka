@@ -4,11 +4,11 @@ use anchor_lang::prelude::*;
 #[derive(Accounts)]
 pub struct CheckRequireAdmin<'info> {
     /// CHECK: Passed to `access_manager::require_admin` for deserialization
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
     /// Must hold the admin role in the access-manager.
     pub signer: Signer<'info>,
     /// CHECK: Validated inside the helper
-    pub instructions_sysvar: AccountInfo<'info>,
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn check_require_admin(ctx: Context<CheckRequireAdmin>) -> Result<()> {

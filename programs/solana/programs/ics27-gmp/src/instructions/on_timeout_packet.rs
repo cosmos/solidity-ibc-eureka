@@ -19,8 +19,8 @@ pub struct OnTimeoutPacket<'info> {
 
     /// Instructions sysvar used to verify the CPI caller is the authorized router.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instruction_sysvar: UncheckedAccount<'info>,
 
     /// Fee payer that funds the `result_account` creation.
     #[account(mut)]
@@ -143,7 +143,7 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_account_pda, false),
             ],
             data: instruction_data.data(),
@@ -217,7 +217,7 @@ mod tests {
                 AccountMeta::new_readonly(wrong_app_state_pda, false), // Wrong PDA!
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_pda, false),
             ],
             data: instruction_data.data(),
@@ -366,7 +366,7 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_pda, false),
             ],
             data: instruction_data.data(),
@@ -430,7 +430,7 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_pda, false),
             ],
             data: instruction_data.data(),
@@ -501,7 +501,7 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_pda, false),
             ],
             data: instruction_data.data(),
@@ -617,7 +617,7 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_pda, false),
             ],
             data: instruction_data.data(),
@@ -693,12 +693,9 @@ mod integration_tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(
-                    anchor_lang::solana_program::sysvar::instructions::ID,
-                    false,
-                ),
+                AccountMeta::new_readonly(solana_instructions_sysvar::ID, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
                 AccountMeta::new(result_pda, false),
             ],
             data: ix_data.data(),

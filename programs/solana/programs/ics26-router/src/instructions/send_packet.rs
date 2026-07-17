@@ -68,17 +68,17 @@ pub struct SendPacket<'info> {
     /// Light client program used to query client status before sending.
     /// CHECK: Validated against client registry.
     #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// Client state account owned by the light client program.
     /// CHECK: Ownership validated against light client program.
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
 
     /// Consensus state account owned by the light client program (for expiry check).
     /// CHECK: Ownership validated against light client program.
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
@@ -146,8 +146,9 @@ mod tests {
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::signature::Keypair;
     use solana_sdk::signer::Signer;
-    use solana_sdk::system_program;
+    use solana_sdk::sysvar::SysvarSerialize as _;
     use solana_sdk::transaction::Transaction;
+    use solana_sdk_ids::system_program;
 
     const TEST_PORT: &str = "transfer";
     const TEST_CLIENT_ID: &str = "test-client";
@@ -311,7 +312,7 @@ mod tests {
             solana_sdk::account::Account {
                 lamports: 1,
                 data: clock_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -961,7 +962,7 @@ mod tests {
             solana_sdk::account::Account {
                 lamports: 1,
                 data: clock_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -1285,7 +1286,7 @@ mod tests {
             solana_sdk::account::Account {
                 lamports: 1,
                 data: clock_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -1678,7 +1679,7 @@ mod tests {
             solana_sdk::account::Account {
                 lamports: 1,
                 data: clock_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -1831,7 +1832,7 @@ mod tests {
             solana_sdk::account::Account {
                 lamports: 1,
                 data: clock_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },

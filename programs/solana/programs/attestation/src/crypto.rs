@@ -127,7 +127,7 @@ pub fn recover_eth_address(
 }
 
 fn pubkey_to_eth_address(pubkey: &[u8; SECP256K1_PUBLIC_KEY_LENGTH]) -> [u8; ETH_ADDRESS_LEN] {
-    let solana_keccak_hasher::Hash(hash) = solana_keccak_hasher::hash(pubkey);
+    let hash = solana_keccak_hasher::hash(pubkey).to_bytes();
     hash[hash.len() - ETH_ADDRESS_LEN..].try_into().unwrap()
 }
 

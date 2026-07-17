@@ -8,12 +8,13 @@ use super::Actor;
 use crate::admin::Admin;
 use crate::chain::{Chain, ChainProgram, InitStepSigner};
 use crate::relayer::Relayer;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 use solana_ibc_sdk::access_manager::instructions as am_sdk;
 use solana_ibc_sdk::ics26_router::instructions as router_sdk;
 use solana_ibc_sdk::ics26_router::types::CounterpartyInfo;
 use solana_sdk::{
-    bpf_loader_upgradeable, instruction::Instruction, pubkey::Pubkey, signature::Keypair,
-    signer::Signer, transaction::Transaction,
+    instruction::Instruction, pubkey::Pubkey, signature::Keypair, signer::Signer,
+    transaction::Transaction,
 };
 
 /// Deployer / upgrade-authority actor.

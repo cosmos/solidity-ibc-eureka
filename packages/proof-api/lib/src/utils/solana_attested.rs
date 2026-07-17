@@ -12,12 +12,11 @@ use ibc_proto_eureka::ibc::core::{
     channel::v2::{MsgAcknowledgement, MsgRecvPacket},
     client::v1::Height,
 };
+use solana_compute_budget_interface::ComputeBudgetInstruction;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_sdk::attestation::accounts::ClientState as AttestationClientState;
 use solana_ibc_sdk::ics26_router::types::Delivery;
-use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
-};
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 
 /// Maximum compute units allowed per Solana transaction.
 const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;

@@ -39,6 +39,9 @@ bincode                          = { workspace = true }
 borsh                            = { workspace = true }
 solana-sdk                       = { workspace = true }
 solana-client                    = { workspace = true }
+solana-commitment-config         = { workspace = true }
+solana-address-lookup-table-interface = { workspace = true }
+solana-compute-budget-interface  = { workspace = true }
 solana-transaction-status        = { workspace = true }
 solana-ibc-sdk                   = { path = "../../../programs/solana/packages/solana-ibc-sdk" }
 solana-ibc-gmp-types             = { path = "../../../programs/solana/packages/solana-ibc-gmp-types" }

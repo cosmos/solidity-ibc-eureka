@@ -104,7 +104,7 @@ const IBC_CALLBACKS: &[CallbackConfig] = &[
 ///     use super::*;
 ///
 ///     pub fn on_recv_packet<'info>(
-///         ctx: Context<'_, '_, '_, 'info, OnRecvPacket<'info>>,
+///         ctx: Context<'info, OnRecvPacket<'info>>,
 ///         msg: OnRecvPacketMsg,
 ///     ) -> Result<Vec<u8>> {
 ///         // Handle received packet

@@ -47,8 +47,8 @@ pub struct RegisterIFTBridge<'info> {
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 pub fn register_ift_bridge(
@@ -136,7 +136,7 @@ mod tests {
         let bridge_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -219,7 +219,7 @@ mod tests {
         let bridge_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -471,7 +471,7 @@ mod tests {
         let bridge_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -559,7 +559,7 @@ mod tests {
         let bridge_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };

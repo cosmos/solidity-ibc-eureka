@@ -8,8 +8,9 @@ pub mod accounts {
     use access_manager::AccessManagerState;
     use anchor_lang::AccountSerialize;
     use solana_sdk::account::Account;
+    use solana_sdk::native_loader;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::{native_loader, system_program};
+    use solana_sdk_ids::system_program;
 
     pub fn create_client_state_account(client_state: &ClientState) -> Account {
         let mut data = vec![];
@@ -45,7 +46,8 @@ pub mod accounts {
             _reserved: [0; 256],
         };
         let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
-        app_state.try_serialize(&mut &mut data[..]).unwrap();
+        let mut writer = &mut data[..];
+        app_state.try_serialize(&mut writer).unwrap();
         Account {
             lamports: 1_000_000,
             data,
@@ -109,7 +111,7 @@ pub mod accounts {
             Account {
                 lamports: 1_000_000,
                 data: ixs_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -121,7 +123,7 @@ pub mod accounts {
         program_id: &Pubkey,
         authority: Option<Pubkey>,
     ) -> (Pubkey, Account) {
-        use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+        use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
         let (program_data_pda, _) =
             Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
@@ -302,7 +304,8 @@ pub fn setup_program_test_with_whitelist(
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
-    app_state.try_serialize(&mut &mut app_data[..]).unwrap();
+    let mut writer = &mut app_data[..];
+    app_state.try_serialize(&mut writer).unwrap();
 
     pt.add_account(
         app_state_pda,

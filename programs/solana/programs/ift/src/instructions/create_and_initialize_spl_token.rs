@@ -1,9 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{program::invoke, system_instruction};
-use anchor_spl::token_2022_extensions::{
-    metadata_pointer_initialize, token_metadata_initialize, MetadataPointerInitialize,
-    TokenMetadataInitialize,
-};
+use anchor_spl::token_2022_extensions::{metadata_pointer_initialize, MetadataPointerInitialize};
 use anchor_spl::token_interface::spl_token_2022::extension::ExtensionType;
 use anchor_spl::token_interface::TokenInterface;
 use solana_ibc_types::reject_cpi;
@@ -44,7 +41,7 @@ pub struct CreateAndInitializeSplToken<'info> {
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
         bump
     )]
-    pub mint_authority: AccountInfo<'info>,
+    pub mint_authority: UncheckedAccount<'info>,
 
     /// Admin authority
     #[account(
@@ -62,8 +59,8 @@ pub struct CreateAndInitializeSplToken<'info> {
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 }
 
 const TOKEN_2022_PROGRAM_ID: Pubkey = anchor_spl::token_interface::spl_token_2022::ID;
@@ -187,10 +184,8 @@ fn create_token_2022_mint(
         additional_metadata: vec![],
     };
 
-    // Allocate space for base mint + fixed extensions only. Token 2022's
-    // `InitializeMint2` validates that account size matches exactly.
-    // The variable-length metadata is written later by `token_metadata_initialize`,
-    // which reallocates the account internally.
+    // Allocate space for base mint + fixed extensions only. `InitializeMint2`
+    // requires an exact fixed-extension size; metadata grows it afterward.
     let extension_space = ExtensionType::try_calculate_account_len::<Token2022Mint>(&[
         ExtensionType::MetadataPointer,
     ])?;
@@ -215,7 +210,7 @@ fn create_token_2022_mint(
     // Initialize MetadataPointer (must be done before InitializeMint2)
     metadata_pointer_initialize(
         CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             MetadataPointerInitialize {
                 token_program_id: ctx.accounts.token_program.to_account_info(),
                 mint: ctx.accounts.mint.to_account_info(),
@@ -250,21 +245,24 @@ fn create_token_2022_mint(
     ];
     let signer_seeds = &[&seeds[..]];
 
-    token_metadata_initialize(
-        CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            TokenMetadataInitialize {
-                program_id: ctx.accounts.token_program.to_account_info(),
-                metadata: ctx.accounts.mint.to_account_info(),
-                update_authority: ctx.accounts.mint_authority.to_account_info(),
-                mint_authority: ctx.accounts.mint_authority.to_account_info(),
-                mint: ctx.accounts.mint.to_account_info(),
-            },
-            signer_seeds,
-        ),
-        name.to_string(),
-        symbol.to_string(),
-        uri.to_string(),
+    let ix =
+        anchor_spl::token_2022_extensions::spl_token_metadata_interface::instruction::initialize(
+            &TOKEN_2022_PROGRAM_ID,
+            mint_key,
+            mint_authority_key,
+            mint_key,
+            mint_authority_key,
+            name.to_string(),
+            symbol.to_string(),
+            uri.to_string(),
+        );
+    anchor_lang::solana_program::program::invoke_signed(
+        &ix,
+        &[
+            ctx.accounts.mint.to_account_info(),
+            ctx.accounts.mint_authority.to_account_info(),
+        ],
+        signer_seeds,
     )?;
 
     Ok(())
@@ -322,6 +320,7 @@ mod tests {
         },
         state::Mint as Token2022Mint,
     };
+    use mollusk_svm::Mollusk;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         program_pack::Pack,
@@ -337,7 +336,7 @@ mod tests {
         solana_sdk::account::Account {
             lamports: 0,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         }
@@ -412,7 +411,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -473,7 +472,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -481,7 +480,7 @@ mod tests {
         let mint_authority_account = solana_sdk::account::Account {
             lamports: 0,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -553,7 +552,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -628,7 +627,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -696,7 +695,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -761,7 +760,7 @@ mod tests {
         let app_mint_state_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         };
@@ -998,10 +997,21 @@ mod tests {
         solana_sdk::account::Account {
             lamports,
             data: vec![],
-            owner: solana_sdk::system_program::ID,
+            owner: solana_sdk_ids::system_program::ID,
             executable: false,
             rent_epoch: 0,
         }
+    }
+
+    fn process_prefund_then_create(
+        mollusk: &Mollusk,
+        prefund_ix: &Instruction,
+        create_ix: &Instruction,
+        accounts: &[(Pubkey, solana_sdk::account::Account)],
+    ) -> mollusk_svm::result::InstructionResult {
+        let prefund_result = mollusk.process_instruction(prefund_ix, accounts);
+        assert!(!prefund_result.program_result.is_err());
+        mollusk.process_instruction(create_ix, &prefund_result.resulting_accounts)
     }
 
     #[test]
@@ -1016,7 +1026,7 @@ mod tests {
         let prefund_amount: u64 = 500_000;
 
         let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, prefund_amount);
+            solana_system_interface::instruction::transfer(&adversary, &mint_key, prefund_amount);
 
         let mut accounts = setup.accounts;
         accounts.push((
@@ -1024,7 +1034,8 @@ mod tests {
             adversary_account(prefund_amount.saturating_add(1_000_000)),
         ));
 
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
+        let result =
+            process_prefund_then_create(&mollusk, &prefund_ix, &setup.instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
             "Partially pre-funded SPL Token mint must not block creation: {:?}",
@@ -1056,7 +1067,7 @@ mod tests {
         let prefund_amount: u64 = 500_000;
 
         let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, prefund_amount);
+            solana_system_interface::instruction::transfer(&adversary, &mint_key, prefund_amount);
 
         let mut accounts = setup.accounts;
         accounts.push((
@@ -1064,7 +1075,8 @@ mod tests {
             adversary_account(prefund_amount.saturating_add(1_000_000)),
         ));
 
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
+        let result =
+            process_prefund_then_create(&mollusk, &prefund_ix, &setup.instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
             "Partially pre-funded Token 2022 mint must not block creation: {:?}",
@@ -1131,7 +1143,7 @@ mod tests {
 
         let adversary = Pubkey::new_unique();
         let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, exact_rent);
+            solana_system_interface::instruction::transfer(&adversary, &mint_key, exact_rent);
 
         let mut accounts = setup.accounts;
         accounts.push((
@@ -1139,7 +1151,8 @@ mod tests {
             adversary_account(exact_rent.saturating_add(1_000_000)),
         ));
 
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
+        let result =
+            process_prefund_then_create(&mollusk, &prefund_ix, &setup.instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
             "Exactly pre-funded Token 2022 mint must not block creation: {:?}",
@@ -1181,7 +1194,7 @@ mod tests {
 
         let adversary = Pubkey::new_unique();
         let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, overfund_amount);
+            solana_system_interface::instruction::transfer(&adversary, &mint_key, overfund_amount);
 
         let mut accounts = setup.accounts;
         accounts.push((
@@ -1189,7 +1202,8 @@ mod tests {
             adversary_account(overfund_amount.saturating_add(1_000_000)),
         ));
 
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
+        let result =
+            process_prefund_then_create(&mollusk, &prefund_ix, &setup.instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
             "Over-funded Token 2022 mint must not block creation: {:?}",
@@ -1220,7 +1234,7 @@ mod tests {
 
         let adversary = Pubkey::new_unique();
         let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, exact_rent);
+            solana_system_interface::instruction::transfer(&adversary, &mint_key, exact_rent);
 
         let mut accounts = setup.accounts;
         accounts.push((
@@ -1228,7 +1242,8 @@ mod tests {
             adversary_account(exact_rent.saturating_add(1_000_000)),
         ));
 
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
+        let result =
+            process_prefund_then_create(&mollusk, &prefund_ix, &setup.instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
             "Exactly pre-funded SPL Token mint must not block creation: {:?}",
@@ -1256,7 +1271,7 @@ mod tests {
 
         let adversary = Pubkey::new_unique();
         let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, overfund_amount);
+            solana_system_interface::instruction::transfer(&adversary, &mint_key, overfund_amount);
 
         let mut accounts = setup.accounts;
         accounts.push((
@@ -1264,7 +1279,8 @@ mod tests {
             adversary_account(overfund_amount.saturating_add(1_000_000)),
         ));
 
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
+        let result =
+            process_prefund_then_create(&mollusk, &prefund_ix, &setup.instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
             "Over-funded SPL Token mint must not block creation: {:?}",

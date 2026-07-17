@@ -29,7 +29,7 @@ pub struct RecvPacket<'info> {
         bump,
         constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
-    pub router_state: Account<'info, RouterState>,
+    pub router_state: Box<Account<'info, RouterState>>,
 
     /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
@@ -38,14 +38,14 @@ pub struct RecvPacket<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager,
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub access_manager: UncheckedAccount<'info>,
 
     /// PDA mapping the destination port to its registered IBC application.
     #[account(
         seeds = [IBCApp::SEED, msg.packet.payloads[0].dest_port.as_bytes()],
         bump
     )]
-    pub ibc_app: Account<'info, IBCApp>,
+    pub ibc_app: Box<Account<'info, IBCApp>>,
 
     /// Stores the packet receipt commitment; created on first receive.
     #[account(
@@ -78,12 +78,12 @@ pub struct RecvPacket<'info> {
     /// IBC application program to deliver the packet to via CPI.
     /// CHECK: IBC app program, validated against `IBCApp` account
     #[account(address = ibc_app.app_program_id @ RouterError::IbcAppNotFound)]
-    pub ibc_app_program: AccountInfo<'info>,
+    pub ibc_app_program: UncheckedAccount<'info>,
 
     /// Mutable state account of the IBC application (passed into the CPI).
     /// CHECK: Ownership validated against IBC app program
     #[account(mut, owner = ibc_app.app_program_id @ RouterError::InvalidAccountOwner)]
-    pub ibc_app_state: AccountInfo<'info>,
+    pub ibc_app_state: UncheckedAccount<'info>,
 
     /// Relayer submitting the packet; must hold the `RELAYER_ROLE` and pays rent.
     #[account(mut)]
@@ -94,8 +94,8 @@ pub struct RecvPacket<'info> {
 
     /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(address = solana_instructions_sysvar::ID)]
+    pub instructions_sysvar: UncheckedAccount<'info>,
 
     /// Client PDA for the destination client; must be active.
     #[account(
@@ -103,26 +103,26 @@ pub struct RecvPacket<'info> {
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]
-    pub client: Account<'info, Client>,
+    pub client: Box<Account<'info, Client>>,
 
     /// Light client program used to verify the membership proof.
     /// CHECK: Validated against client registry
     #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
-    pub light_client_program: AccountInfo<'info>,
+    pub light_client_program: UncheckedAccount<'info>,
 
     /// Client state account owned by the light client program.
     /// CHECK: Ownership validated against light client program
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
-    pub client_state: AccountInfo<'info>,
+    pub client_state: UncheckedAccount<'info>,
 
     /// Consensus state account owned by the light client program.
     /// CHECK: Ownership validated against light client program
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
-    pub consensus_state: AccountInfo<'info>,
+    pub consensus_state: UncheckedAccount<'info>,
 }
 
 pub fn recv_packet<'info>(
-    ctx: Context<'_, '_, '_, 'info, RecvPacket<'info>>,
+    ctx: Context<'info, RecvPacket<'info>>,
     msg: MsgRecvPacket,
 ) -> Result<()> {
     access_manager::require_role(
@@ -222,10 +222,10 @@ pub fn recv_packet<'info>(
     );
 
     let cpi_ctx = CpiContext::new(
-        ctx.accounts.ibc_app_program.clone(),
+        ctx.accounts.ibc_app_program.key(),
         OnRecvPacket {
-            app_state: ctx.accounts.ibc_app_state.clone(),
-            instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
+            app_state: ctx.accounts.ibc_app_state.to_account_info(),
+            instructions_sysvar: ctx.accounts.instructions_sysvar.to_account_info(),
             payer: ctx.accounts.relayer.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
         },
@@ -299,10 +299,12 @@ mod tests {
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_ibc_types::{roles, Delivery, MsgPacket, MsgPayload, MsgProof, Payload};
+    use solana_sdk::clock::Clock;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::{clock::Clock, system_program};
+    use solana_sdk::sysvar::SysvarSerialize as _;
+    use solana_sdk_ids::system_program;
 
     #[test]
     fn test_recv_packet_unauthorized_sender() {
@@ -1281,7 +1283,7 @@ mod tests {
             solana_sdk::account::Account {
                 lamports: 1,
                 data: clock_data,
-                owner: solana_sdk::sysvar::ID,
+                owner: solana_sdk_ids::sysvar::ID,
                 executable: false,
                 rent_epoch: 0,
             },

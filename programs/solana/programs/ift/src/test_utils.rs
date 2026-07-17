@@ -4,7 +4,8 @@
 
 use anchor_lang::prelude::*;
 use mollusk_svm::Mollusk;
-use solana_sdk::{account::Account as SolanaAccount, pubkey::Pubkey, system_program};
+use solana_sdk::{account::Account as SolanaAccount, pubkey::Pubkey};
+use solana_sdk_ids::system_program;
 
 use crate::constants::*;
 use crate::state::{
@@ -92,7 +93,8 @@ pub fn create_ift_app_state_account_full(
 
     let mut data = vec![0u8; 8 + IFTAppState::INIT_SPACE];
     data[0..8].copy_from_slice(IFTAppState::DISCRIMINATOR);
-    app_state.serialize(&mut &mut data[8..]).unwrap();
+    let mut writer = &mut data[8..];
+    app_state.serialize(&mut writer).unwrap();
 
     SolanaAccount {
         lamports: 1_000_000,
@@ -270,7 +272,7 @@ pub fn create_clock_sysvar_account(unix_timestamp: i64) -> (Pubkey, SolanaAccoun
         SolanaAccount {
             lamports: 1,
             data: bincode::serialize(&clock).expect("Failed to serialize Clock sysvar"),
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -282,7 +284,7 @@ pub fn create_program_data_account(
     program_id: &Pubkey,
     authority: Option<Pubkey>,
 ) -> (Pubkey, SolanaAccount) {
-    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+    use anchor_lang::solana_program::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
 
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
@@ -480,7 +482,7 @@ pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
         SolanaAccount {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -515,7 +517,7 @@ pub fn create_cpi_instructions_sysvar_account(
         SolanaAccount {
             lamports: 1_000_000,
             data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
+            owner: solana_sdk_ids::sysvar::ID,
             executable: false,
             rent_epoch: 0,
         },

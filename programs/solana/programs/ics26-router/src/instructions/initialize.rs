@@ -62,9 +62,10 @@ mod tests {
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
     use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::native_loader;
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::{native_loader, system_program};
+    use solana_sdk_ids::system_program;
 
     const ANCHOR_ERROR_OFFSET: u32 = 6000;
 

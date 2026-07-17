@@ -44,6 +44,11 @@
         };
         anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
       in {
+        apps.solana = {
+          type = "app";
+          program = "${solana-agave}/bin/solana";
+        };
+
         devShells = {
           default = pkgs.mkShell {
             buildInputs =
