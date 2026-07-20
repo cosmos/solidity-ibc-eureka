@@ -36,11 +36,11 @@ build-solana-ibc:
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
-  @echo "Building SP1 programs in 'programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/'"
-  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-update-client --locked
-  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-membership --locked
-  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-uc-and-membership --locked
-  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-misbehaviour --locked
+  @echo "Building SP1 programs in 'ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/'"
+  cd ibc-solidity/programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-update-client --locked
+  cd ibc-solidity/programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-membership --locked
+  cd ibc-solidity/programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-uc-and-membership --locked
+  cd ibc-solidity/programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
 # Sync Solana program keypairs and update declare_id! macros
 # Usage: just sync-solana-keys [cluster]
@@ -715,7 +715,7 @@ _validate-cluster cluster:
 [group('build')]
 build-cw-ics08-wasm-eth:
   -@docker image rm cosmwasm-builder:latest
-  cd programs/cw-ics08-wasm-eth && docker buildx build --platform linux/amd64 -t cosmwasm-builder:latest .
+  cd ibc-solidity/programs/cw-ics08-wasm-eth && docker buildx build --platform linux/amd64 -t cosmwasm-builder:latest .
   docker run --rm --platform=linux/amd64  -t \
     -v "$PWD":/code \
     cosmwasm-builder:latest
@@ -780,8 +780,8 @@ lint-solana:
 [group('lint')]
 lint-sp1:
 	@echo "Linting the SP1 programs..."
-	cd programs/sp1-programs && cargo fmt --all -- --check
-	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+	cd ibc-solidity/programs/sp1-programs && cargo fmt --all -- --check
+	cd ibc-solidity/programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
@@ -1054,7 +1054,7 @@ test-solana-integration *ARGS:
 clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
-	cd programs/sp1-programs && cargo clean
+	cd ibc-solidity/programs/sp1-programs && cargo clean
 
 # Compute IFT contract address and ICA address from deployer private key
 # Example: just compute-ift-addresses ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 18 08-wasm-0 wf

@@ -290,10 +290,10 @@ func DefaultAggregatorConfig() AggregatorConfig {
 // DefaultSP1ProgramPaths returns the default paths for SP1 program ELF files
 func DefaultSP1ProgramPaths() SP1ProgramPaths {
 	return SP1ProgramPaths{
-		UpdateClient:              "./programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
-		Membership:                "./programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
-		UpdateClientAndMembership: "./programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
-		Misbehaviour:              "./programs/sp1-programs//target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour",
+		UpdateClient:              "./ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+		Membership:                "./ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+		UpdateClientAndMembership: "./ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+		Misbehaviour:              "./ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour",
 	}
 }
 

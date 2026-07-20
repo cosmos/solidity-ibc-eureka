@@ -49,19 +49,20 @@ This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplifi
 
 This project is structured with the following directories:
 
-- `ibc-solidity/`: Contains the Solidity implementation of IBC as a [foundry](https://getfoundry.sh/) project.
+- `ibc-solidity/`: Contains the Solidity implementation of IBC and its related light-client programs.
     - `contracts/`: Contains the Solidity contracts.
     - `test/`: Contains the Solidity tests.
     - `scripts/`: Contains Solidity scripts and tools.
     - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
+    - `programs/`: Contains Rust programs maintained alongside the Solidity implementation.
+        - `sp1-programs/`: Contains the SP1 programs for the Tendermint light client.
+        - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum.
 - `docs/`: Contains the ADRs and audits for the project.
 - `scripts/`: Contains repository-wide scripts and tools.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `proof-api/`: Contains the proof API implementation.
     - `operator/`: Contains the fixture generator for the SP1 light client.
-    - `sp1-programs/`: Contains the SP1 programs for the light client.
-    - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
     - `solana/`: Contains the Solana programs for IBC.
 - `packages/`: Contains the Rust packages for the project.
   - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
@@ -304,7 +305,7 @@ Note: These gas benchmarks are with Groth16.
 IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains the following light clients:
 
 - **SP1 Tendermint Light Client** – Verifies the consensus state of a Cosmos SDK chain powered by SP1 and `tendermint-rs`. (Solidity)
-- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain. (CosmWasm)
+- [**Ethereum Light Client**](./ibc-solidity/programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain. (CosmWasm)
 - **Attestation Light Client** – A multisig that can be used if the counterparty chain does not have a light client protocol. (Solidity and Solana)
 - **Solana Tendermint Light Client** - Verifies the consensus state of a Cosmos SDK chain powered by `tendermint-rs`. (Solana)
 
