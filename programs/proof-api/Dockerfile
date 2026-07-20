@@ -12,6 +12,7 @@ COPY packages packages
 COPY programs programs
 COPY ibc-solidity/contracts ibc-solidity/contracts
 COPY ibc-solidity/abi ibc-solidity/abi
+COPY ibc-solidity/programs ibc-solidity/programs
 COPY proto proto
 
 RUN cargo build --bin proof-api --release --locked
