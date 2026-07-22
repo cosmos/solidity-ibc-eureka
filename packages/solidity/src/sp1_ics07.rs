@@ -8,4 +8,7 @@ alloy_sol_types::sol!(
 
 // NOTE: The riscv program won't compile with the `rpc` features.
 #[cfg(not(feature = "rpc"))]
-alloy_sol_types::sol!(sp1_ics07_tendermint, "../../ibc-solidity/abi/SP1ICS07Tendermint.json");
+alloy_sol_types::sol!(
+    sp1_ics07_tendermint,
+    "../../ibc-solidity/abi/SP1ICS07Tendermint.json"
+);

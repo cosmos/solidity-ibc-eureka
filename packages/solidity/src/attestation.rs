@@ -8,4 +8,7 @@ alloy_sol_types::sol!(
 
 // NOTE: The riscv program won't compile with the `rpc` features.
 #[cfg(not(feature = "rpc"))]
-alloy_sol_types::sol!(light_client, "../../ibc-solidity/abi/AttestationLightClient.json");
+alloy_sol_types::sol!(
+    light_client,
+    "../../ibc-solidity/abi/AttestationLightClient.json"
+);
