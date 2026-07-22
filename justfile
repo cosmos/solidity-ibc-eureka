@@ -730,7 +730,7 @@ build-proof-api-image:
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:
-	cargo install --bin operator --path programs/operator --locked --force
+	cargo install --bin operator --path ibc-solidity/programs/operator --locked --force
 
 # Install the proof API using `cargo install`
 [group('install')]

@@ -66,14 +66,14 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cargo/bin/operator
-        key: ${{ runner.os }}-operator-${{ hashFiles('programs/operator/**', 'packages/**', 'Cargo.lock') }}
+        key: ${{ runner.os }}-operator-${{ hashFiles('ibc-solidity/programs/operator/**', 'packages/**', 'Cargo.lock') }}
 
     - name: Install operator
       if: steps.cache-operator.outputs.cache-hit != 'true'
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: --bin operator --path programs/operator --locked
+        args: --bin operator --path ibc-solidity/programs/operator --locked
 
     - name: Cache Solana Programs
       id: cache-solana

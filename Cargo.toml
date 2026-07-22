@@ -29,7 +29,7 @@ members = [
 
     # Programs (binaries)
     "programs/proof-api",
-    "programs/operator",
+    "ibc-solidity/programs/operator",
     "ibc-solidity/programs/cw-ics08-wasm-eth",
 ]
 resolver = "2"

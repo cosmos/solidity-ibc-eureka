@@ -57,12 +57,12 @@ This project is structured with the following directories:
     - `programs/`: Contains Rust programs maintained alongside the Solidity implementation.
         - `sp1-programs/`: Contains the SP1 programs for the Tendermint light client.
         - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum.
+        - `operator/`: Contains the fixture generator for the SP1 light client.
 - `docs/`: Contains the ADRs and audits for the project.
 - `scripts/`: Contains repository-wide scripts and tools.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `proof-api/`: Contains the proof API implementation.
-    - `operator/`: Contains the fixture generator for the SP1 light client.
     - `solana/`: Contains the Solana programs for IBC.
 - `packages/`: Contains the Rust packages for the project.
   - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
