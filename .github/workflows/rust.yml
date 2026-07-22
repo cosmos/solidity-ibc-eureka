@@ -77,7 +77,7 @@ jobs:
           command: build
           args: --bin operator --release --locked
 
-build-08-wasm-eth:
+  build-08-wasm-eth:
     name: build-08-wasm-eth
     runs-on: depot-ubuntu-24.04-4
     continue-on-error: true
