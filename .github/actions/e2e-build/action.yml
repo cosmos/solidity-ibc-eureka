@@ -85,7 +85,7 @@ runs:
           ~/.avm/
           ./ibc-solana/target/deploy/
           ./ibc-solana/target/sbpf-solana-solana/
-        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('ibc-solana/**') }}
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('ibc-solana/**', 'packages/tendermint-light-client/**', 'packages/constrained_types/**', 'proto/**', 'ibc-solidity/abi/IFTOwnable.json', 'ibc-solidity/contracts/light-clients/attestation/msgs/**', 'ibc-solidity/contracts/msgs/**', 'scripts/build-solana-test-instance.sh', 'solana-keypairs/localnet/**', 'justfile') }}
 
     - name: Setup Solana and Anchor
       if: steps.cache-solana.outputs.cache-hit != 'true'
@@ -101,7 +101,7 @@ runs:
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
-      run: just build-solana-programs
+      run: just solana::build-solana-programs
 
     - name: Package artifacts
       shell: bash

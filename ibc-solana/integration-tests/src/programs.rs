@@ -26,7 +26,7 @@ use solana_sdk::{
 pub const ATTESTATION_PROGRAM_ID: Pubkey = attestation::ID;
 
 /// Program ID for the `test-attestation` instance
-/// (built via `just build-solana-test-instance attestation test-attestation`).
+/// (built via `just solana::build-solana-test-instance attestation test-attestation`).
 pub const TEST_ATTESTATION_ID: Pubkey = pubkey!("2kXQM1LsQeWLEB5GHBGDmUqNzNfejh3pVHaauiQv6FdV");
 
 // ── TestIbcApp ──────────────────────────────────────────────────────────

@@ -2,6 +2,26 @@
 
 This directory contains the Solana implementation of IBC Eureka protocol, built using the Anchor framework. The programs enable trust-minimized interoperability between Solana and Cosmos SDK chains.
 
+## Development Commands
+
+Solana development recipes live in [`solana.just`](solana.just) and are exposed
+through the root `justfile` as the `solana` module. Run them from the repository
+root:
+
+```bash
+# List every Solana recipe
+just solana
+
+# Build, lint, and test
+just solana::build-solana-programs
+just solana::lint-solana
+just solana::test-solana
+```
+
+The recipes themselves execute with `ibc-solana/` as their working directory.
+Paths accepted as command arguments are documented relative to the repository
+root.
+
 ## Dependency Graph
 
 ```mermaid
@@ -157,20 +177,21 @@ graph LR
 ### Generate Keypairs for a Cluster
 
 ```bash
-just generate-solana-keypairs <cluster>
+just solana::generate-solana-keypairs <cluster>
 ```
 
-Where `<cluster>` is one of: `localnet`, `devnet`, `testnet`, `mainnet`
+`<cluster>` must be enabled in the `[clusters]` section of `Anchor.toml`.
+`localnet` is enabled by default; uncomment or add `devnet`, `testnet`, or
+`mainnet` before using those cluster names. Localnet keypairs are committed for
+deterministic tests and cannot be regenerated.
 
-This creates keypairs in `solana-keypairs/<cluster>/`:
+Run namespaced recipes from the repository root. This creates the production
+program keypairs in `solana-keypairs/<cluster>/`:
 
 - `access_manager-keypair.json`
 - `ics07_tendermint-keypair.json`
 - `ics26_router-keypair.json`
 - `ics27_gmp-keypair.json`
-- `test_ibc_app-keypair.json`
-- `mock_light_client-keypair.json`
-- `deployer_wallet.json`
 
 ### Manual Keypair Generation
 
@@ -193,17 +214,21 @@ solana-keygen pubkey solana-keypairs/<cluster>/<program>-keypair.json
 
 ### Quick Deployment
 
-Deploy to devnet with a single command:
+After syncing keys and building the programs, deploy the existing artifacts to
+devnet:
 
 ```bash
-just deploy-solana devnet
+just solana::sync-solana-keys devnet
+just solana::build-solana-programs
+just solana::deploy-solana devnet
 ```
 
-This automatically:
+Together, these commands:
 
-1. Builds programs with cluster-specific program IDs
-2. Deploys all programs to the target cluster
-3. Updates `Anchor.toml` with deployed program IDs
+1. Sync the program IDs for the configured cluster.
+2. Build all program artifacts and IDLs.
+3. Deploy every `.so` artifact in `ibc-solana/target/deploy/`.
+4. Reserve the configured upgrade space for each program.
 
 ### Step-by-Step Deployment
 
@@ -223,7 +248,7 @@ solana transfer <DEPLOYER_PUBKEY> <AMOUNT> --from <YOUR_WALLET> --url mainnet
 #### 2. Build Programs
 
 ```bash
-just build-solana-programs
+just solana::build-solana-programs
 ```
 
 This compiles all programs and generates their IDLs.
@@ -253,7 +278,7 @@ solana-test-validator
 solana config set --url localhost
 
 # Terminal 3: Deploy
-just deploy-solana localnet
+just solana::deploy-solana localnet
 ```
 
 ### Deployment Options
@@ -269,7 +294,7 @@ anchor deploy -p ics26-router --provider.cluster devnet
 
 ```bash
 # Build new version
-just build-solana-programs
+just solana::build-solana-programs
 
 # Deploy upgrade
 anchor upgrade target/deploy/ics26_router.so \
@@ -316,13 +341,13 @@ The AccessManager provides role-based access control across all IBC programs.
 Before granting roles, initialize the AccessManager with an initial admin:
 
 ```bash
-just initialize-access-manager <cluster> <admin-pubkey>
+just solana::initialize-access-manager [admin-pubkey] [cluster]
 ```
 
 Example:
 
 ```bash
-just initialize-access-manager localnet 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
+just solana::initialize-access-manager 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z localnet
 ```
 
 This creates the AccessManager PDA and grants ADMIN_ROLE to the specified account.
@@ -332,13 +357,13 @@ This creates the AccessManager PDA and grants ADMIN_ROLE to the specified accoun
 Grant a role to an account:
 
 ```bash
-just grant-solana-role <cluster> <role-id> <account-pubkey>
+just solana::grant-solana-role <role-id> [account-pubkey] [cluster]
 ```
 
 Example (grant RELAYER_ROLE):
 
 ```bash
-just grant-solana-role localnet 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
+just solana::grant-solana-role 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z localnet
 ```
 
 #### Revoke Role
@@ -346,13 +371,13 @@ just grant-solana-role localnet 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
 Revoke a role from an account:
 
 ```bash
-just revoke-solana-role <cluster> <role-id> <account-pubkey>
+just solana::revoke-solana-role <role-id> [account-pubkey] [cluster]
 ```
 
 Example:
 
 ```bash
-just revoke-solana-role localnet 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
+just solana::revoke-solana-role 1 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z localnet
 ```
 
 ### Role Verification
@@ -382,31 +407,32 @@ After deploying programs, configure upgrade authority management:
 **Step 1: Initialize AccessManager (if not already done)**
 
 ```bash
-just initialize-access-manager <cluster> <admin-pubkey>
+just solana::initialize-access-manager [admin-pubkey] [cluster]
 ```
 
 Example:
 
 ```bash
-just initialize-access-manager localnet 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z
+just solana::initialize-access-manager 8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z localnet
 ```
 
 **Step 2: Transfer upgrade authority to AccessManager PDA**
 
 ```bash
-just set-upgrade-authority <program-id> <cluster> [current-authority-keypair]
+just solana::set-upgrade-authority <program-name> [cluster] [current-authority-keypair]
 ```
 
 Example:
 
 ```bash
-just set-upgrade-authority FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx localnet ~/.config/solana/id.json
+just solana::set-upgrade-authority ics26_router localnet "$HOME/.config/solana/id.json"
 ```
 
 **Notes:**
 
 - The upgrade authority PDA is automatically derived with seeds: `["upgrade_authority", program_id]`
-- The third parameter (current authority keypair) is optional - if omitted, the command will tell you which keypair you need
+- The third parameter (current authority keypair) is optional; it defaults to
+  `solana-keypairs/<cluster>/deployer_wallet.json`.
 - Use `--skip-new-upgrade-authority-signer-check` is automatically applied since PDAs cannot sign
 
 ### Performing Upgrades
@@ -415,21 +441,23 @@ Once upgrade authority is transferred to AccessManager, upgrades require ADMIN_R
 
 #### Complete Upgrade (Recommended)
 
-Execute the entire upgrade process (build, buffer, and upgrade instruction) in one command:
+After building the updated program, execute the buffer creation and upgrade
+instruction in one command:
 
 ```bash
-just upgrade-solana-program <program-name> <program-id> <cluster> <upgrader-keypair-path>
+just solana::build-solana-programs <program-name-with-hyphens>
+just solana::upgrade-solana-program <program-name> [cluster] [upgrader-keypair-path]
 ```
 
 Example:
 
 ```bash
-just upgrade-solana-program ics26_router 4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1 devnet solana-keypairs/devnet/upgrader.json
+just solana::upgrade-solana-program ics26_router devnet solana-keypairs/devnet/upgrader.json
 ```
 
 This command automatically:
 
-1. Builds the new program version
+1. Reads the existing program artifact from `ibc-solana/target/deploy/`
 2. Writes bytecode to a buffer account
 3. Sets buffer authority to the upgrade authority PDA
 4. Executes the AccessManager.upgrade_program instruction
@@ -446,7 +474,7 @@ This command automatically:
 If you only want to prepare the buffer without executing the upgrade:
 
 ```bash
-just prepare-solana-upgrade <program-name> <cluster> <upgrade-authority-pda>
+just solana::prepare-solana-upgrade <program-name> <upgrade-authority-pda> [cluster]
 ```
 
 Example:
@@ -456,7 +484,7 @@ Example:
 # For ics26-router on devnet:
 UPGRADE_AUTH_PDA="<DERIVED_PDA_ADDRESS>"
 
-just prepare-solana-upgrade ics26_router devnet $UPGRADE_AUTH_PDA
+just solana::prepare-solana-upgrade ics26_router $UPGRADE_AUTH_PDA devnet
 ```
 
 This command:
@@ -471,7 +499,7 @@ This command:
 **Step 1: Build new program version**
 
 ```bash
-just build-solana-programs
+just solana::build-solana-programs
 ```
 
 **Step 2: Write new bytecode to a buffer**
@@ -546,7 +574,7 @@ bin/solana-ibc upgrade program \
   $PROGRAM_DATA_ADDR
 ```
 
-**Note:** The `just upgrade-solana-program` command (documented above) automates all these steps, including buffer creation, PDA derivation, and upgrade execution. For programmatic integration, see `e2e/interchaintestv8/solana_upgrade_test.go` for a complete Go implementation example.
+**Note:** The `just solana::upgrade-solana-program` command (documented above) automates all these steps, including buffer creation, PDA derivation, and upgrade execution. For programmatic integration, see [`solana_upgrade_test.go`](../e2e/interchaintestv8/solana_upgrade_test.go) for a complete Go implementation example.
 
 ### Upgrade Security
 
@@ -574,7 +602,7 @@ bin/solana-ibc upgrade program \
 To revoke upgrade capability, revoke ADMIN_ROLE from an account:
 
 ```bash
-just revoke-solana-role 0 <ADMIN_PUBKEY> <cluster>
+just solana::revoke-solana-role 0 <ADMIN_PUBKEY> <cluster>
 ```
 
 Or using the `solana-ibc` CLI directly:
@@ -596,10 +624,10 @@ bin/solana-ibc access-manager revoke \
 
 ```bash
 # Build all programs (generates all IDLs)
-just build-solana-programs
+just solana::build-solana-programs
 
 # Build specific program only (generates only its IDL)
-just build-solana-programs ics26-router
+just solana::build-solana-programs ics26-router
 
 # Using anchor directly (from ibc-solana directory)
 cd ibc-solana
@@ -611,10 +639,10 @@ anchor build -p ics26-router
 
 ```bash
 # Solana unit tests
-just test-solana
+just solana::test-solana
 
-# Solana integration tests (builds required test artifacts first)
-just test-solana-integration
+# Solana integration tests (requires current artifacts in target/deploy)
+just solana::test-solana-integration
 
 # Specific program tests (requires the app being built)
 cargo test --manifest-path ibc-solana/programs/ics26-router/Cargo.toml
@@ -629,10 +657,10 @@ just test-e2e-solana-upgrade Test_ProgramUpgrade_Via_AccessManager
 
 ```bash
 # Format code
-just fmt-solana
+cd ibc-solana && cargo fmt --all
 
 # Run linter
-just lint-solana
+just solana::lint-solana
 ```
 
 ### IDL Generation
@@ -641,10 +669,10 @@ IDL (Interface Definition Language) files are automatically generated during bui
 
 ```bash
 # Generate IDLs for all programs
-just build-solana-programs
+just solana::build-solana-programs
 
 # Generate IDL for specific program only
-just build-solana-programs ics26-router
+just solana::build-solana-programs ics26-router
 ```
 
 IDL files are written to `target/idl/` and contain the program's interface definition for client libraries and tools.

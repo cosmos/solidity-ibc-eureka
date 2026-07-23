@@ -147,8 +147,8 @@ Upgrade authority PDAs include the target program ID in their seeds, preventing 
 ### Unit and Integration Tests
 
 ```bash
-just build-solana-programs access-manager
-cargo test -p access-manager --lib --tests
+just solana::build-solana-programs access-manager
+cd ibc-solana && cargo test -p access-manager --lib --tests
 ```
 
 The test suite includes Mollusk (SBF binary) unit tests and ProgramTest integration tests covering admin authorization, CPI rejection, fake sysvar attacks, wrong PDA derivation and zero-address rejection.

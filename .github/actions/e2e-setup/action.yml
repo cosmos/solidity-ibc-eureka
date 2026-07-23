@@ -54,7 +54,7 @@ runs:
           ~/.cargo/bin/anchor
           ./ibc-solana/target/deploy/
           ./ibc-solana/target/sbpf-solana-solana/
-        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('ibc-solana/**') }}
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('ibc-solana/**', 'packages/tendermint-light-client/**', 'packages/constrained_types/**', 'proto/**', 'ibc-solidity/abi/IFTOwnable.json', 'ibc-solidity/contracts/light-clients/attestation/msgs/**', 'ibc-solidity/contracts/msgs/**', 'scripts/build-solana-test-instance.sh', 'solana-keypairs/localnet/**', 'justfile') }}
 
     - name: Install just
       uses: extractions/setup-just@v2

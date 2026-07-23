@@ -6,10 +6,10 @@ Generates PDA helper functions from Anchor IDL files.
 
 ```bash
 # From project root (recommended)
-just generate-pda
+just solana::generate-pda
 
 # Or manually with explicit paths
-go run e2e/interchaintestv8/tools/generate-pdas/main.go \
+go run e2e/interchaintestv8/solana/generate-pdas/main.go \
   --idl-dir ibc-solana/target/idl \
   --output e2e/interchaintestv8/solana/pda.go
 ```
@@ -19,7 +19,7 @@ Both `--idl-dir` and `--output` flags are required.
 ## When to Regenerate
 
 - After modifying Anchor programs
-- After `just build-solana-programs`
+- After `just solana::build-solana-programs`
 - When adding new programs
 - When IDL structure changes
 

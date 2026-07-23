@@ -362,14 +362,14 @@ Pre-computed error constants are also available: `PACKET_COMMITMENT_MISMATCH`, `
 ## Running
 
 ```bash
-# Build required program binaries and run integration tests
-just test-solana-integration
+# Run integration tests after building the required program binaries
+just solana::test-solana-integration
 
 # Or run all integration tests directly (after builds)
-cargo test -p integration-tests
+cd ibc-solana && cargo test -p integration-tests
 
 # Run a specific test with logs
-cargo test -p integration-tests test_full_packet_lifecycle -- --nocapture
+cd ibc-solana && cargo test -p integration-tests test_full_packet_lifecycle -- --nocapture
 ```
 
-Programs are loaded from `target/deploy/` via `SBF_OUT_DIR`. After modifying any program source, rebuild with `just build-solana-programs <program>` before re-running tests.
+Programs are loaded from `target/deploy/` via `SBF_OUT_DIR`. After modifying any program source, rebuild with `just solana::build-solana-programs <program>` before re-running tests.
