@@ -19,7 +19,7 @@ on:
       - '**.sum'
       - '**.sol'
       - '.github/workflows/e2e-lc-combinations.yml'
-      - 'bun.lockb'
+      - 'ibc-solidity/bun.lock'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -19,8 +19,9 @@ set -euo pipefail
 TAG_NAME="${TAG_NAME:-dev}"
 echo "📌 Version: $TAG_NAME"
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO_ROOT"
+# The Foundry project root (ibc-solidity/); the repository root is one level up.
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
 
 # Always clean up the staging tree on exit (success or failure)
 trap 'rm -rf release-artifacts' EXIT
@@ -78,7 +79,7 @@ for c in "${contracts[@]}"; do
   cp "$src" "$staging/bytecode/${c}.json"
 done
 
-cp LICENSE.md "$staging/"
+cp "$PROJECT_ROOT/../LICENSE.md" "$staging/"
 echo "$TAG_NAME" > "$staging/TAG_NAME"
 
 tarball="solidity-contracts-${TAG_NAME}.tar.gz"

@@ -12,7 +12,8 @@ on:
       - '**.proto'
       - '.dockerignore'
       - '.github/workflows/docker.yml'
-      - 'abi/**'
+      - 'ibc-solidity/abi/**'
+      - 'ibc-solidity/contracts/**'
       - 'programs/proof-api/Dockerfile'
       - 'scripts/proof_api_docker_entrypoint.sh'
 

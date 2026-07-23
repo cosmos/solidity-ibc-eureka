@@ -292,7 +292,7 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
 }
 
 // Using ABI JSON because sol! macro can't resolve Solidity imports.
-alloy_sol_types::sol!(IFT, "../../../../abi/IFTOwnable.json");
+alloy_sol_types::sol!(IFT, "../../../../ibc-solidity/abi/IFTOwnable.json");
 
 /// Protojson representation of `MsgIFTMint` for Cosmos chains
 #[derive(Serialize)]

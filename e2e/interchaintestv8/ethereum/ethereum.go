@@ -109,6 +109,9 @@ func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract strin
 	cmd := exec.Command(
 		"forge", cmdArgs...,
 	)
+	// Tests run from the repository root; forge must run from the Foundry project root
+	// so that foundry.toml and script paths resolve.
+	cmd.Dir = testvalues.SolidityProjectDir
 
 	faucetAddress := crypto.PubkeyToAddress(e.Faucet.PublicKey)
 	extraEnv := []string{

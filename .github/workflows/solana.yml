@@ -14,6 +14,7 @@ on:
       - 'programs/proof-api/**'
       - '.github/workflows/solana.yml'
       - 'justfile'
+      - 'ibc-solidity/solidity.just'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

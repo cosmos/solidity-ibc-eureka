@@ -28,8 +28,8 @@ pub const MAX_PREFUND_LAMPORTS: u64 = 50_000_000;
 /// Packed account entry size: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
 
-alloy::sol!("../../../contracts/msgs/IICS27GMPMsgs.sol");
-alloy::sol!("../../../contracts/msgs/ISolanaGMPMsgs.sol");
+alloy::sol!("../../../ibc-solidity/contracts/msgs/IICS27GMPMsgs.sol");
+alloy::sol!("../../../ibc-solidity/contracts/msgs/ISolanaGMPMsgs.sol");
 
 /// ABI type alias for [`IICS27GMPMsgs::GMPPacketData`].
 pub type AbiGmpPacketData = IICS27GMPMsgs::GMPPacketData;

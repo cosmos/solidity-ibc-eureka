@@ -47,19 +47,22 @@ This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplifi
 
 ### Project Structure
 
-This project is structured as a [foundry](https://getfoundry.sh/) project with the following directories:
+This project is structured with the following directories:
 
-- `contracts/`: Contains the Solidity contracts.
-- `test/`: Contains the Solidity tests.
+- `ibc-solidity/`: Contains the Solidity implementation of IBC and its related light-client programs.
+    - `contracts/`: Contains the Solidity contracts.
+    - `test/`: Contains the Solidity tests.
+    - `scripts/`: Contains Solidity scripts and tools.
+    - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
+    - `programs/`: Contains Rust programs maintained alongside the Solidity implementation.
+        - `sp1-programs/`: Contains the SP1 programs for the Tendermint light client.
+        - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum.
+        - `operator/`: Contains the fixture generator for the SP1 light client.
 - `docs/`: Contains the ADRs and audits for the project.
-- `scripts/`: Contains Solidity scripts and tools.
-- `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
+- `scripts/`: Contains repository-wide scripts and tools.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `proof-api/`: Contains the proof API implementation.
-    - `operator/`: Contains the fixture generator for the SP1 light client.
-    - `sp1-programs/`: Contains the SP1 programs for the light client.
-    - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
     - `solana/`: Contains the Solana programs for IBC.
 - `packages/`: Contains the Rust packages for the project.
   - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
@@ -110,7 +113,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 Foundry typically uses git submodules to manage contract dependencies, but this repository uses Node.js packages (via Bun) because submodules don't scale. You can install the contracts dependencies by running the following command:
 
 ```sh
-bun install
+cd ibc-solidity && bun install
 ```
 
 You also need to have the operator and proof API binaries installed on your machine to run some of the end-to-end tests. You can install them by running the following commands:
@@ -172,18 +175,18 @@ For detailed information about Solana IBC programs including deployment, key gen
 
 ## Unit Testing
 
-There are multiple unit tests for the solidity contracts located in the `test/` directory. The tests are written in Solidity using [foundry/forge](https://book.getfoundry.sh/forge/writing-tests).
+There are multiple unit tests for the solidity contracts located in the `ibc-solidity/test/` directory. The tests are written in Solidity using [foundry/forge](https://book.getfoundry.sh/forge/writing-tests).
 
 To run all the tests, run the following command:
 
 ```sh
-just test-foundry
+just solidity::test-foundry
 ```
 
 The recipe also accepts a `testname` argument that will only run the test with the given name. For example:
 
 ```shell
-just test-foundry test_success_sendTransfer
+just solidity::test-foundry test_success_sendTransfer
 ```
 
 ## End to End Testing
@@ -201,7 +204,7 @@ Some of the tests use the prover network to generate the proofs, so you need to 
 
 To prepare for running the e2e tests, you need to make sure you have done the following:
 - Set up an .env file (see the instructions in the `.env.example` file)
-- If you have made changes to the contract interfaces or types, you need to update the ABIs by running `just generate-abi`
+- If you have made changes to the contract interfaces or types, you need to update the ABIs by running `just solidity::generate-abi`
 
 > [!NOTE]
 > If you are running on a Mac with an M chip, you will need to do the following:
@@ -302,7 +305,7 @@ Note: These gas benchmarks are with Groth16.
 IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains the following light clients:
 
 - **SP1 Tendermint Light Client** – Verifies the consensus state of a Cosmos SDK chain powered by SP1 and `tendermint-rs`. (Solidity)
-- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain. (CosmWasm)
+- [**Ethereum Light Client**](./ibc-solidity/programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain. (CosmWasm)
 - **Attestation Light Client** – A multisig that can be used if the counterparty chain does not have a light client protocol. (Solidity and Solana)
 - **Solana Tendermint Light Client** - Verifies the consensus state of a Cosmos SDK chain powered by `tendermint-rs`. (Solana)
 
@@ -352,7 +355,7 @@ The Security Council must **apply a timelock** to itself. This ensures that afte
 
 ### Roles and Permissions
 
-The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) to manage roles and permissions and allow the admins to reassign roles. All the roles are defined in [`IBCRolesLib.sol`](./contracts/utils/IBCRolesLib.sol):
+The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) to manage roles and permissions and allow the admins to reassign roles. All the roles are defined in [`IBCRolesLib.sol`](./ibc-solidity/contracts/utils/IBCRolesLib.sol):
 
 | **Role Name** | **Role Id** | **Description** |
 |:---:|:---:|:---:|

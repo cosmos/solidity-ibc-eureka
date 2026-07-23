@@ -39,7 +39,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
-          file: programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour}
+          file: ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour}
           tag: ${{ github.ref }}
           overwrite: true
 
@@ -73,12 +73,12 @@ jobs:
       - name: Build and package the contracts
         env:
           TAG_NAME: ${{ github.ref_name }}
-        run: ./scripts/package-contracts.sh
+        run: ./ibc-solidity/scripts/package-contracts.sh
 
       - name: Upload solidity contract artifacts to release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: solidity-contracts-${{ github.ref_name }}.tar.gz
+          file: ibc-solidity/solidity-contracts-${{ github.ref_name }}.tar.gz
           tag: ${{ github.ref }}
           overwrite: true

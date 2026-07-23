@@ -11,7 +11,7 @@ on:
       - '**.sum'
       - '**.sol'
       - '.github/workflows/e2e-attestor.yml'
-      - 'bun.lockb'
+      - 'ibc-solidity/bun.lock'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

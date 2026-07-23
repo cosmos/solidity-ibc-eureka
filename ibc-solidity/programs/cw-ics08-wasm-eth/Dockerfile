@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Tool-only image: contains toolchain + wasm-opt; builds/optimizes when run.
-FROM rust:1.86-slim AS tool
+FROM rust:1.92-bookworm AS tool
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \

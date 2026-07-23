@@ -35,8 +35,8 @@
         rust = import ./nix/rust.nix {inherit pkgs;};
         go = import ./nix/go.nix {inherit pkgs;};
         common = import ./nix/common.nix {inherit pkgs;};
-        solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
-        node-modules = import ./nix/node-modules.nix {inherit pkgs;};
+        solidity = import ./ibc-solidity/nix/solidity.nix {inherit pkgs inputs system;};
+        node-modules = import ./ibc-solidity/nix/node-modules.nix {inherit pkgs;};
         anchor = pkgs.callPackage ./nix/anchor.nix {};
         solana-agave = pkgs.callPackage ./nix/agave.nix {
           inherit (pkgs) rust-bin;
@@ -64,8 +64,8 @@
               rust.shellHook
               + ''
                 if [ -d "${node-modules}/node_modules" ]; then
-                  if [ ! -e node_modules ] || [ -L node_modules ]; then
-                    ln -sfn "${node-modules}/node_modules" node_modules
+                  if [ ! -e ibc-solidity/node_modules ] || [ -L ibc-solidity/node_modules ]; then
+                    ln -sfn "${node-modules}/node_modules" ibc-solidity/node_modules
                   fi
                 fi
               '';
@@ -83,8 +83,8 @@
               rust.shellHook
               + ''
                 if [ -d "${node-modules}/node_modules" ]; then
-                  if [ ! -e node_modules ] || [ -L node_modules ]; then
-                    ln -sfn "${node-modules}/node_modules" node_modules
+                  if [ ! -e ibc-solidity/node_modules ] || [ -L ibc-solidity/node_modules ]; then
+                    ln -sfn "${node-modules}/node_modules" ibc-solidity/node_modules
                   fi
                 fi
 

@@ -7,15 +7,15 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'abi/**'
+      - 'ibc-solidity/abi/**'
       - 'packages/go-abigen/**'
       - '**.sol'
-      - 'bun.lockb'
+      - 'ibc-solidity/bun.lock'
   push:
     branches:
       - main
     paths:
-      - 'abi/**'
+      - 'ibc-solidity/abi/**'
       - 'packages/go-abigen/**'
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
         run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest
 
       - name: Run abigen
-        run: just generate-abi
+        run: just solidity::generate-abi
 
       - name: Check for diffs in go-abigen
         run: |

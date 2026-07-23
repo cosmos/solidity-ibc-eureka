@@ -1,0 +1,42 @@
+name: wasm
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'ibc-solidity/programs/cw-ics08-wasm-eth/**'
+      - 'e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'justfile'
+      - '.github/workflows/wasm.yml'
+
+jobs:
+  build-08-wasm-eth:
+    name: build-08-wasm-eth
+    runs-on: depot-ubuntu-24.04-4
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Compute SHA-256 of committed binary
+        id: committed_sha256
+        run: |
+          echo "sha256=$(gunzip -c e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz | sha256sum | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
+      - name: Build optimized WASM binary with Docker
+        run: just build-cw-ics08-wasm-eth
+
+      - name: Verify built binary matches committed binary
+        run: |
+          sha256_built=$(sha256sum artifacts/cw_ics08_wasm_eth.wasm | awk '{print $1}')
+          if [ "$sha256_built" != "${{ steps.committed_sha256.outputs.sha256 }}" ]; then
+            echo "SHA-256 hashes do not match"
+            exit 1
+          fi

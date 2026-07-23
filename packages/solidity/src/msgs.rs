@@ -14,22 +14,34 @@ use tendermint::{hash::Algorithm, Time};
 use tendermint_light_client_verifier::types::{Hash, TrustThreshold as TendermintTrustThreshold};
 use time::OffsetDateTime;
 
-alloy_sol_types::sol!("../../contracts/msgs/IICS26RouterMsgs.sol");
-alloy_sol_types::sol!("../../contracts/msgs/IICS02ClientMsgs.sol");
-alloy_sol_types::sol!("../../contracts/msgs/ILightClientMsgs.sol");
-alloy_sol_types::sol!("../../contracts/msgs/IICS20TransferMsgs.sol");
-alloy_sol_types::sol!("../../contracts/msgs/IICS27GMPMsgs.sol");
-alloy_sol_types::sol!("../../contracts/msgs/IIBCAppCallbacks.sol");
+alloy_sol_types::sol!("../../ibc-solidity/contracts/msgs/IICS26RouterMsgs.sol");
+alloy_sol_types::sol!("../../ibc-solidity/contracts/msgs/IICS02ClientMsgs.sol");
+alloy_sol_types::sol!("../../ibc-solidity/contracts/msgs/ILightClientMsgs.sol");
+alloy_sol_types::sol!("../../ibc-solidity/contracts/msgs/IICS20TransferMsgs.sol");
+alloy_sol_types::sol!("../../ibc-solidity/contracts/msgs/IICS27GMPMsgs.sol");
+alloy_sol_types::sol!("../../ibc-solidity/contracts/msgs/IIBCAppCallbacks.sol");
 
-alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/ISP1Msgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IMembershipMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IUpdateClientMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/sp1-ics07/msgs/IUcAndMembershipMsgs.sol");
-alloy_sol_types::sol!("../../contracts/light-clients/attestation/msgs/IAttestationMsgs.sol");
 alloy_sol_types::sol!(
-    "../../contracts/light-clients/attestation/msgs/IAttestationLightClientMsgs.sol"
+    "../../ibc-solidity/contracts/light-clients/sp1-ics07/msgs/IICS07TendermintMsgs.sol"
+);
+alloy_sol_types::sol!("../../ibc-solidity/contracts/light-clients/sp1-ics07/msgs/ISP1Msgs.sol");
+alloy_sol_types::sol!(
+    "../../ibc-solidity/contracts/light-clients/sp1-ics07/msgs/IMembershipMsgs.sol"
+);
+alloy_sol_types::sol!(
+    "../../ibc-solidity/contracts/light-clients/sp1-ics07/msgs/IMisbehaviourMsgs.sol"
+);
+alloy_sol_types::sol!(
+    "../../ibc-solidity/contracts/light-clients/sp1-ics07/msgs/IUpdateClientMsgs.sol"
+);
+alloy_sol_types::sol!(
+    "../../ibc-solidity/contracts/light-clients/sp1-ics07/msgs/IUcAndMembershipMsgs.sol"
+);
+alloy_sol_types::sol!(
+    "../../ibc-solidity/contracts/light-clients/attestation/msgs/IAttestationMsgs.sol"
+);
+alloy_sol_types::sol!(
+    "../../ibc-solidity/contracts/light-clients/attestation/msgs/IAttestationLightClientMsgs.sol"
 );
 
 #[cfg(feature = "rpc")]

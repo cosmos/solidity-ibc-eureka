@@ -18,6 +18,6 @@ runs:
         timeout_minutes: 10
         max_attempts: 3
         retry_wait_seconds: 5
-        command: bun install
+        command: cd ibc-solidity && bun install
     - name: Setup Protoc
       uses: taiki-e/install-action@protoc
