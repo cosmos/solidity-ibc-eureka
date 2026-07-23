@@ -774,7 +774,7 @@ lint-rust:
 lint-solana:
 	@echo "Linting the Solana code..."
 	cd programs/solana && cargo fmt --all -- --check
-	cd programs/solana && cargo +nightly clippy --all-targets --all-features -- -D warnings
+	cd programs/solana && cargo clippy --all-targets --all-features -- -D warnings
 
 # Lint the Solana code using `cargo fmt` and `cargo clippy`
 [group('lint')]

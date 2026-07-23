@@ -690,44 +690,21 @@ pub mod conversions {
         let mut signatures: Vec<BorshCommitSig> =
             c.signatures.into_iter().map(commit_sig_to_borsh).collect();
 
-        #[allow(clippy::match_same_arms)]
         signatures.sort_unstable_by(|a, b| match (a, b) {
             (
                 BorshCommitSig::BlockIdFlagCommit {
                     validator_address: addr_a,
                     ..
-                },
-                BorshCommitSig::BlockIdFlagCommit {
-                    validator_address: addr_b,
-                    ..
-                },
-            )
-            | (
-                BorshCommitSig::BlockIdFlagNil {
-                    validator_address: addr_a,
-                    ..
-                },
-                BorshCommitSig::BlockIdFlagNil {
-                    validator_address: addr_b,
-                    ..
-                },
-            )
-            | (
-                BorshCommitSig::BlockIdFlagCommit {
-                    validator_address: addr_a,
-                    ..
-                },
-                BorshCommitSig::BlockIdFlagNil {
-                    validator_address: addr_b,
-                    ..
-                },
-            )
-            | (
-                BorshCommitSig::BlockIdFlagNil {
+                }
+                | BorshCommitSig::BlockIdFlagNil {
                     validator_address: addr_a,
                     ..
                 },
                 BorshCommitSig::BlockIdFlagCommit {
+                    validator_address: addr_b,
+                    ..
+                }
+                | BorshCommitSig::BlockIdFlagNil {
                     validator_address: addr_b,
                     ..
                 },
