@@ -1,7 +1,7 @@
 // Package ics07_tendermint_patches contains manually patched instruction builders to work around
 // bugs in anchor-go for the ics07_tendermint program.
 //
-// This package exists separately from the auto-generated packages to survive `just generate-solana-types`
+// This package exists separately from the auto-generated packages to survive `just solana::generate-solana-types`
 // which deletes and regenerates the entire packages/go-anchor/{package} directories.
 //
 // BUG: anchor-go (https://github.com/gagliardetto/anchor-go) has a bug where instructions

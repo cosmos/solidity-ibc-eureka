@@ -52,7 +52,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cargo/bin/proof-api
-        key: ${{ runner.os }}-proof-api-${{ hashFiles('programs/proof-api/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'ibc-solidity/abi/bytecode/**', 'Cargo.lock') }}
+        key: ${{ runner.os }}-proof-api-${{ hashFiles('programs/proof-api/**', 'packages/**', 'ibc-solana/packages/solana-ibc-constants/**', 'ibc-solana/packages/solana-ibc-types/**', 'ibc-solidity/abi/bytecode/**', 'Cargo.lock') }}
 
     - name: Install proof API
       if: steps.cache-proof-api.outputs.cache-hit != 'true'
@@ -83,9 +83,9 @@ runs:
           ~/.cache/solana/
           ~/.local/share/solana/
           ~/.avm/
-          ./programs/solana/target/deploy/
-          ./programs/solana/target/sbpf-solana-solana/
-        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
+          ./ibc-solana/target/deploy/
+          ./ibc-solana/target/sbpf-solana-solana/
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('ibc-solana/**', 'packages/tendermint-light-client/**', 'packages/constrained_types/**', 'proto/**', 'ibc-solidity/abi/IFTOwnable.json', 'ibc-solidity/contracts/light-clients/attestation/msgs/**', 'ibc-solidity/contracts/msgs/**', 'scripts/build-solana-test-instance.sh', 'solana-keypairs/localnet/**', 'justfile') }}
 
     - name: Setup Solana and Anchor
       if: steps.cache-solana.outputs.cache-hit != 'true'
@@ -101,7 +101,7 @@ runs:
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
-      run: just build-solana-programs
+      run: just solana::build-solana-programs
 
     - name: Package artifacts
       shell: bash
@@ -112,7 +112,7 @@ runs:
         cp ~/.cargo/bin/proof-api e2e-artifacts/bin/
         cp ~/.cargo/bin/operator e2e-artifacts/bin/
         cp -r ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
-        cp -r programs/solana/target/deploy/* e2e-artifacts/solana-programs/
+        cp -r ibc-solana/target/deploy/* e2e-artifacts/solana-programs/
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

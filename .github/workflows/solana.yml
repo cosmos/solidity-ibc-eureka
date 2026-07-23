@@ -9,12 +9,18 @@ on:
   pull_request:
     paths:
       - 'packages/tendermint-light-client/**'
+      - 'packages/constrained_types/**'
       - 'packages/proof-api/**'
-      - 'programs/solana/**'
+      - 'ibc-solana/**'
+      - 'ibc-solidity/abi/IFTOwnable.json'
+      - 'ibc-solidity/contracts/light-clients/attestation/msgs/**'
+      - 'ibc-solidity/contracts/msgs/**'
       - 'programs/proof-api/**'
+      - 'proto/**'
+      - 'scripts/build-solana-test-instance.sh'
+      - 'solana-keypairs/localnet/**'
       - '.github/workflows/solana.yml'
       - 'justfile'
-      - 'ibc-solidity/solidity.just'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,7 +40,7 @@ jobs:
           submodules: recursive
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@1.89.0
         with:
           components: rustfmt, clippy
 
@@ -46,8 +52,8 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-solana-${{ hashFiles('**/Cargo.lock') }}-anchor-${{ env.ANCHOR_VERSION }}
+            ibc-solana/target/
+          key: ${{ runner.os }}-cargo-solana-rust-1.89.0-${{ hashFiles('ibc-solana/Cargo.lock') }}-anchor-${{ env.ANCHOR_VERSION }}
           restore-keys: |
             ${{ runner.os }}-cargo-solana-
 
@@ -66,23 +72,23 @@ jobs:
           protoc --version
 
       - name: Sync Solana localnet keys
-        run: just sync-solana-keys localnet
+        run: just solana::sync-solana-keys localnet
 
       - name: Build Solana programs
-        run: just build-solana-programs
+        run: just solana::build-solana-programs
 
       - name: Build Solana test programs
-        run: just build-solana-test-programs
+        run: just solana::build-solana-test-programs
 
       - name: Run Solana linting
-        run: just lint-solana
+        run: just solana::lint-solana
 
       - name: Run Solana integration tests
-        run: just test-solana-integration
+        run: just solana::test-solana-integration
         env:
           RUST_BACKTRACE: 1
 
       - name: Run Solana unit tests
-        run: just test-solana
+        run: just solana::test-solana
         env:
           RUST_BACKTRACE: 1
