@@ -82,10 +82,10 @@ anchor-spl = { version = "0.32.1" }
 
 # Parent workspace packages referenced via path dependencies (not added to root workspace.dependencies)
 # This maintains independence between workspaces, allowing root to use borsh 1.x while Solana uses borsh 0.10.4
-tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
-tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
-tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
-ibc-eureka-constrained-types = { path = "../../packages/constrained_types", default-features = false }
+tendermint-light-client-update-client = { path = "../packages/tendermint-light-client/update-client", default-features = false }
+tendermint-light-client-membership = { path = "../packages/tendermint-light-client/membership", default-features = false }
+tendermint-light-client-misbehaviour = { path = "../packages/tendermint-light-client/misbehaviour", default-features = false }
+ibc-eureka-constrained-types = { path = "../packages/constrained_types", default-features = false }
 
 # Solana-specific packages (local to this workspace)
 solana-ibc-types = { path = "./packages/solana-ibc-types", default-features = false }

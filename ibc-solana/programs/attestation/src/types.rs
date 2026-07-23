@@ -9,7 +9,7 @@ pub enum AccountVersion {
 
 mod sol_types {
     alloy_sol_types::sol!(
-        "../../../../ibc-solidity/contracts/light-clients/attestation/msgs/IAttestationMsgs.sol"
+        "../../../ibc-solidity/contracts/light-clients/attestation/msgs/IAttestationMsgs.sol"
     );
 }
 

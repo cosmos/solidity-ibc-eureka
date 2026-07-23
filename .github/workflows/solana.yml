@@ -10,7 +10,7 @@ on:
     paths:
       - 'packages/tendermint-light-client/**'
       - 'packages/proof-api/**'
-      - 'programs/solana/**'
+      - 'ibc-solana/**'
       - 'programs/proof-api/**'
       - '.github/workflows/solana.yml'
       - 'justfile'

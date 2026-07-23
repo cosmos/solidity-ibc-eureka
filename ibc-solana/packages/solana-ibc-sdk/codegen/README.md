@@ -86,7 +86,7 @@ let (ibc_app_pda, bump) = SendPacket::ibc_app_pda(port_id, &program_id);
 ## Running tests
 
 ```bash
-cd programs/solana
+cd ibc-solana
 cargo test -p solana-ibc-sdk-codegen
 cargo clippy -p solana-ibc-sdk-codegen --lib --tests
 ```

@@ -32,7 +32,7 @@ pub mod fixtures {
 
     fn load_fixture(filename: &str) -> UpdateClientFixture {
         let fixture_path =
-            format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
+            format!("../../../packages/tendermint-light-client/fixtures/{filename}.json");
         let fixture_content = std::fs::read_to_string(&fixture_path)
             .unwrap_or_else(|_| panic!("Failed to read fixture: {fixture_path}"));
 
@@ -127,7 +127,7 @@ pub mod fixtures {
     // Helper to check if a fixture file exists
     pub fn fixture_exists(filename: &str) -> bool {
         let fixture_path =
-            format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
+            format!("../../../packages/tendermint-light-client/fixtures/{filename}.json");
         std::path::Path::new(&fixture_path).exists()
     }
 
@@ -339,7 +339,7 @@ pub mod fixtures {
 
     pub fn load_membership_verification_fixture(filename: &str) -> MembershipVerificationFixture {
         let fixture_path =
-            format!("../../../../packages/tendermint-light-client/fixtures/{filename}.json");
+            format!("../../../packages/tendermint-light-client/fixtures/{filename}.json");
         let fixture_content = std::fs::read_to_string(&fixture_path)
             .unwrap_or_else(|_| panic!("Failed to read fixture: {fixture_path}"));
 

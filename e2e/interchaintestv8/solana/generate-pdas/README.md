@@ -10,7 +10,7 @@ just generate-pda
 
 # Or manually with explicit paths
 go run e2e/interchaintestv8/tools/generate-pdas/main.go \
-  --idl-dir programs/solana/target/idl \
+  --idl-dir ibc-solana/target/idl \
   --output e2e/interchaintestv8/solana/pda.go
 ```
 

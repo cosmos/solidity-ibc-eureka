@@ -231,7 +231,7 @@ This compiles all programs and generates their IDLs.
 #### 3. Deploy Programs
 
 ```bash
-cd programs/solana
+cd ibc-solana
 anchor deploy --provider.cluster <cluster>
 ```
 
@@ -477,7 +477,7 @@ just build-solana-programs
 **Step 2: Write new bytecode to a buffer**
 
 ```bash
-solana program write-buffer programs/solana/target/deploy/<program>.so \
+solana program write-buffer ibc-solana/target/deploy/<program>.so \
   --url <cluster> \
   --keypair solana-keypairs/<cluster>/deployer_wallet.json \
   --use-rpc
@@ -601,8 +601,8 @@ just build-solana-programs
 # Build specific program only (generates only its IDL)
 just build-solana-programs ics26-router
 
-# Using anchor directly (from programs/solana directory)
-cd programs/solana
+# Using anchor directly (from ibc-solana directory)
+cd ibc-solana
 anchor build
 anchor build -p ics26-router
 ```
@@ -617,7 +617,7 @@ just test-solana
 just test-solana-integration
 
 # Specific program tests (requires the app being built)
-cargo test --manifest-path programs/solana/programs/ics26-router/Cargo.toml
+cargo test --manifest-path ibc-solana/programs/ics26-router/Cargo.toml
 
 # E2E tests
 just test-e2e-solana Test_Deploy

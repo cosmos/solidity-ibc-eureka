@@ -67,7 +67,7 @@ sync-solana-keys cluster="localnet": (_validate-cluster cluster)
   fi
 
   # Add [programs.{{cluster}}] section to Anchor.toml if missing
-  ANCHOR_TOML="programs/solana/Anchor.toml"
+  ANCHOR_TOML="ibc-solana/Anchor.toml"
   if ! grep -q "^\[programs\.{{cluster}}\]" "$ANCHOR_TOML"; then
     echo "📝 Adding [programs.{{cluster}}] section to Anchor.toml..."
 
@@ -102,12 +102,12 @@ sync-solana-keys cluster="localnet": (_validate-cluster cluster)
   fi
 
   # Copy keypairs to target/deploy
-  mkdir -p programs/solana/target/deploy
-  cp -f solana-keypairs/{{cluster}}/*-keypair.json programs/solana/target/deploy/ 2>/dev/null || true
+  mkdir -p ibc-solana/target/deploy
+  cp -f solana-keypairs/{{cluster}}/*-keypair.json ibc-solana/target/deploy/ 2>/dev/null || true
 
   # Sync declare_id! macros
   echo "🦀 Using {{anchor_cmd}}"
-  (cd programs/solana && {{anchor_cmd}} keys sync --provider.cluster {{cluster}})
+  (cd ibc-solana && {{anchor_cmd}} keys sync --provider.cluster {{cluster}})
 
   echo "✅ Keys synced for cluster: {{cluster}}"
 
@@ -138,7 +138,7 @@ build-solana-programs program="":
   if [ -z "{{program}}" ]; then
     echo "Building all programs..."
     echo "🦀 Using {{anchor_cmd}}"
-    (cd programs/solana && {{anchor_cmd}} build)
+    (cd ibc-solana && {{anchor_cmd}} build)
     echo "✅ Build complete"
   else
     # Test instances are built via build-solana-test-programs, not anchor directly
@@ -148,19 +148,19 @@ build-solana-programs program="":
     fi
 
     echo "Building program: {{program}}"
-    PROGRAM_DIR="programs/solana/programs/{{program}}"
+    PROGRAM_DIR="ibc-solana/programs/{{program}}"
 
     if [ ! -d "$PROGRAM_DIR" ]; then
       echo "❌ Program directory not found: $PROGRAM_DIR"
       echo "   Available programs:"
-      ls -1 programs/solana/programs/ | grep -v "^\." || true
+      ls -1 ibc-solana/programs/ | grep -v "^\." || true
       exit 1
     fi
 
     echo "🦀 Using {{anchor_cmd}}"
 
     # Build specific program and generate its IDL
-    (cd programs/solana && {{anchor_cmd}} build -- --manifest-path "$PWD/programs/{{program}}/Cargo.toml")
+    (cd ibc-solana && {{anchor_cmd}} build -- --manifest-path "$PWD/programs/{{program}}/Cargo.toml")
 
     echo "✅ Build complete for {{program}}"
   fi
@@ -188,7 +188,7 @@ deploy-solana cluster="localnet" max_len_multiplier="2":
   fi
 
   # Deploy each program individually with its own max-len
-  cd programs/solana
+  cd ibc-solana
   for program_so in target/deploy/*.so; do
     if [ -f "$program_so" ]; then
       PROGRAM_NAME=$(basename "$program_so" .so)
@@ -465,7 +465,7 @@ prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-s
   #!/usr/bin/env bash
   set -euo pipefail
 
-  PROGRAM_SO="programs/solana/target/deploy/{{program}}.so"
+  PROGRAM_SO="ibc-solana/target/deploy/{{program}}.so"
   DEPLOYER_KEYPAIR="solana-keypairs/{{cluster}}/deployer_wallet.json"
   CLUSTER_URL="{{cluster}}"
 
@@ -537,7 +537,7 @@ upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validat
   #!/usr/bin/env bash
   set -euo pipefail
 
-  PROGRAM_SO="programs/solana/target/deploy/{{program}}.so"
+  PROGRAM_SO="ibc-solana/target/deploy/{{program}}.so"
   DEPLOYER_KEYPAIR="solana-keypairs/{{cluster}}/deployer_wallet.json"
 
   # Default upgrader to deployer if not specified
@@ -680,7 +680,7 @@ get-cluster-url cluster="localnet": (_validate-cluster cluster)
     /^\[clusters\]/ { in_clusters=1; next }
     in_clusters && /^\[/ { exit }
     in_clusters && $1 == cluster { gsub(/"/, "", $2); print $2; exit }
-  ' programs/solana/Anchor.toml
+  ' ibc-solana/Anchor.toml
 
 # List available clusters from Anchor.toml
 [group('solana')]
@@ -693,7 +693,7 @@ list-clusters:
       split($0, parts, " = ")
       print parts[1]
     }
-  ' programs/solana/Anchor.toml | tr '\n' ',' | sed 's/,$//'
+  ' ibc-solana/Anchor.toml | tr '\n' ',' | sed 's/,$//'
 
 # Validate cluster exists in Anchor.toml (internal helper recipe)
 [private]
@@ -704,7 +704,7 @@ _validate-cluster cluster:
     in_clusters && /^\[/ { exit }
     in_clusters && $1 == cluster { found=1; exit }
     END { exit !found }
-  ' programs/solana/Anchor.toml; then
+  ' ibc-solana/Anchor.toml; then
     AVAILABLE=$(just list-clusters)
     echo "❌ Unknown cluster: {{cluster}}" >&2
     echo "   Available clusters: $AVAILABLE" >&2
@@ -773,8 +773,8 @@ lint-rust:
 [group('lint')]
 lint-solana:
 	@echo "Linting the Solana code..."
-	cd programs/solana && cargo fmt --all -- --check
-	cd programs/solana && cargo clippy --all-targets --all-features -- -D warnings
+	cd ibc-solana && cargo fmt --all -- --check
+	cd ibc-solana && cargo clippy --all-targets --all-features -- -D warnings
 
 # Lint the Solana code using `cargo fmt` and `cargo clippy`
 [group('lint')]
@@ -791,33 +791,33 @@ generate-solana-types build="true":
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
-	anchor-go --idl ./programs/solana/target/idl/ics07_tendermint.json --output packages/go-anchor/ics07tendermint --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/ics07_tendermint.json --output packages/go-anchor/ics07tendermint --no-go-mod
 	rm -rf packages/go-anchor/ics26router
-	anchor-go --idl ./programs/solana/target/idl/ics26_router.json --output packages/go-anchor/ics26router --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/ics26_router.json --output packages/go-anchor/ics26router --no-go-mod
 	rm -rf packages/go-anchor/accessmanager
-	anchor-go --idl ./programs/solana/target/idl/access_manager.json --output packages/go-anchor/accessmanager --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/access_manager.json --output packages/go-anchor/accessmanager --no-go-mod
 	rm -rf packages/go-anchor/ics27gmp
-	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
 	rm -rf packages/go-anchor/attestation
-	anchor-go --idl ./programs/solana/target/idl/attestation.json --output packages/go-anchor/attestation --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/attestation.json --output packages/go-anchor/attestation --no-go-mod
 	rm -rf packages/go-anchor/ift
-	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
 	# Test apps
 	rm -rf e2e/interchaintestv8/solana/go-anchor/testibcapp
-	anchor-go --idl ./programs/solana/target/idl/test_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/testibcapp --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/test_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/testibcapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/mocklightclient
-	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/testgmpapp
-	anchor-go --idl ./programs/solana/target/idl/test_gmp_app.json --output e2e/interchaintestv8/solana/go-anchor/testgmpapp --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/test_gmp_app.json --output e2e/interchaintestv8/solana/go-anchor/testgmpapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/testcpiproxy
-	anchor-go --idl ./programs/solana/target/idl/test_cpi_proxy.json --output e2e/interchaintestv8/solana/go-anchor/testcpiproxy --no-go-mod
+	anchor-go --idl ./ibc-solana/target/idl/test_cpi_proxy.json --output e2e/interchaintestv8/solana/go-anchor/testcpiproxy --no-go-mod
 
 # Generate Solana PDA helpers from Anchor IDL files
 [group('generate')]
 generate-pda:
 	@echo "Generating Solana PDA helpers from Anchor IDL..."
 	go run e2e/interchaintestv8/solana/generate-pdas/main.go \
-		--idl-dir programs/solana/target/idl \
+		--idl-dir ibc-solana/target/idl \
 		--output e2e/interchaintestv8/solana/pda.go
 	gofmt -w e2e/interchaintestv8/solana/pda.go
 	@echo "✅ Generated e2e/interchaintestv8/solana/pda.go"
@@ -1024,10 +1024,10 @@ test-anchor-solana *ARGS:
 	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
 	@if command -v anchor-nix >/dev/null 2>&1; then \
 		echo "🦀 Using anchor-nix"; \
-		(cd programs/solana && anchor-nix test {{ARGS}}); \
+		(cd ibc-solana && anchor-nix test {{ARGS}}); \
 	else \
 		echo "🦀 Using anchor"; \
-		(cd programs/solana && anchor test {{ARGS}}); \
+		(cd ibc-solana && anchor test {{ARGS}}); \
 	fi
 
 # Run Solana unit tests (mollusk + litesvm)
@@ -1036,18 +1036,18 @@ test-solana *ARGS:
 	@echo "Building and running Solana unit tests..."
 	@echo "🦀 Using {{anchor_cmd}}"
 	@if [ "{{anchor_cmd}}" = "anchor-nix" ]; then \
-		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
+		(cd ibc-solana && anchor-nix unit-test {{ARGS}}); \
 	else \
-		(cd programs/solana && anchor build) && \
+		(cd ibc-solana && anchor build) && \
 		echo "✅ Build successful, running unit tests" && \
-		(cd programs/solana && cargo test --workspace --exclude integration-tests {{ARGS}}); \
+		(cd ibc-solana && cargo test --workspace --exclude integration-tests {{ARGS}}); \
 	fi
 
 # Run Solana integration tests
 [group('test')]
 test-solana-integration *ARGS:
 	@echo "Building and running Solana integration tests..."
-	(cd programs/solana && cargo test -p integration-tests {{ARGS}})
+	(cd ibc-solana && cargo test -p integration-tests {{ARGS}})
 
 # Clean up the cargo artifacts using `cargo clean`
 [group('clean')]
