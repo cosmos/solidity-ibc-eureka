@@ -33,9 +33,14 @@ jobs:
         with:
           submodules: recursive
 
+      # Pinned to the Rust version required by our Anchor version (Anchor 0.32 requires
+      # rustc >= 1.89.0). Using a floating `nightly` here regularly broke linting whenever a
+      # new clippy lint was added upstream; pinning keeps lints deterministic and matched to
+      # the toolchain Anchor targets.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.89.0
           components: rustfmt, clippy
 
       - name: Cache Rust dependencies

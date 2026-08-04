@@ -770,12 +770,15 @@ lint-rust:
 	just lint-cw
 	just lint-solana
 
-# Lint the Solana code using `cargo fmt` and `cargo clippy`
+# Lint the Solana code using `cargo fmt` and `cargo clippy`.
+# Pinned to the Rust version required by the Anchor version we use (Anchor 0.32 requires
+# rustc >= 1.89.0). A floating `+nightly` regularly breaks on newly-added clippy lints, so
+# we build lints against the same, deterministic toolchain Anchor targets.
 [group('lint')]
 lint-solana:
 	@echo "Linting the Solana code..."
-	cd programs/solana && cargo fmt --all -- --check
-	cd programs/solana && cargo +nightly clippy --all-targets --all-features -- -D warnings
+	cd programs/solana && cargo +1.89.0 fmt --all -- --check
+	cd programs/solana && cargo +1.89.0 clippy --all-targets --all-features -- -D warnings
 
 # Lint the SP1 programs using `cargo fmt` and `cargo clippy`
 [group('lint')]

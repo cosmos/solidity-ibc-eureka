@@ -43,7 +43,7 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
 
     let app_hash = consensus_state_store.consensus_state.root;
 
-    tendermint_light_client_membership::membership(app_hash, [(kv_pair, proof)].into_iter())
+    tendermint_light_client_membership::membership(app_hash, std::iter::once((kv_pair, proof)))
         .map_err(|_| error!(ErrorCode::MembershipVerificationFailed))?;
     Ok(())
 }
