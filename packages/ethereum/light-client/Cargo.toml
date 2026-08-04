@@ -30,3 +30,15 @@ milagro_bls = { workspace = true, optional = true }
 ibc-proto-eureka = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
 ibc-eureka-solidity-types = { workspace = true, optional = true }
+
+[dev-dependencies]
+# The `#[cfg(test)]` modules (and the `test_utils` module, active under `cfg(test)`) use
+# these crates directly, so they must be available when building this crate's own tests.
+# They are also exposed to external consumers as optional deps via the `test-utils` feature
+# above. Previously the tests only compiled because the cw-ics08-wasm-eth consumer enabled
+# `test-utils` workspace-wide; that contract is now a separate workspace, so the crate has
+# to pull these in for its own tests.
+milagro_bls = { workspace = true }
+ibc-proto-eureka = { workspace = true }
+prost = { workspace = true }
+ibc-eureka-solidity-types = { workspace = true }

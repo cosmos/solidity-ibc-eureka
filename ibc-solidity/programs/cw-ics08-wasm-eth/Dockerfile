@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Tool-only image: contains toolchain + wasm-opt; builds/optimizes when run.
-FROM rust:1.92-bookworm AS tool
+FROM rust:1.86-slim AS tool
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse \
@@ -32,28 +32,37 @@ RUN rustup target add wasm32-unknown-unknown
 
 WORKDIR /code
 
-# Tiny entrypoint that builds and optimizes the specified package.
-# Defaults to cw-ics08-wasm-eth@1.3.0 and writes artifacts/ on the mounted repo.
+# Tiny entrypoint that builds and optimizes the contract.
+# Defaults to this workspace's own crate (no version hard-coded) and writes artifacts/ on the mounted repo.
 RUN set -eux; \
   cat >/usr/local/bin/build-wasm.sh <<'EOF' \
   && chmod +x /usr/local/bin/build-wasm.sh
 #!/bin/sh
 set -eu
 
-PACKAGE="${PACKAGE:-cw-ics08-wasm-eth@1.3.0}"
+# Package to build. Left empty by default so cargo builds this workspace's own member
+# (the crate in PACKAGE_DIR) without having to hard-code its version here. Naming it as
+# `-p cw-ics08-wasm-eth` would be ambiguous, since the migration-test dev-dependency pulls
+# in an older release of the same crate. Set PACKAGE to override (e.g. `cw-ics08-wasm-eth@1.3.0`).
+PACKAGE="${PACKAGE:-}"
 PROJECTDIR="${1:-/code}"
-TARGET_DIR="${TARGET_DIR:-./target}"
-ARTIFACTS_DIR="${ARTIFACTS_DIR:-./artifacts}"
+# The contract is its own cargo workspace (own Cargo.lock), so we must build from its
+# directory rather than the repo root. TARGET_DIR/ARTIFACTS_DIR stay at the repo root so
+# downstream steps (the `just` recipe's `cp`, wasm.yml's checksum) keep working unchanged.
+PACKAGE_DIR="${PACKAGE_DIR:-$PROJECTDIR/ibc-solidity/programs/cw-ics08-wasm-eth}"
+TARGET_DIR="${TARGET_DIR:-$PROJECTDIR/target}"
+ARTIFACTS_DIR="${ARTIFACTS_DIR:-$PROJECTDIR/artifacts}"
 LOCKED_FLAG="${LOCKED_FLAG:---locked}"
 WASM_OPT_FLAGS="${WASM_OPT_FLAGS:--Os}"
 
-echo "==> Building $PACKAGE"
+echo "==> Building ${PACKAGE:-current workspace package}"
 echo "    project:   $PROJECTDIR"
+echo "    package:   $PACKAGE_DIR"
 echo "    target:    $TARGET_DIR"
 echo "    artifacts: $ARTIFACTS_DIR"
 
-cd "$PROJECTDIR"
 mkdir -p "$ARTIFACTS_DIR"
+cd "$PACKAGE_DIR"
 
 # Clean only existing wasm outputs; keep the target cache warm.
 rm -f "$TARGET_DIR/wasm32-unknown-unknown/release/"*.wasm 2>/dev/null || true
@@ -62,7 +71,7 @@ cargo build --release --lib \
   --target-dir "$TARGET_DIR" \
   --target wasm32-unknown-unknown \
   $LOCKED_FLAG \
-  -p "$PACKAGE"
+  ${PACKAGE:+-p $PACKAGE}
 
 found=0
 for WASM in "$TARGET_DIR/wasm32-unknown-unknown/release/"*.wasm; do

@@ -1,8 +1,53 @@
+# This crate is its OWN workspace (separate from the repo root workspace) with its
+# own Cargo.lock. This lets us pin its dependency versions to ones compatible with the
+# older Rust toolchain that CosmWasm requires (see ./Dockerfile), without constraining
+# the rest of the monorepo, which builds on a modern toolchain. Mirrors the setup in
+# `ibc-solidity/programs/sp1-programs`.
+[workspace]
+resolver = "2"
+
+[workspace.dependencies]
+# Sibling packages from the repo-root workspace, referenced by path. They remain members
+# of the root workspace and inherit their own dependency versions from it.
+ethereum-light-client = { path = "../../../packages/ethereum/light-client", default-features = false }
+ethereum-types        = { path = "../../../packages/ethereum/types", default-features = false }
+
+ibc-proto        = { version = "0.51", default-features = false }
+alloy-primitives = { version = "1.5", default-features = false }
+
+cosmwasm-std    = { version = "2.2", default-features = false }
+cosmwasm-schema = { version = "2.2", default-features = false }
+cw2             = { version = "2.0", default-features = false }
+prost           = { version = "0.13", default-features = false }
+serde           = { version = "1.0", default-features = false }
+serde_json      = { version = "1.0", default-features = false }
+thiserror       = { version = "2.0", default-features = false }
+hex             = { version = "0.4", default-features = false }
+
+# test/dev-dependencies: previous released versions, used for migration tests.
+cw-ics08-wasm-eth-v1_2_0     = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
+ethereum-light-client-v1_2_0 = { package = "ethereum-light-client", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }
+
+[patch.crates-io]
+# TODO: remove on publish of verifier with &self in verify method
+# Mirrors the repo-root workspace patch set. Some of these are not in this contract's
+# dependency graph, which produces a harmless "patch not used in the crate graph" notice.
+tendermint.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-proto.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-light-client-verifier.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-config.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-rpc.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-testgen.git = "https://github.com/cometbft/tendermint-rs"
+
 [package]
 name = "cw-ics08-wasm-eth"
 version = "1.3.0"
-edition = { workspace = true }
-repository = { workspace = true }
+edition = "2021"
+repository = "https://github.com/cosmos/solidity-ibc-eureka"
+# CosmWasm requires an older Rust toolchain (see ./Dockerfile). Declaring the MSRV together
+# with the `incompatible-rust-versions = "fallback"` resolver setting in ./.cargo/config.toml
+# makes `cargo` prefer dependency versions that still build on this toolchain.
+rust-version = "1.86"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
