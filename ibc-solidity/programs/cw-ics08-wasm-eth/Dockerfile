@@ -40,7 +40,7 @@ RUN set -eux; \
 #!/bin/sh
 set -eu
 
-PACKAGE="${PACKAGE:-cw-ics08-wasm-eth@1.3.0}"
+PACKAGE="${PACKAGE:-cw-ics08-wasm-eth}"
 PROJECTDIR="${1:-/code}"
 # The contract is its own cargo workspace (own Cargo.lock), so we must build from its
 # directory rather than the repo root. TARGET_DIR/ARTIFACTS_DIR stay at the repo root so
