@@ -42,18 +42,23 @@ set -eu
 
 PACKAGE="${PACKAGE:-cw-ics08-wasm-eth@1.3.0}"
 PROJECTDIR="${1:-/code}"
-TARGET_DIR="${TARGET_DIR:-./target}"
-ARTIFACTS_DIR="${ARTIFACTS_DIR:-./artifacts}"
+# The contract is its own cargo workspace (own Cargo.lock), so we must build from its
+# directory rather than the repo root. TARGET_DIR/ARTIFACTS_DIR stay at the repo root so
+# downstream steps (the `just` recipe's `cp`, wasm.yml's checksum) keep working unchanged.
+PACKAGE_DIR="${PACKAGE_DIR:-$PROJECTDIR/ibc-solidity/programs/cw-ics08-wasm-eth}"
+TARGET_DIR="${TARGET_DIR:-$PROJECTDIR/target}"
+ARTIFACTS_DIR="${ARTIFACTS_DIR:-$PROJECTDIR/artifacts}"
 LOCKED_FLAG="${LOCKED_FLAG:---locked}"
 WASM_OPT_FLAGS="${WASM_OPT_FLAGS:--Os}"
 
 echo "==> Building $PACKAGE"
 echo "    project:   $PROJECTDIR"
+echo "    package:   $PACKAGE_DIR"
 echo "    target:    $TARGET_DIR"
 echo "    artifacts: $ARTIFACTS_DIR"
 
-cd "$PROJECTDIR"
 mkdir -p "$ARTIFACTS_DIR"
+cd "$PACKAGE_DIR"
 
 # Clean only existing wasm outputs; keep the target cache warm.
 rm -f "$TARGET_DIR/wasm32-unknown-unknown/release/"*.wasm 2>/dev/null || true

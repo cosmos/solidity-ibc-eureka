@@ -1,0 +1,6 @@
+# Prefer dependency versions whose declared MSRV is compatible with this crate's
+# `rust-version` (1.86), which is the toolchain CosmWasm requires (see ../Dockerfile).
+# Without this, `cargo update` pulls the latest releases, some of which raise their MSRV
+# above 1.86 and break the wasm build.
+[resolver]
+incompatible-rust-versions = "fallback"

@@ -34,6 +34,14 @@ jobs:
         with:
           command: clippy
 
+      # cw-ics08-wasm-eth is its own workspace (separate Cargo.lock), so the root
+      # fmt/clippy above do not reach it. Lint it explicitly from its directory.
+      - name: Run cargo fmt and clippy (cw-ics08-wasm-eth)
+        run: |
+          cd ibc-solidity/programs/cw-ics08-wasm-eth
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --locked -- -D warnings
+
   tests:
     name: unit-tests
     runs-on: depot-ubuntu-24.04-4
