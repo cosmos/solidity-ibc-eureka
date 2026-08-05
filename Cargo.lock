@@ -1667,7 +1667,6 @@ dependencies = [
  "anchor-derive-accounts",
  "anchor-derive-serde",
  "anchor-derive-space",
- "anchor-lang-idl",
  "base64 0.21.7",
  "bincode",
  "borsh 0.10.4",
@@ -1704,7 +1703,6 @@ dependencies = [
  "anchor-lang-idl-spec",
  "anyhow",
  "heck 0.3.3",
- "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1728,7 +1726,6 @@ checksum = "b93b69aa7d099b59378433f6d7e20e1008fc10c69e48b220270e5b3f2ec4c8be"
 dependencies = [
  "anyhow",
  "bs58",
- "cargo_toml",
  "heck 0.3.3",
  "proc-macro2",
  "quote",
@@ -3242,16 +3239,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "cargo_toml"
-version = "0.19.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a98356df42a2eb1bd8f1793ae4ee4de48e384dd974ce5eac8eee802edb7492be"
-dependencies = [
- "serde",
- "toml 0.8.23",
 ]
 
 [[package]]
@@ -11460,7 +11447,6 @@ dependencies = [
  "anchor-lang",
  "borsh 0.10.4",
  "solana-ibc-proto",
- "solana-sdk",
  "solana-sha256-hasher",
 ]
 
@@ -11472,7 +11458,6 @@ dependencies = [
  "quote",
  "sha2 0.10.9",
  "syn 2.0.117",
- "trybuild",
 ]
 
 [[package]]
@@ -11509,14 +11494,12 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "bincode",
  "borsh 0.10.4",
  "solana-ibc-constants",
  "solana-ibc-gmp-types",
  "solana-ibc-macros",
  "solana-ibc-proto",
  "solana-keccak-hasher",
- "solana-sdk",
  "solana-sha256-hasher",
 ]
 
@@ -14845,12 +14828,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
-name = "target-triple"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ac9aa371f599d22256307c24a9d748c041e548cbf599f35d890f9d365361790"
-
-[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -15772,21 +15749,6 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
-
-[[package]]
-name = "trybuild"
-version = "1.0.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ae08be68c056db96f0e6c6dd820727cca756ced9e1f4cc7fdd20e2a55e23898"
-dependencies = [
- "glob",
- "serde",
- "serde_derive",
- "serde_json",
- "target-triple",
- "termcolor",
- "toml 0.8.23",
-]
 
 [[package]]
 name = "tungstenite"

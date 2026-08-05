@@ -35,6 +35,12 @@ members = [
     # to versions compatible with the older Rust toolchain that CosmWasm requires, without
     # constraining the rest of this workspace. See that directory's Cargo.toml.
 ]
+# `ibc-solana` is its own workspace (own Cargo.lock, pinned to the Rust toolchain Anchor
+# requires). Without this exclude, its packages get pulled into this workspace as members
+# (they are path dependencies of `packages/tendermint-light-client/solana`), which makes
+# `cargo test --all` build and run their tests under this workspace's toolchain instead of
+# the one they are pinned to. They are still usable as path dependencies while excluded.
+exclude = ["ibc-solana"]
 resolver = "2"
 
 [workspace.lints]
