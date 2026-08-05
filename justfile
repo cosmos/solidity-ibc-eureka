@@ -96,15 +96,22 @@ lint-rust:
 	cargo fmt --all -- --check
 	cargo clippy --all-targets -- -D warnings
 	just lint-sp1
+	just lint-cw
 	just solana::lint-solana
 
-# Lint the Solana code using `cargo fmt` and `cargo clippy`
+# Lint the SP1 programs using `cargo fmt` and `cargo clippy`
 [group('lint')]
 lint-sp1:
 	@echo "Linting the SP1 programs..."
 	cd ibc-solidity/programs/sp1-programs && cargo fmt --all -- --check
 	cd ibc-solidity/programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
 
+# Lint the CosmWasm eth light client (its own workspace) using `cargo fmt` and `cargo clippy`
+[group('lint')]
+lint-cw:
+	@echo "Linting the cw-ics08-wasm-eth contract..."
+	cd ibc-solidity/programs/cw-ics08-wasm-eth && cargo fmt --all -- --check
+	cd ibc-solidity/programs/cw-ics08-wasm-eth && cargo clippy --all-targets --locked -- -D warnings
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
@@ -193,6 +200,12 @@ generate-buf:
 [group('test')]
 test-cargo testname="--all":
 	cargo test {{testname}} --locked --no-fail-fast -- --nocapture
+	just test-cargo-cw
+
+# Run the cargo tests for the cw-ics08-wasm-eth contract (its own workspace)
+[group('test')]
+test-cargo-cw:
+	cd ibc-solidity/programs/cw-ics08-wasm-eth && cargo test --locked --no-fail-fast -- --nocapture
 
 # Run the tests in abigen
 [group('test')]

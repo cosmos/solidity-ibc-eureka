@@ -692,12 +692,15 @@ _validate-cluster cluster:
     exit 1
   fi
 
-# Lint the Solana code using `cargo fmt` and `cargo clippy`
+# Lint the Solana code using `cargo fmt` and `cargo clippy`.
+# Pinned to the Rust version required by the Anchor version we use (Anchor 0.32 requires
+# rustc >= 1.89.0). A floating `+nightly` regularly breaks on newly-added clippy lints, so
+# we build lints against the same, deterministic toolchain Anchor targets.
 [group('lint')]
 lint-solana:
 	@echo "Linting the Solana code..."
-	cargo fmt --all -- --check
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo +1.89.0 fmt --all -- --check
+	cargo +1.89.0 clippy --all-targets --all-features -- -D warnings
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
