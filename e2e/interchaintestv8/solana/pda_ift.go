@@ -5,7 +5,7 @@ package solana
 // 2. Auto-generated names would have verbose "WithAccountSeed" suffix
 //
 // The type `IftPDAs` and singleton `Ics27Ift` are defined in pda.go (auto-generated).
-// Only the methods are defined here to avoid corruption from `just generate-pda`.
+// Only the methods are defined here to avoid corruption from `just solana::generate-pda`.
 
 import (
 	"fmt"

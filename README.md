@@ -50,6 +50,7 @@ This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplifi
 This project is structured with the following directories:
 
 - `ibc-solidity/`: Contains the Solidity implementation of IBC and its related light-client programs.
+    - `solidity.just`: Contains the namespaced `just solidity::...` development recipes.
     - `contracts/`: Contains the Solidity contracts.
     - `test/`: Contains the Solidity tests.
     - `scripts/`: Contains Solidity scripts and tools.
@@ -58,12 +59,16 @@ This project is structured with the following directories:
         - `sp1-programs/`: Contains the SP1 programs for the Tendermint light client.
         - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum.
         - `operator/`: Contains the fixture generator for the SP1 light client.
+- `ibc-solana/`: Contains the Solana IBC implementation.
+    - `solana.just`: Contains the namespaced `just solana::...` development recipes.
+    - `programs/`: Contains the Anchor programs.
+    - `packages/`: Contains shared Solana IBC Rust crates.
+    - `integration-tests/`: Contains the Solana integration-test workspace.
 - `docs/`: Contains the ADRs and audits for the project.
 - `scripts/`: Contains repository-wide scripts and tools.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
     - `proof-api/`: Contains the proof API implementation.
-    - `solana/`: Contains the Solana programs for IBC.
 - `packages/`: Contains the Rust packages for the project.
   - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
 - `tools/`: Contains various tools used for testing.
@@ -132,7 +137,7 @@ just install-proof-api
 
 ### Solana Requirements
 
-- [Rust](https://rustup.rs/)
+- [Rust 1.89.0](https://rustup.rs/) (selected automatically by `ibc-solana/rust-toolchain.toml`)
 - [Anchor](https://www.anchor-lang.com/docs/installation)
 - [Agave](https://www.anchor-lang.com/docs/installation)
 - [Just](https://just.systems/man/en/)
@@ -140,14 +145,20 @@ just install-proof-api
 If you have Anchor installed locally, you can use the standard commands:
 
 ```sh
-just build-solana-programs
-just test-solana
+just solana::build-solana-programs
+just solana::test-solana
+```
+
+List every Solana-specific recipe with:
+
+```sh
+just solana
 ```
 
 Or directly:
 
 ```sh
-cd programs/solana
+cd ibc-solana
 anchor build
 anchor test
 anchor deploy
@@ -163,7 +174,7 @@ anchor deploy
 > Then navigate to the Solana programs directory and use anchor-nix commands:
 >
 > ```sh
-> cd programs/solana
+> cd ibc-solana
 > anchor-nix build
 > anchor-nix test
 > anchor-nix deploy
@@ -171,7 +182,7 @@ anchor deploy
 
 ### Solana Programs
 
-For detailed information about Solana IBC programs including deployment, key generation, access control, and upgradability, see the **[Solana Programs README](programs/solana/README.md)**.
+For detailed information about Solana IBC programs including deployment, key generation, access control, and upgradability, see the **[Solana Programs README](ibc-solana/README.md)**.
 
 ## Unit Testing
 

@@ -40,10 +40,10 @@ borsh                            = { workspace = true }
 solana-sdk                       = { workspace = true }
 solana-client                    = { workspace = true }
 solana-transaction-status        = { workspace = true }
-solana-ibc-sdk                   = { path = "../../../programs/solana/packages/solana-ibc-sdk" }
-solana-ibc-gmp-types             = { path = "../../../programs/solana/packages/solana-ibc-gmp-types" }
-solana-ibc-constants             = { path = "../../../programs/solana/packages/solana-ibc-constants" }
-solana-ibc-proto                 = { path = "../../../programs/solana/packages/solana-ibc-proto" }
+solana-ibc-sdk                   = { path = "../../../ibc-solana/packages/solana-ibc-sdk" }
+solana-ibc-gmp-types             = { path = "../../../ibc-solana/packages/solana-ibc-gmp-types" }
+solana-ibc-constants             = { path = "../../../ibc-solana/packages/solana-ibc-constants" }
+solana-ibc-proto                 = { path = "../../../ibc-solana/packages/solana-ibc-proto" }
 
 ibc-proto                   = { workspace = true }
 ibc-proto-eureka            = { workspace = true }

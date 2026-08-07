@@ -23,7 +23,7 @@ Solana programs are deployed using the [BPF Loader Upgradeable](https://solana.c
 
 The upgrade authority is set when deploying a program with the BPF Loader Upgradeable and controls who can upgrade the program. The default authority is the account which [initially deployed](https://solana.com/docs/core/programs#updating-solana-programs) the program. The authority [can always be transferred](https://solana.com/docs/programs/deploying#transfer-program-authority) to some other account.
 
-In production, the deployer transfers each program's upgrade authority to the [Access Manager](./programs/solana/programs/access-manager/README.md)'s per-program PDA (`["upgrade_authority", program_id]`). From that point, upgrades go through the Access Manager's role-gated `upgrade_program` instruction.
+In production, the deployer transfers each program's upgrade authority to the [Access Manager](./ibc-solana/programs/access-manager/README.md)'s per-program PDA (`["upgrade_authority", program_id]`). From that point, upgrades go through the Access Manager's role-gated `upgrade_program` instruction.
 
 #### Upgrade Authority Transfer
 
@@ -36,7 +36,7 @@ Multiple transfers can be proposed concurrently (one per target program, up to 8
 
 For AM-to-AM migration, the destination Access Manager calls `claim_upgrade_authority` which CPIs into the source AM's accept instruction, signing with its own PDA.
 
-See the [Access Manager README](./programs/solana/programs/access-manager/README.md) for detailed flows and security considerations.
+See the [Access Manager README](./ibc-solana/programs/access-manager/README.md) for detailed flows and security considerations.
 
 ### Account State Versioning
 

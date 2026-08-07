@@ -449,7 +449,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 
 // DeploySolanaProgramAsync deploys a program using solana CLI
 func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keypairPath, payerKeypairPath string) (solana.PublicKey, error) {
-	programSoFile := fmt.Sprintf("programs/solana/target/deploy/%s.so", programName)
+	programSoFile := fmt.Sprintf("ibc-solana/target/deploy/%s.so", programName)
 	programID, _, err := DeploySolanaProgram(ctx, programSoFile, keypairPath, payerKeypairPath, s.RPCURL)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("%s program deployment has failed: %w", programName, err)

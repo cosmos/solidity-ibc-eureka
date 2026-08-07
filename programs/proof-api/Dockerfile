@@ -13,6 +13,11 @@ COPY programs programs
 COPY ibc-solidity/contracts ibc-solidity/contracts
 COPY ibc-solidity/abi ibc-solidity/abi
 COPY ibc-solidity/programs ibc-solidity/programs
+# `ibc-solana` is a separate workspace; its `packages/*` are path dependencies of
+# `packages/tendermint-light-client/solana`. The workspace manifest is needed so those
+# packages can resolve their inherited (`workspace = true`) fields.
+COPY ibc-solana/Cargo.toml ibc-solana/Cargo.toml
+COPY ibc-solana/packages ibc-solana/packages
 COPY proto proto
 
 RUN cargo build --bin proof-api --release --locked

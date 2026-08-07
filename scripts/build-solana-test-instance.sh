@@ -30,7 +30,7 @@ if [ "$SOURCE" = "$INSTANCE" ]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SOLANA_DIR="$REPO_ROOT/programs/solana"
+SOLANA_DIR="$REPO_ROOT/ibc-solana"
 PROGRAMS_DIR="$SOLANA_DIR/programs"
 SOURCE_DIR="$PROGRAMS_DIR/$SOURCE"
 INSTANCE_DIR="$PROGRAMS_DIR/$INSTANCE"

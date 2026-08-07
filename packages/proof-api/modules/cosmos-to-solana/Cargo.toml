@@ -43,11 +43,11 @@ prost.workspace                 = true
 alloy.workspace                     = true
 ibc-eureka-solidity-types.workspace = true
 tokio.workspace                     = true
-solana-ibc-borsh-header             = { path = "../../../../programs/solana/packages/solana-ibc-borsh-header", features = ["light-client"] }
-solana-ibc-sdk                      = { path = "../../../../programs/solana/packages/solana-ibc-sdk" }
-solana-ibc-constants                = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
-solana-ibc-proto                    = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
-solana-ibc-gmp-types                = { path = "../../../../programs/solana/packages/solana-ibc-gmp-types" }
+solana-ibc-borsh-header             = { path = "../../../../ibc-solana/packages/solana-ibc-borsh-header", features = ["light-client"] }
+solana-ibc-sdk                      = { path = "../../../../ibc-solana/packages/solana-ibc-sdk" }
+solana-ibc-constants                = { path = "../../../../ibc-solana/packages/solana-ibc-constants" }
+solana-ibc-proto                    = { path = "../../../../ibc-solana/packages/solana-ibc-proto" }
+solana-ibc-gmp-types                = { path = "../../../../ibc-solana/packages/solana-ibc-gmp-types" }
 
 # SPL Token dependencies
 spl-token                    = "8.0"

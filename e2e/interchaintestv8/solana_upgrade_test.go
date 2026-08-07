@@ -22,7 +22,7 @@ import (
 const (
 	keypairDir    = "solana-keypairs/localnet"
 	deployerPath  = keypairDir + "/deployer_wallet.json"
-	programSoFile = "programs/solana/target/deploy/ics26_router.so"
+	programSoFile = "ibc-solana/target/deploy/ics26_router.so"
 	ADMIN_ROLE    = uint64(0)
 )
 
@@ -1621,9 +1621,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 		id     solanago.PublicKey
 		soFile string
 	}{
-		{ics26_router.ProgramID, "programs/solana/target/deploy/ics26_router.so"},
-		{ics07_tendermint.ProgramID, "programs/solana/target/deploy/ics07_tendermint.so"},
-		{ics27_gmp.ProgramID, "programs/solana/target/deploy/ics27_gmp.so"},
+		{ics26_router.ProgramID, "ibc-solana/target/deploy/ics26_router.so"},
+		{ics07_tendermint.ProgramID, "ibc-solana/target/deploy/ics07_tendermint.so"},
+		{ics27_gmp.ProgramID, "ibc-solana/target/deploy/ics27_gmp.so"},
 	}
 
 	programs := make([]programInfo, len(targetPrograms))
