@@ -320,9 +320,9 @@ abstract contract IFTBaseUpgradeable is
     /// @notice Hook called before an inbound transfer mints tokens
     /// @dev No-op by default. Called after the ICS27-GMP account is authenticated against the registered bridge, and
     /// before rate limit usage and the mint. Reverting aborts the mint and makes ICS27-GMP write an error
-    /// acknowledgement, which refunds the sender on the counterparty chain. Revert with a reason, since the router
-    /// treats a revert without returndata as out of gas and fails the whole relay. Runs inside a `nonReentrant`
-    /// entrypoint.
+    /// acknowledgement, which refunds the sender on the counterparty chain. This holds for any revert, including a bare
+    /// `revert()`, since the ICS27 account reports empty revert data as `FailedCall`. Only running the relay out of gas
+    /// fails the whole relay instead, so keep the hook's gas use bounded. Runs inside a `nonReentrant` entrypoint.
     /// @param clientId The IBC client identifier the mint came from
     /// @param receiver The address receiving the minted tokens
     /// @param amount The amount of tokens to mint
