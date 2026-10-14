@@ -301,7 +301,7 @@ abstract contract IFTBaseUpgradeable is
     /// @notice Hook called before an outbound transfer burns tokens
     /// @dev No-op by default. Called after input validation and the bridge lookup, so `clientId` always has a
     /// registered bridge, and before rate limit usage, the burn and the ICS27-GMP packet. Reverting aborts the
-    /// transfer and leaves no state behind. Runs inside a `nonReentrant` entrypoint.
+    /// transfer and leaves no state behind.
     /// @param sender The address whose tokens are burned
     /// @param clientId The IBC client identifier of the bridge
     /// @param receiver The receiver address on the counterparty chain
@@ -320,9 +320,7 @@ abstract contract IFTBaseUpgradeable is
     /// @notice Hook called before an inbound transfer mints tokens
     /// @dev No-op by default. Called after the ICS27-GMP account is authenticated against the registered bridge, and
     /// before rate limit usage and the mint. Reverting aborts the mint and makes ICS27-GMP write an error
-    /// acknowledgement, which refunds the sender on the counterparty chain. This holds for any revert, including a bare
-    /// `revert()`, since the ICS27 account reports empty revert data as `FailedCall`. Only running the relay out of gas
-    /// fails the whole relay instead, so keep the hook's gas use bounded. Runs inside a `nonReentrant` entrypoint.
+    /// acknowledgement, which refunds the sender on the counterparty chain.
     /// @param clientId The IBC client identifier the mint came from
     /// @param receiver The address receiving the minted tokens
     /// @param amount The amount of tokens to mint
@@ -332,7 +330,7 @@ abstract contract IFTBaseUpgradeable is
     /// @dev No-op by default. Called after the pending transfer is found, and before rate limit usage, the mint and
     /// the pending transfer is cleared. Reverting aborts the acknowledgement or timeout relay, so the refund stays
     /// pending and can be retried. A hook that keeps reverting for a transfer locks its funds, so avoid permanent
-    /// rejections here. Runs inside a `nonReentrant` entrypoint.
+    /// rejections here.
     /// @param clientId The IBC client identifier of the bridge
     /// @param sequence The packet sequence number
     /// @param sender The original sender, who receives the refund
