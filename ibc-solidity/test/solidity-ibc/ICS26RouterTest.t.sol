@@ -26,6 +26,7 @@ import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 
 contract ICS26RouterTest is Test {
     ICS26Router public ics26Router;
+    AccessManager public accessManager;
 
     TestHelper public testHelper = new TestHelper();
 
@@ -36,7 +37,7 @@ contract ICS26RouterTest is Test {
     function setUp() public {
         ICS26Router ics26RouterLogic = new ICS26Router();
 
-        AccessManager accessManager = new AccessManager(address(this));
+        accessManager = new AccessManager(address(this));
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
             address(ics26RouterLogic), abi.encodeCall(ICS26Router.initialize, (address(accessManager)))
@@ -49,6 +50,9 @@ contract ICS26RouterTest is Test {
         );
         accessManager.setTargetFunctionRole(
             address(ics26Router), IBCRolesLib.ics26IdCustomizerSelectors(), IBCRolesLib.ID_CUSTOMIZER_ROLE
+        );
+        accessManager.setTargetFunctionRole(
+            address(ics26Router), IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.PUBLIC_ROLE
         );
 
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
@@ -103,6 +107,30 @@ contract ICS26RouterTest is Test {
             abi.encodeWithSelector(IICS26RouterErrors.IBCPortAlreadyExists.selector, ICS20Lib.DEFAULT_PORT_ID)
         );
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, mockApp);
+    }
+
+    function test_restrictPublicSelectors() public {
+        address user = makeAddr("user");
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo("42-dummy-01", testHelper.COSMOS_MERKLE_PREFIX());
+
+        // public by default
+        vm.prank(user);
+        ics26Router.addIBCApp(makeAddr("mockApp"));
+        vm.prank(user);
+        ics26Router.addClient(counterpartyInfo, mockClient);
+
+        // restricted to admin
+        accessManager.setTargetFunctionRole(
+            address(ics26Router), IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.ADMIN_ROLE
+        );
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Router.addIBCApp(makeAddr("mockApp2"));
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Router.addClient(counterpartyInfo, mockClient);
     }
 
     function test_unauthorizedSender() public {

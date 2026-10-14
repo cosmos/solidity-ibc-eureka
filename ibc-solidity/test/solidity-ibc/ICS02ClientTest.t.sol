@@ -53,6 +53,9 @@ contract ICS02ClientTest is Test {
         accessManager.setTargetFunctionRole(
             address(ics02Client), IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE
         );
+        accessManager.setTargetFunctionRole(
+            address(ics02Client), IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.PUBLIC_ROLE
+        );
 
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, idCustomizer, 0);
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);

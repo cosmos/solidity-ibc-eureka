@@ -20,6 +20,7 @@ abstract contract DeployAccessManagerWithRoles {
             ics26, IBCRolesLib.ics26IdCustomizerSelectors(), IBCRolesLib.ID_CUSTOMIZER_ROLE
         );
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE);
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.PUBLIC_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.pauserSelectors(), IBCRolesLib.PAUSER_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.unpauserSelectors(), IBCRolesLib.UNPAUSER_ROLE);
         accessManager.setTargetFunctionRole(
