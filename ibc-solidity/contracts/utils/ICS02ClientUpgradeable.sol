@@ -80,6 +80,7 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         address client
     )
         external
+        restricted
         returns (string memory)
     {
         string memory clientId = nextClientId();
