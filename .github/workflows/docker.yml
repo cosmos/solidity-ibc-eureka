@@ -29,6 +29,18 @@ concurrency:
 
 env:
   image_name: proof-api
+  image_tags: |
+    # Tag triggered events
+    type=match,event=tag,pattern=^proof-api-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
+
+    # Latest, but only on main
+    type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }},priority=900
+
+    # For PR tags
+    type=ref,event=pr,priority=800
+
+    # For sha tags
+    type=sha,priority=700,prefix=
 
 jobs:
   build-proof-api:
@@ -69,6 +81,7 @@ jobs:
           DOCKER_METADATA_PR_HEAD_SHA: true
         with:
           images: ${{ env.REGISTRY_URL }}
+          tags: ${{ env.image_tags }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -136,18 +149,7 @@ jobs:
           # list of Docker images to use as base name for tags
           images: |
             ${{ env.REGISTRY_URL }}
-          tags: |
-            # Tag triggered events
-            type=match,event=tag,pattern=^proof-api-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
-
-            # Latest, but only on main
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }},priority=900
-
-            # For PR tags
-            type=ref,event=pr,priority=800
-
-            # For sha tags
-            type=sha,priority=700,prefix=
+          tags: ${{ env.image_tags }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1

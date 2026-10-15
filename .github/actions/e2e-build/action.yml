@@ -70,6 +70,7 @@ runs:
       with:
         shared-key: e2e-build
         cache-on-failure: true
+        cache-bin: false
 
     - name: Install proof API
       if: steps.cache-proof-api.outputs.cache-hit != 'true'
