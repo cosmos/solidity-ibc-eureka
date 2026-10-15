@@ -18,7 +18,9 @@ import { TestHelper } from "../../utils/TestHelper.sol";
 import { IntegrationEnv } from "../../utils/IntegrationEnv.sol";
 import { IFTAccessManaged } from "../../../../contracts/utils/IFTAccessManaged.sol";
 import { EVMIFTSendCallConstructor } from "../../../../contracts/utils/EVMIFTSendCallConstructor.sol";
+import { ICS24Host } from "../../../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { RateLimiter } from "@openzeppelin-contracts/utils/RateLimiter.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 abstract contract IFTIntegrationSuite is LightClientDriverTest {
@@ -219,6 +221,85 @@ abstract contract IFTIntegrationSuite is LightClientDriverTest {
         iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
     }
 
+    /// @dev A mint rejected on the destination, here by its inbound rate limit, is acknowledged with an error. A refund
+    /// rejected on the source keeps the packet relayable until it succeeds.
+    function testFuzz_rejectedMint_errorAckRefundsAfterRetry(uint256 amount) public {
+        amount = bound(amount, 2, MAX_RATE_LIMIT_CAPACITY);
+
+        address sender = integrationEnv.createUser();
+        address receiver = integrationEnv.createUser();
+        string memory clientId = th.FIRST_CLIENT_ID();
+
+        deal(address(iftOnA), sender, amount, true);
+
+        vm.startPrank(sender);
+        vm.recordLogs();
+        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount);
+        vm.stopPrank();
+
+        IICS26RouterMsgs.Packet memory sentPacket = _extractPacketFromLogs();
+
+        // The destination rejects the mint and writes an error acknowledgement without minting
+        iftOnB.setIFTRateLimit(uint208(amount - 1), RATE_LIMIT_WINDOW);
+        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
+        assertEq(acks[0], ICS24Host.UNIVERSAL_ERROR_ACK, "mint rejection should be an error ack");
+        assertEq(iftOnB.totalSupply(), 0, "nothing should be minted on the destination");
+
+        // The source rejects the refund, so the whole ack relay reverts and the packet stays relayable
+        iftOnA.setIFTRateLimit(uint208(amount - 1), RATE_LIMIT_WINDOW);
+        vm.expectRevert(RateLimiter.RateLimitExceeded.selector);
+        ibcImplA.ackPacket(sentPacket, acks);
+        _assertStillPending(sentPacket, sender, amount);
+
+        // Once the refund fits, relaying the same ack again refunds the sender
+        iftOnA.setIFTRateLimit(MAX_RATE_LIMIT_CAPACITY, RATE_LIMIT_WINDOW);
+        ibcImplA.ackPacket(sentPacket, acks);
+        assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
+        vm.expectRevert(
+            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence)
+        );
+        iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
+    }
+
+    /// @dev A refund rejected on timeout, here by the source's inbound rate limit, keeps the packet relayable until it
+    /// succeeds
+    function testFuzz_rejectedTimeoutRefund_refundsAfterRetry(uint256 amount) public {
+        amount = bound(amount, 2, MAX_RATE_LIMIT_CAPACITY);
+
+        address sender = integrationEnv.createUser();
+        address receiver = integrationEnv.createUser();
+        string memory clientId = th.FIRST_CLIENT_ID();
+
+        deal(address(iftOnA), sender, amount, true);
+
+        uint64 shortTimeout = uint64(block.timestamp) + 1;
+
+        vm.startPrank(sender);
+        vm.recordLogs();
+        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount, shortTimeout);
+        vm.stopPrank();
+
+        IICS26RouterMsgs.Packet memory sentPacket = _extractPacketFromLogs();
+
+        vm.warp(block.timestamp + 100);
+        ibcImplA.cheatPacketCommitment(sentPacket);
+
+        // The source rejects the refund, so the whole timeout relay reverts and the packet stays relayable
+        iftOnA.setIFTRateLimit(uint208(amount - 1), RATE_LIMIT_WINDOW);
+        vm.expectRevert(RateLimiter.RateLimitExceeded.selector);
+        ibcImplA.timeoutPacket(sentPacket);
+        _assertStillPending(sentPacket, sender, amount);
+
+        // Once the refund fits, relaying the timeout again refunds the sender
+        iftOnA.setIFTRateLimit(MAX_RATE_LIMIT_CAPACITY, RATE_LIMIT_WINDOW);
+        ibcImplA.timeoutPacket(sentPacket);
+        assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
+        vm.expectRevert(
+            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence)
+        );
+        iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
+    }
+
     function testFuzz_multipleTransfersInFlight(uint256 amount1, uint256 amount2) public {
         // Both transfers share the outbound bucket, so together they must fit in the capacity
         amount1 = bound(amount1, 1, MAX_RATE_LIMIT_CAPACITY / 2);
@@ -268,6 +349,17 @@ abstract contract IFTIntegrationSuite is LightClientDriverTest {
         vm.prank(unauthorizedUser);
         vm.expectRevert();
         iftOnA.upgradeToAndCall(address(newImpl), "");
+    }
+
+    function _assertStillPending(IICS26RouterMsgs.Packet memory packet, address sender, uint256 amount) internal view {
+        bytes32 path = ICS24Host.packetCommitmentKeyCalldata(packet.sourceClient, packet.sequence);
+        assertEq(
+            ibcImplA.ics26Router().getCommitment(path),
+            ICS24Host.packetCommitmentBytes32(packet),
+            "packet commitment should be kept"
+        );
+        assertEq(iftOnA.getPendingTransfer(packet.sourceClient, packet.sequence).amount, amount, "should stay pending");
+        assertEq(iftOnA.balanceOf(sender), 0, "nothing should be refunded");
     }
 
     function _extractPacketFromLogs() internal view returns (IICS26RouterMsgs.Packet memory) {
