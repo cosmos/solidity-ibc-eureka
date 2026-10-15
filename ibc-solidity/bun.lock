@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "@cosmos/solidity-ibc-eureka",
+      "name": "@cosmos/ibc-contracts",
       "dependencies": {
         "@openzeppelin/contracts": "^5.7.0",
         "@openzeppelin/contracts-upgradeable": "^5.7.0",

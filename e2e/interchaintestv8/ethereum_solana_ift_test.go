@@ -29,22 +29,22 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
-	evmift "github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ift"
+	"github.com/cosmos/ibc-contracts/packages/go-abigen/ics26router"
+	evmift "github.com/cosmos/ibc-contracts/packages/go-abigen/ift"
 
-	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
-	attestation "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/attestation"
-	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
-	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
-	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
+	access_manager "github.com/cosmos/ibc-contracts/packages/go-anchor/accessmanager"
+	attestation "github.com/cosmos/ibc-contracts/packages/go-anchor/attestation"
+	ics26_router "github.com/cosmos/ibc-contracts/packages/go-anchor/ics26router"
+	ics27_gmp "github.com/cosmos/ibc-contracts/packages/go-anchor/ics27gmp"
+	ift "github.com/cosmos/ibc-contracts/packages/go-anchor/ift"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	"github.com/cosmos/ibc-contracts/e2e/v8/attestor"
+	"github.com/cosmos/ibc-contracts/e2e/v8/e2esuite"
+	"github.com/cosmos/ibc-contracts/e2e/v8/ethereum"
+	proofapi "github.com/cosmos/ibc-contracts/e2e/v8/proofapi"
+	"github.com/cosmos/ibc-contracts/e2e/v8/solana"
+	"github.com/cosmos/ibc-contracts/e2e/v8/testvalues"
+	proofapitypes "github.com/cosmos/ibc-contracts/e2e/v8/types/proofapi"
 )
 
 const (

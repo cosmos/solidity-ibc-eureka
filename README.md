@@ -1,22 +1,22 @@
 # IBC Contracts  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: Apache 2.0][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
 
-![IBC in Solidity](.github/assets/cosmos-solidity-ibc-eureka-github.svg)
+![IBC in Solidity](.github/assets/cosmos-ibc-contracts-github.svg)
 
-[gha]: https://github.com/srdtrk/solidity-ibc-eureka/actions
-[e2e-minimal-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-minimal.yml/badge.svg
-[e2e-full-badge]: https://github.com/srdtrk/solidity-ibc-eureka/actions/workflows/e2e-full.yml/badge.svg
+[gha]: https://github.com/cosmos/ibc-contracts/actions
+[e2e-minimal-badge]: https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-minimal.yml/badge.svg
+[e2e-full-badge]: https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-full.yml/badge.svg
 [foundry]: https://getfoundry.sh/
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://www.apache.org/licenses/LICENSE-2.0
 [license-badge]: https://img.shields.io/badge/License-Apache_2.0-blue.svg
-[codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
-[codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
+[codecov]: https://codecov.io/github/cosmos/ibc-contracts
+[codecov-badge]: https://codecov.io/github/cosmos/ibc-contracts/graph/badge.svg?token=lhplGORQxX
 
 This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
 ## Overview
 
-`solidity-ibc-eureka` is an implementation of IBC in Solidity.
+`ibc-contracts` is an implementation of IBC in Solidity.
 
 - [IBC in Solidity](#ibc-in-solidity------)
   - [Overview](#overview)
@@ -316,7 +316,7 @@ Additionally, the Security Council is responsible for:
 - **Upgrading IBC contracts** in the event of a security vulnerability.
 - **Introducing new features** while balancing security and decentralization.
 
-Ideally, the Security Council should mirror the validators of the counterparty Cosmos SDK chain for better decentralization. In the future, a mechanism called **`govAdmin`** will allow the Cosmos SDK chain’s governance to directly control Ethereum contract upgrades via IBC (tracked in [#278](https://github.com/cosmos/solidity-ibc-eureka/issues/278)).
+Ideally, the Security Council should mirror the validators of the counterparty Cosmos SDK chain for better decentralization. In the future, a mechanism called **`govAdmin`** will allow the Cosmos SDK chain’s governance to directly control Ethereum contract upgrades via IBC (tracked in [#278](https://github.com/cosmos/ibc-contracts/issues/278)).
 
 ### Security Council and Governance Admin
 

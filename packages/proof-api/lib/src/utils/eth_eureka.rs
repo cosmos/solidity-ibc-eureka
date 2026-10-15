@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Proof API utilities for `solidity-ibc-eureka` chains.
+//! Proof API utilities for `ibc-contracts` chains.
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
 use alloy::{primitives::Bytes, sol_types::SolValue};
