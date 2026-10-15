@@ -59,8 +59,12 @@ jobs:
           rustup toolchain install 1.89.0 --profile minimal
           rustup component add --toolchain 1.89.0 clippy rustfmt
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      # Restore-only here; saved at the end of the job on main alone, so PR branches don't
+      # churn the repo's cache quota (PRs can read main's caches). Keep `path` in sync with
+      # the save step.
+      - name: Restore Rust dependencies
+        id: cache-rust
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/bin/
@@ -107,3 +111,15 @@ jobs:
         run: just solana::test-solana
         env:
           RUST_BACKTRACE: 1
+
+      - name: Save Rust dependencies
+        if: github.ref == 'refs/heads/main' && steps.cache-rust.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ibc-solana/target/
+          key: ${{ steps.cache-rust.outputs.cache-primary-key }}

@@ -71,6 +71,9 @@ runs:
         shared-key: e2e-build
         cache-on-failure: true
         cache-bin: false
+        # ~2 GB per entry: only main writes it (PRs can read main's caches), so PR
+        # branches don't churn the repo's cache quota and evict each other.
+        save-if: ${{ github.ref == 'refs/heads/main' }}
 
     - name: Install proof API
       if: steps.cache-proof-api.outputs.cache-hit != 'true'
@@ -86,14 +89,14 @@ runs:
         cargo install --bin operator --path ibc-solidity/programs/operator --locked \
           --target-dir "${{ github.workspace }}/target"
 
-    - name: Cache Solana Programs
+    # Restore-only here; saved below on main alone, for the same quota reason as the Rust
+    # build state above. Keep `path` in sync with the save step. Build outputs only: the
+    # Solana and Anchor toolchains are cached by setup-all, and only needed on a miss.
+    - name: Restore Solana Programs
       id: cache-solana
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
-          ~/.cache/solana/
-          ~/.local/share/solana/
-          ~/.avm/
           ./ibc-solana/target/deploy/
           ./ibc-solana/target/sbpf-solana-solana/
         key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('ibc-solana/programs/**', 'ibc-solana/packages/**', 'ibc-solana/Cargo.lock', 'ibc-solana/Cargo.toml', 'ibc-solana/Anchor.toml', 'ibc-solana/rust-toolchain.toml', 'ibc-solana/solana.just', 'packages/tendermint-light-client/**', 'packages/constrained_types/**', 'proto/**', 'ibc-solidity/abi/IFTOwnable.json', 'ibc-solidity/contracts/light-clients/attestation/msgs/**', 'ibc-solidity/contracts/msgs/**', 'scripts/build-solana-test-instance.sh', 'solana-keypairs/localnet/**', 'justfile') }}
@@ -112,13 +115,24 @@ runs:
       uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6 # v2.0.0
 
     # A restore-keys fallback brings back an older target/deploy; clear it so programs
-    # that were since removed or renamed don't end up in the packaged artifacts.
+    # that were since removed or renamed don't end up in the packaged artifacts. This
+    # matches a cold build: program IDs come from declare_id!, and E2E deploys with the
+    # tracked solana-keypairs/localnet/, so the keypairs Anchor regenerates here are unused.
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
       run: |
         rm -rf ibc-solana/target/deploy
         just solana::build-solana-programs
+
+    - name: Save Solana Programs
+      if: github.ref == 'refs/heads/main' && steps.cache-solana.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          ./ibc-solana/target/deploy/
+          ./ibc-solana/target/sbpf-solana-solana/
+        key: ${{ steps.cache-solana.outputs.cache-primary-key }}
 
     - name: Package artifacts
       shell: bash

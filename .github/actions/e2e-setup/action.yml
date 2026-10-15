@@ -33,8 +33,10 @@ runs:
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
 
+    # Same setup-go version as the e2e lint job: its cache key embeds a version-specific
+    # format, so mismatched versions store the same e2e module cache twice (~1.6 GB each).
     - name: Setup Go
-      uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: 1.26.5
         check-latest: true
@@ -45,18 +47,6 @@ runs:
       with:
         name: e2e-build-artifacts
         path: e2e-artifacts/
-
-    # Toolchain only: the built programs come from e2e-build-artifacts, so this key
-    # depends on versions alone and is shared by every test job.
-    - name: Cache Solana toolchain
-      id: cache-solana
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-      with:
-        path: |
-          ~/.cache/solana/
-          ~/.local/share/solana/
-          ~/.cargo/bin/anchor
-        key: ${{ runner.os }}-solana-toolchain-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}
 
     - name: Install just
       uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6 # v2.0.0
@@ -100,6 +90,8 @@ runs:
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
 
+    # setup-all caches the Solana toolchain itself (keyed on the version), so no separate
+    # cache step is needed; the built programs come from e2e-build-artifacts.
     - name: Setup Solana
       uses: solana-developers/github-actions/setup-all@860d4e7d3afc9f180f3c5016593a1e86e77eede4 # v0.2.5
       with:
