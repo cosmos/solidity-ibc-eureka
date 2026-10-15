@@ -4584,10 +4584,10 @@ dependencies = [
 [[package]]
 name = "ethereum-apis"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy 1.8.3",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -4619,19 +4619,19 @@ dependencies = [
 [[package]]
 name = "ethereum-light-client"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
- "ethereum-trie-db 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-trie-db 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "hex",
  "schemars 0.8.22",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.18",
- "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
 ]
 
 [[package]]
@@ -4654,7 +4654,7 @@ dependencies = [
 [[package]]
 name = "ethereum-trie-db"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-primitives",
  "hash-db",
@@ -4685,13 +4685,13 @@ dependencies = [
 [[package]]
 name = "ethereum-types"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-primitives",
  "schemars 0.8.22",
  "serde",
  "serde_with",
- "tree_hash 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "tree_hash 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "tree_hash_derive 0.10.0",
 ]
 
@@ -5965,7 +5965,7 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-relayer-core"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "anyhow",
  "prometheus",
@@ -5981,18 +5981,18 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-relayer-eth-to-cosmos"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy 1.8.3",
  "anyhow",
  "async-trait",
- "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-apis 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "ibc-eureka-relayer-core",
  "ibc-eureka-relayer-lib",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "serde",
@@ -6006,24 +6006,24 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy 1.8.3",
  "anyhow",
  "async-trait",
- "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-apis 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ethereum-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "futures",
  "futures-timer",
  "ibc-core-commitment-types",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
- "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
  "serde",
  "serde_json",
- "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "sp1-ics07-tendermint-prover 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "sp1-prover 5.2.4",
  "sp1-sdk 5.2.4",
  "tendermint",
@@ -6055,7 +6055,7 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-solidity-types"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-contract 1.8.3",
  "alloy-primitives",
@@ -6096,7 +6096,7 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-utils"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-network 1.8.3",
  "alloy-signer-local 1.8.3",
@@ -6107,7 +6107,7 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "reqwest 0.11.27",
@@ -13523,11 +13523,11 @@ dependencies = [
 [[package]]
 name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-sol-types",
  "ibc-core-commitment-types",
- "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
+ "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "sp1-prover 5.2.4",
@@ -15732,7 +15732,7 @@ dependencies = [
 [[package]]
 name = "tree_hash"
 version = "0.1.0"
-source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
+source = "git+https://github.com/cosmos/ibc-contracts?rev=035aa5eb171b6608614a9bc4e76e79d61c190e39#035aa5eb171b6608614a9bc4e76e79d61c190e39"
 dependencies = [
  "alloy-primitives",
  "sha2 0.10.9",

@@ -35,7 +35,7 @@ jobs:
       contents: read
       packages: write
     env:
-      registry_url: ghcr.io/cosmos/proof-api
+      registry_url: ghcr.io/${{ github.repository_owner }}/proof-api
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Login to GitHub Container Registry
@@ -53,6 +53,11 @@ jobs:
           # list of Docker images to use as base name for tags
           images: |
             ${{ env.registry_url }}
+          # source, revision, created, version are derived from the repository and ref;
+          # override the repo-level defaults for title and description.
+          labels: |
+            org.opencontainers.image.title=proof-api
+            org.opencontainers.image.description=IBC Contracts Proof API
           tags: |
             # Tag triggered events
             type=match,event=tag,pattern=^proof-api-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000

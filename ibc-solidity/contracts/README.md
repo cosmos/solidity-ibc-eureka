@@ -43,7 +43,7 @@ All contracts are compiled for the **Cancun** EVM (`evm_version = "cancun"` in `
 - Fixture status: `test/besu-bft/fixtures/qbft.json` and `ibft2.json` are captured from live Besu QBFT and IBFT2 networks by the Besu↔Besu e2e suite; only their negative update cases are derived by off-chain header mutation.
 
 ## Interchain Fungible Tokens (IFT)
-- Code reference: find the  `contracts` IFT contract code [here](https://github.com/cosmos/solidity-ibc-eureka/tree/mariuszzak/ift/contracts).
+- Code reference: find the  `contracts` IFT contract code [here](https://github.com/cosmos/ibc-contracts/tree/mariuszzak/ift/contracts).
 - IFT is an issuer-controlled ERC20 that bridges via ICS27-GMP instead of ICS20. The abstract `IFTBase` burns on send, constructs a mint call for the counterparty IFT, and tracks pending transfers keyed by (clientId, sequence).
 - Bridges: `registerIFTBridge` configures a counterparty IFT contract per IBC client along with an `IIFTSendCallConstructor` helper to encode the mint call for that chain.
 - Sending: `iftTransfer` burns locally, builds ICS27 `SendCall` to the remote IFT, records `PendingTransfer`, and emits initiation events; default timeout is 15 minutes if not provided.

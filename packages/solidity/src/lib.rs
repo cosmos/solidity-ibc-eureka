@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Solidity types for `solidity-ibc-eureka`
+//! Solidity types for `ibc-contracts`
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 

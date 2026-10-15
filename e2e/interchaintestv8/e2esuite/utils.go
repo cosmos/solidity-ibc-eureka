@@ -48,10 +48,10 @@ import (
 	"github.com/cosmos/interchaintest/v11/ibc"
 	"github.com/cosmos/interchaintest/v11/testutil"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	ibctesting "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ibctesting"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
+	"github.com/cosmos/ibc-contracts/e2e/v8/ethereum"
+	ibctesting "github.com/cosmos/ibc-contracts/e2e/v8/ibctesting"
+	"github.com/cosmos/ibc-contracts/e2e/v8/testvalues"
+	ethereumtypes "github.com/cosmos/ibc-contracts/e2e/v8/types/ethereum"
 )
 
 // broadcastMessages is the shared broadcast path. Pass waitBlocks=0 to skip the post-inclusion wait.

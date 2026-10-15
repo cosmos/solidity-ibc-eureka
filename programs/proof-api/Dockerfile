@@ -29,16 +29,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
 FROM gcr.io/distroless/cc-debian12:debug
 
-ARG BUILD_DATE
-ARG VCS_REF
-ARG VERSION
+# OCI labels (source, revision, version, ...) are set by docker/metadata-action in
+# .github/workflows/docker.yml so they follow the repository without hard-coding it.
 ARG COMMIT
-LABEL org.opencontainers.image.title="proof-api" \
-      org.opencontainers.image.description="Solidity IBC Eureka Proof API" \
-      org.opencontainers.image.source="https://github.com/cosmos/solidity-ibc-eureka" \
-      org.opencontainers.image.revision=$VCS_REF \
-      org.opencontainers.image.created=$BUILD_DATE \
-      org.opencontainers.image.version=$VERSION
 
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
