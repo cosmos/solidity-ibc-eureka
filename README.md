@@ -1,4 +1,4 @@
-# IBC Contracts  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: Apache 2.0][license-badge]][license] [![Code Coverage][codecov-badge]][codecov]
+# IBC Contracts  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: Apache 2.0][license-badge]][license] [![Code Coverage][codecov-badge]][codecov] [![OpenSSF Scorecard][scorecard-badge]][scorecard]
 
 ![IBC in Solidity](.github/assets/cosmos-ibc-contracts-github.svg)
 
@@ -9,8 +9,10 @@
 [foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
 [license]: https://www.apache.org/licenses/LICENSE-2.0
 [license-badge]: https://img.shields.io/badge/License-Apache_2.0-blue.svg
-[codecov]: https://codecov.io/github/cosmos/ibc-contracts
-[codecov-badge]: https://codecov.io/github/cosmos/ibc-contracts/graph/badge.svg?token=lhplGORQxX
+[codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
+[codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
+[scorecard]: https://scorecard.dev/viewer/?uri=github.com/cosmos/ibc-contracts
+[scorecard-badge]: https://api.scorecard.dev/projects/github.com/cosmos/ibc-contracts/badge
 
 This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
