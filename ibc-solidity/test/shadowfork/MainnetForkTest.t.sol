@@ -8,7 +8,10 @@ import { Test } from "forge-std/Test.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
+import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 
 import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
 
@@ -41,5 +44,35 @@ contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
 
         address ics07 = address(ics26Proxy.getClient(clientId));
         assertTrue(ics07 != address(0), "Client not found");
+    }
+
+    function test_upgrade_ics26PublicSelectors() public {
+        address user = makeAddr("user");
+        bytes[] memory merklePrefix = new bytes[](2);
+        merklePrefix[0] = bytes("ibc");
+        IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
+            IICS02ClientMsgs.CounterpartyInfo("42-dummy-01", merklePrefix);
+
+        address newLogic = address(new ICS26Router());
+        vm.prank(timelockedAdmin);
+        ics26Proxy.upgradeToAndCall(newLogic, "");
+
+        // the newly restricted selectors default to ADMIN_ROLE after the upgrade
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Proxy.addIBCApp(makeAddr("mockApp"));
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Proxy.addClient(counterpartyInfo, makeAddr("mockClient"));
+
+        vm.prank(timelockedAdmin);
+        accessManager.setTargetFunctionRole(
+            address(ics26Proxy), IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.PUBLIC_ROLE
+        );
+
+        vm.prank(user);
+        ics26Proxy.addIBCApp(makeAddr("mockApp"));
+        vm.prank(user);
+        ics26Proxy.addClient(counterpartyInfo, makeAddr("mockClient"));
     }
 }
