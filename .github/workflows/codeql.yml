@@ -34,10 +34,10 @@ jobs:
             runner: ubuntu-latest
           - language: go
             build-mode: manual
-            runner: depot-ubuntu-24.04-4
+            runner: ubuntu-latest
           - language: rust
             build-mode: none
-            runner: depot-ubuntu-24.04-4
+            runner: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -61,6 +61,9 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          # setup-go above already caches the Go modules (and build cache); CodeQL's own
+          # dependency cache would store the same modules a second time (~1.8 GB).
+          dependency-caching: false
 
       - name: Build Go modules
         if: matrix.language == 'go'
