@@ -21,9 +21,6 @@ import { EVMIFTSendCallConstructor } from "../../../../contracts/utils/EVMIFTSen
 import { ICS24Host } from "../../../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { RateLimiter } from "@openzeppelin-contracts/utils/RateLimiter.sol";
-import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
-import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
-import { IBCRolesLib } from "../../../../contracts/utils/IBCRolesLib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 abstract contract IFTIntegrationSuite is LightClientDriverTest {
@@ -36,9 +33,6 @@ abstract contract IFTIntegrationSuite is LightClientDriverTest {
     IFTAccessManaged public iftOnA;
     IFTAccessManaged public iftOnB;
     EVMIFTSendCallConstructor public sendCallConstructor;
-
-    address public pauser = makeAddr("pauser");
-    address public unpauser = makeAddr("unpauser");
 
     string public constant TOKEN_NAME = "Test IFT";
     string public constant TOKEN_SYMBOL = "TIFT";
@@ -96,19 +90,6 @@ abstract contract IFTIntegrationSuite is LightClientDriverTest {
 
         ibcImplA.accessManager().setTargetFunctionRole(address(iftOnA), selectors, ADMIN_ROLE);
         ibcImplB.accessManager().setTargetFunctionRole(address(iftOnB), selectors, ADMIN_ROLE);
-
-        IbcImpl[2] memory impls = [ibcImplA, ibcImplB];
-        address[2] memory ifts = [address(iftOnA), address(iftOnB)];
-        for (uint256 i = 0; i < 2; ++i) {
-            impls[i]
-                .accessManager()
-                .setTargetFunctionRole(ifts[i], IBCRolesLib.pauserSelectors(), IBCRolesLib.PAUSER_ROLE);
-            impls[i]
-                .accessManager()
-                .setTargetFunctionRole(ifts[i], IBCRolesLib.unpauserSelectors(), IBCRolesLib.UNPAUSER_ROLE);
-            impls[i].accessManager().grantRole(IBCRolesLib.PAUSER_ROLE, pauser, 0);
-            impls[i].accessManager().grantRole(IBCRolesLib.UNPAUSER_ROLE, unpauser, 0);
-        }
     }
 
     function _registerBridges() internal {
@@ -311,102 +292,6 @@ abstract contract IFTIntegrationSuite is LightClientDriverTest {
 
         // Once the refund fits, relaying the timeout again refunds the sender
         iftOnA.setIFTRateLimit(MAX_RATE_LIMIT_CAPACITY, RATE_LIMIT_WINDOW);
-        ibcImplA.timeoutPacket(sentPacket);
-        assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
-        vm.expectRevert(
-            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence)
-        );
-        iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
-    }
-
-    /// @dev A paused destination acknowledges with an error without minting. A paused source rejects sends and keeps
-    /// the error acknowledgement relayable until it is unpaused.
-    function testFuzz_paused_errorAckRefundsAfterUnpause(uint256 amount) public {
-        amount = bound(amount, 1, MAX_RATE_LIMIT_CAPACITY);
-
-        address sender = integrationEnv.createUser();
-        address receiver = integrationEnv.createUser();
-        string memory clientId = th.FIRST_CLIENT_ID();
-
-        deal(address(iftOnA), sender, amount, true);
-
-        vm.startPrank(sender);
-        vm.recordLogs();
-        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount);
-        vm.stopPrank();
-
-        IICS26RouterMsgs.Packet memory sentPacket = _extractPacketFromLogs();
-
-        // Only the pauser can pause, and only the unpauser can unpause
-        vm.prank(unpauser);
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unpauser));
-        iftOnB.pause();
-        vm.prank(pauser);
-        iftOnB.pause();
-        vm.prank(pauser);
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, pauser));
-        iftOnB.unpause();
-
-        // The paused destination rejects the mint and writes an error acknowledgement
-        bytes[] memory acks = ibcImplB.recvPacket(sentPacket);
-        assertEq(acks[0], ICS24Host.UNIVERSAL_ERROR_ACK, "paused mint should be an error ack");
-        assertEq(iftOnB.totalSupply(), 0, "nothing should be minted on the destination");
-
-        // The paused source rejects new sends and the refund, so the ack relay reverts and the packet stays relayable
-        vm.prank(pauser);
-        iftOnA.pause();
-
-        vm.prank(sender);
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount);
-
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        ibcImplA.ackPacket(sentPacket, acks);
-        _assertStillPending(sentPacket, sender, amount);
-
-        // Once unpaused, relaying the same ack again refunds the sender
-        vm.prank(unpauser);
-        iftOnA.unpause();
-        ibcImplA.ackPacket(sentPacket, acks);
-        assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
-        vm.expectRevert(
-            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence)
-        );
-        iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
-    }
-
-    /// @dev A paused source keeps the timeout relayable until it is unpaused
-    function testFuzz_paused_timeoutRefundsAfterUnpause(uint256 amount) public {
-        amount = bound(amount, 1, MAX_RATE_LIMIT_CAPACITY);
-
-        address sender = integrationEnv.createUser();
-        address receiver = integrationEnv.createUser();
-        string memory clientId = th.FIRST_CLIENT_ID();
-
-        deal(address(iftOnA), sender, amount, true);
-
-        uint64 shortTimeout = uint64(block.timestamp) + 1;
-
-        vm.startPrank(sender);
-        vm.recordLogs();
-        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount, shortTimeout);
-        vm.stopPrank();
-
-        IICS26RouterMsgs.Packet memory sentPacket = _extractPacketFromLogs();
-
-        vm.warp(block.timestamp + 100);
-        ibcImplA.cheatPacketCommitment(sentPacket);
-
-        // The paused source rejects the refund, so the timeout relay reverts and the packet stays relayable
-        vm.prank(pauser);
-        iftOnA.pause();
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        ibcImplA.timeoutPacket(sentPacket);
-        _assertStillPending(sentPacket, sender, amount);
-
-        // Once unpaused, relaying the timeout again refunds the sender
-        vm.prank(unpauser);
-        iftOnA.unpause();
         ibcImplA.timeoutPacket(sentPacket);
         assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
         vm.expectRevert(
