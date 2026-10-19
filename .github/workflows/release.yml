@@ -126,6 +126,25 @@ jobs:
         shell: bash
         run: just solidity::build-sp1-programs
 
+      # cw-ics08-wasm-eth
+      - name: Install just
+        if: env.COMPONENT == 'cw-ics08-wasm-eth'
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Build the light client
+        if: env.COMPONENT == 'cw-ics08-wasm-eth'
+        run: |
+          # Release the binary built here from the tagged sources rather than the committed copy,
+          # so the provenance and SBOM describe the released binary. The build overwrites the
+          # committed copy, and must reproduce it, so the release is the binary the e2e tests ran.
+          wasm=e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz
+          committed=$(gunzip -c "$wasm" | sha256sum | cut -d' ' -f1)
+          just solidity::build-cw-ics08-wasm-eth
+          built=$(gunzip -c "$wasm" | sha256sum | cut -d' ' -f1)
+          if [[ "$built" != "$committed" ]]; then
+            echo "::error::The built light client (${built}) does not match the committed ${wasm} (${committed}); rebuild it with 'just solidity::build-cw-ics08-wasm-eth' and commit it"
+            exit 1
+          fi
+
       # solidity
       - name: Install Foundry
         if: env.COMPONENT == 'solidity'
@@ -248,6 +267,24 @@ jobs:
           mv out/assets/* out/sbom/* dist/
           (cd dist && sha256sum -- * > checksums.txt && cat checksums.txt)
           jq -c . out/attestations/*.json > "dist/${NAME}.sigstore.jsonl"
+      - name: Verify assets against the attestation bundles
+        run: |
+          # Check the downloaded assets against the downloaded bundles before signing, the same
+          # way the release notes tell users to, so a release never ships an asset that differs
+          # from what its build attested or a bundle that does not verify.
+          for path in dist/*; do
+            case "$path" in
+              *.spdx.json | *.sigstore.jsonl | dist/checksums.txt*) continue ;;
+            esac
+            for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
+              gh attestation verify "$path" \
+                --bundle "dist/${NAME}.sigstore.jsonl" \
+                --predicate-type "$predicate" \
+                --repo "$GH_REPO" \
+                --signer-workflow "${GITHUB_WORKFLOW_REF%@*}" \
+                --source-ref "$GITHUB_REF"
+            done
+          done
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign checksums
         working-directory: dist

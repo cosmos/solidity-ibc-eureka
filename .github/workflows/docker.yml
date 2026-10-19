@@ -9,6 +9,8 @@ on:
   push:
     tags:
       - proof-api-v[0-9]+.[0-9]+.[0-9]+
+      # Prerelease tags, which the release workflow also accepts.
+      - proof-api-v[0-9]+.[0-9]+.[0-9]+-*
   pull_request:
     paths:
       - '**.rs'
@@ -31,7 +33,7 @@ env:
   image_name: proof-api
   image_tags: |
     # Tag triggered events
-    type=match,event=tag,pattern=^proof-api-(v[0-9]+\.[0-9]+\.[0-9]+)$,group=1,priority=1000
+    type=match,event=tag,pattern=^proof-api-(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$,group=1,priority=1000
 
     # Latest, but only on main
     type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch' }},priority=900
