@@ -2089,7 +2089,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 	s.Require().True(s.Run("Receive packets on Ethereum after timeout should fail", func() {
 		ibcMulticallAddress := ethcommon.HexToAddress(s.contractAddresses.IbcMulticall)
 		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ibcMulticallAddress, txBodyBz)
-		s.RequireMulticallRejected(receipt, err)
+		s.RequireMulticallRejected(txBodyBz, receipt, err)
 
 		// Prove that the erc20 was not created (and by extension, the packet was not received)
 		denomOnEthereum := transfertypes.NewDenom(transferCoin.Denom, transfertypes.NewHop(transfertypes.PortID, testvalues.CustomClientID))
@@ -2552,6 +2552,6 @@ func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.
 
 	s.Require().True(s.Run("Verify recvPacket fails on Eth", func() {
 		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 5_000_000, &ibcMulticallAddress, recvRelayTx)
-		s.RequireMulticallRejected(receipt, err)
+		s.RequireMulticallRejected(recvRelayTx, receipt, err)
 	}))
 }

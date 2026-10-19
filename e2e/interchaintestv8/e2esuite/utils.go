@@ -3,6 +3,7 @@
 package e2esuite
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
@@ -49,6 +50,7 @@ import (
 	"github.com/cosmos/interchaintest/v11/testutil"
 
 	"github.com/cosmos/ibc-contracts/packages/go-abigen/ibcmulticall"
+	"github.com/cosmos/ibc-contracts/packages/go-abigen/ics26router"
 
 	"github.com/cosmos/ibc-contracts/e2e/v8/ethereum"
 	ibctesting "github.com/cosmos/ibc-contracts/e2e/v8/ibctesting"
@@ -503,14 +505,28 @@ func StripHTTPPrefix(endpoint string) string {
 	return endpoint
 }
 
-// RequireMulticallRejected requires that a relay through `IBCMulticall` delivered no packet. Either the batch reverted,
-// or it landed and the packet calls that are allowed to fail were rolled back and reported with `CallFailed`.
-func (s *TestSuite) RequireMulticallRejected(receipt *ethtypes.Receipt, broadcastErr error) {
+// RequireMulticallRejected requires that the `IBCMulticall` relay tx delivered no packet. Either the batch reverted, or
+// it landed and every packet call in it was rolled back and reported with `CallFailed`. Client updates may succeed.
+func (s *TestSuite) RequireMulticallRejected(relayTx []byte, receipt *ethtypes.Receipt, broadcastErr error) {
 	if broadcastErr != nil {
 		return
 	}
 
+	calls, err := ethereum.UnpackIBCMulticall(relayTx)
+	s.Require().NoError(err)
+	ics26ABI, err := ics26router.ContractMetaData.GetAbi()
+	s.Require().NoError(err)
 	multicall, err := ibcmulticall.NewContractFilterer(receipt.ContractAddress, nil)
 	s.Require().NoError(err)
-	s.Require().NotEmpty(GetEvmEvents(receipt, multicall.ParseCallFailed), "relay landed without rejecting any call")
+
+	failed := make(map[uint64]bool)
+	for _, event := range GetEvmEvents(receipt, multicall.ParseCallFailed) {
+		failed[event.Index.Uint64()] = true
+	}
+	for i, call := range calls {
+		if bytes.Equal(call[:4], ics26ABI.Methods["updateClient"].ID) {
+			continue
+		}
+		s.Require().True(failed[uint64(i)], "packet call %d of the relay was delivered", i)
+	}
 }
