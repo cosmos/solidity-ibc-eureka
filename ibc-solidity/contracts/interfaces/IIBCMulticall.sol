@@ -11,6 +11,11 @@ interface IIBCMulticall {
     /// @param returnData The revert data of the call
     event CallFailed(uint256 indexed index, bytes returnData);
 
+    /// @notice Initializes the contract instead of a constructor
+    /// @dev Meant to be called only once from the proxy
+    /// @param authority The address of the AccessManager contract
+    function initialize(address authority) external;
+
     /// @notice Executes the calls in order
     /// @dev Reverts with the revert data of the first failing call that is not allowed to fail. A call to an address
     /// without code fails with `Address.AddressEmptyCode`. The effects of a

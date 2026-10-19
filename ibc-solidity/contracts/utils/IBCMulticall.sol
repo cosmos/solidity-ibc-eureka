@@ -21,9 +21,7 @@ contract IBCMulticall is IIBCMulticall, AccessManagedUpgradeable, UUPSUpgradeabl
         _disableInitializers();
     }
 
-    /// @notice Initializes the contract
-    /// @param authority The address of the AccessManager contract
-    // natlint-disable-next-line MissingInheritdoc
+    /// @inheritdoc IIBCMulticall
     function initialize(address authority) external initializer {
         __AccessManaged_init(authority);
     }

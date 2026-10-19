@@ -85,6 +85,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address routerLogic = address(new ICS26Router());
         address transferLogic = address(new ICS20Transfer());
         address gmpLogic = address(new ICS27GMP());
+        address multicallLogic = address(new IBCMulticall());
 
         d.ics26Router =
             address(new ERC1967Proxy(routerLogic, abi.encodeCall(ICS26Router.initialize, (address(accessManager)))));
@@ -108,6 +109,10 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             )
         );
 
+        d.ibcMulticall = address(
+            new ERC1967Proxy(multicallLogic, abi.encodeCall(IBCMulticall.initialize, (address(accessManager))))
+        );
+
         // Deploy IFT
         address iftLogic = address(new IFTOwnable());
         d.ift = address(
@@ -129,6 +134,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
         // Wire up access control and apps
         accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, d.ics27Gmp, true);
+        accessManagerSetMulticallRoles(accessManager, d.ibcMulticall, true);
         accessManagerSetRoles(
             accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
         );
@@ -139,14 +145,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         TestERC20 erc20 = new TestERC20();
         erc20.mint(e2eFaucet, type(uint256).max);
         d.erc20 = address(erc20);
-
-        // Deploy the multicall that relayers submit through. Deployed last to keep the earlier deterministic addresses.
-        d.ibcMulticall = address(
-            new ERC1967Proxy(
-                address(new IBCMulticall()), abi.encodeCall(IBCMulticall.initialize, (address(accessManager)))
-            )
-        );
-        accessManagerSetMulticallRoles(accessManager, d.ibcMulticall, true);
     }
 
     function _toJson(DeployedContracts memory d) internal returns (string memory) {
