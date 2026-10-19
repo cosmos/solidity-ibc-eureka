@@ -4,7 +4,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cosmos/ibc-contracts/badge)](https://scorecard.dev/viewer/?uri=github.com/cosmos/ibc-contracts)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cosmos/ibc-contracts/blob/main/LICENSE.md)
 [![Discord](https://img.shields.io/discord/669268347736686612?logo=discord&label=Discord)](https://discord.com/invite/interchain)
-[![Version](https://img.shields.io/github/tag/cosmos/ibc-contracts.svg)](https://github.com/cosmos/ibc-contracts/releases/latest)
+[![Version](https://img.shields.io/github/v/tag/cosmos/ibc-contracts?label=version)](https://github.com/cosmos/ibc-contracts/releases/latest)
 [![Full Actions](https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-full.yml/badge.svg)](https://github.com/cosmos/ibc-contracts/actions)
 [![Minimal Actions](https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-minimal.yml/badge.svg)](https://github.com/cosmos/ibc-contracts/actions)
 [![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)
@@ -374,7 +374,7 @@ The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth
 |  | `solidity-vX.Y.Z.spdx.json` | SPDX SBOM generated from `ibc-solidity/package.json` and `bun.lock` at the tagged commit |
 |  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
 |  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `solidity-vX.Y.Z.intoto.jsonl` | Build provenance and SBOM attestations, for offline verification with `gh attestation verify --bundle` |
+|  | `solidity-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
 | `sp1-programs-vX.Y.Z` | `sp1-ics07-tendermint-update-client` | SP1 program that verifies the next block header with the Tendermint light client |
 |  | `sp1-ics07-tendermint-membership` | SP1 program that verifies the membership or non-membership of a value in a commitment root |
 |  | `sp1-ics07-tendermint-uc-and-membership` | SP1 program that verifies a client update and membership in a single proof |
@@ -382,19 +382,19 @@ The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth
 |  | `sp1-programs-vX.Y.Z.spdx.json` | SPDX SBOM generated from the SP1 programs' `Cargo.lock` at the tagged commit |
 |  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
 |  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `sp1-programs-vX.Y.Z.intoto.jsonl` | Build provenance and SBOM attestations, for offline verification with `gh attestation verify --bundle` |
+|  | `sp1-programs-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
 | `cw-ics08-wasm-eth-vX.Y.Z` | `cw_ics08_wasm_eth.wasm.gz` | Gzipped CosmWasm Ethereum light client, for the 08-wasm module of Cosmos chains |
 |  | `cw-ics08-wasm-eth-vX.Y.Z.spdx.json` | SPDX SBOM generated from the light client's `Cargo.lock` at the tagged commit |
 |  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
 |  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `cw-ics08-wasm-eth-vX.Y.Z.intoto.jsonl` | Build provenance and SBOM attestations, for offline verification with `gh attestation verify --bundle` |
+|  | `cw-ics08-wasm-eth-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
 | `proof-api-vX.Y.Z` | `proof-api-vX.Y.Z-linux-amd64.tar.gz` | `proof-api` and `operator` binaries for linux/amd64, with `LICENSE.md` |
 |  | `proof-api-vX.Y.Z-linux-arm64.tar.gz` | `proof-api` and `operator` binaries for linux/arm64, with `LICENSE.md` |
 |  | `proof-api-vX.Y.Z-linux-amd64.spdx.json` | SPDX SBOM of the linux/amd64 archive, generated from the workspace `Cargo.lock` |
 |  | `proof-api-vX.Y.Z-linux-arm64.spdx.json` | SPDX SBOM of the linux/arm64 archive, generated from the workspace `Cargo.lock` |
 |  | `checksums.txt` | SHA-256 checksums of the archives and the SBOMs |
 |  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `proof-api-vX.Y.Z.intoto.jsonl` | Build provenance and SBOM attestations, for offline verification with `gh attestation verify --bundle` |
+|  | `proof-api-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
 |  | `ghcr.io/cosmos/proof-api:vX.Y.Z` | Proof API container image (linux/amd64, linux/arm64) with the same binaries, signed with cosign and carrying provenance and SBOM attestations |
 
 The files are attached to the tag's [GitHub release](https://github.com/cosmos/ibc-contracts/releases) and the image is published to [GHCR](https://github.com/cosmos/ibc-contracts/pkgs/container/proof-api).

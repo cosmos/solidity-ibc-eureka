@@ -49,13 +49,14 @@ Pushing a `solidity-v*`, `sp1-programs-v*`, `cw-ics08-wasm-eth-v*` or `proof-api
 | `<tag>.spdx.json` (`<tag>-<platform>.spdx.json` for proof-api) | SPDX SBOM |
 | `checksums.txt` | SHA-256 of the assets and the SBOM |
 | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-| `<tag>.intoto.jsonl` | Provenance and SBOM attestation bundles, for offline `gh attestation verify --bundle` |
+| `<tag>.sigstore.jsonl` | Provenance and SBOM attestation bundles, for `gh attestation verify --bundle` without the attestations API |
 
+The same release workflow runs in [cosmos/ibc](https://github.com/cosmos/ibc) and [cosmos/ibc-go](https://github.com/cosmos/ibc-go); only the tag patterns and the build differ.
 
 ### Release procedure
 
-1. Tag the release commit and push the tag (e.g. `git tag solidity-v3.0.3 origin/main && git push origin solidity-v3.0.3`).
-2. Wait for the [release workflow](https://github.com/cosmos/ibc-contracts/actions/workflows/release.yml) to create the draft release in [GitHub](https://github.com/cosmos/ibc-contracts/releases) with the signed assets attached.
+1. Tag the release commit and push the tag (e.g. `git tag -s solidity-v3.0.3 -m solidity-v3.0.3 origin/main && git push origin solidity-v3.0.3`).
+2. Wait for the [release workflow](https://github.com/cosmos/ibc-contracts/actions/workflows/release.yml) to create the draft release in [GitHub](https://github.com/cosmos/ibc-contracts/releases) with the signed assets attached. The draft is only created once every build job has passed. If one fails, re-run the failed jobs.
 3. Edit the draft and write the release notes above the generated "Verifying the release" section.
 4. Check the `Set as a pre-release` checkbox if needed. The workflow already checks it for tags with a pre-release suffix such as `-rc.1`.
 5. Publish the release.
@@ -70,5 +71,8 @@ A `proof-api-v*` tag also runs the [docker workflow](./.github/workflows/docker.
 cosign verify ghcr.io/cosmos/proof-api:<tag> \
   --certificate-identity-regexp '^https://github.com/cosmos/ibc-contracts/.github/workflows/docker.yml@' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
-gh attestation verify oci://ghcr.io/cosmos/proof-api:<tag> --repo cosmos/ibc-contracts
+gh attestation verify oci://ghcr.io/cosmos/proof-api:<tag> --repo cosmos/ibc-contracts \
+  --signer-workflow cosmos/ibc-contracts/.github/workflows/docker.yml
 ```
+
+Image SBOMs are attached to the platform digests, not the multi-platform tag. To check one, pass the platform digest with `--predicate-type https://spdx.dev/Document/v2.3`.
