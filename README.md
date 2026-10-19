@@ -1,20 +1,16 @@
-# IBC Contracts  [![Full Actions][e2e-full-badge]][gha] [![Minimal Actions][e2e-minimal-badge]][gha] [![Foundry][foundry-badge]][foundry] [![License: Apache 2.0][license-badge]][license] [![Code Coverage][codecov-badge]][codecov] [![OpenSSF Scorecard][scorecard-badge]][scorecard] [![CodeQL][codeql-badge]][codeql]
+# IBC Contracts
 
-![IBC in Solidity](.github/assets/cosmos-ibc-contracts-github.svg)
+[![CodeQL](https://github.com/cosmos/ibc-contracts/actions/workflows/codeql.yml/badge.svg)](https://github.com/cosmos/ibc-contracts/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/cosmos/ibc-contracts/badge)](https://scorecard.dev/viewer/?uri=github.com/cosmos/ibc-contracts)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cosmos/ibc-contracts/blob/main/LICENSE.md)
+[![Discord](https://img.shields.io/discord/669268347736686612?logo=discord&label=Discord)](https://discord.com/invite/interchain)
+[![Version](https://img.shields.io/github/tag/cosmos/ibc-contracts.svg)](https://github.com/cosmos/ibc-contracts/releases/latest)
+[![Full Actions](https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-full.yml/badge.svg)](https://github.com/cosmos/ibc-contracts/actions)
+[![Minimal Actions](https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-minimal.yml/badge.svg)](https://github.com/cosmos/ibc-contracts/actions)
+[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)
+[![Code Coverage](https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX)](https://codecov.io/github/cosmos/solidity-ibc-eureka)
 
-[gha]: https://github.com/cosmos/ibc-contracts/actions
-[e2e-minimal-badge]: https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-minimal.yml/badge.svg
-[e2e-full-badge]: https://github.com/cosmos/ibc-contracts/actions/workflows/e2e-full.yml/badge.svg
-[foundry]: https://getfoundry.sh/
-[foundry-badge]: https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg
-[license]: https://www.apache.org/licenses/LICENSE-2.0
-[license-badge]: https://img.shields.io/badge/License-Apache_2.0-blue.svg
-[codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
-[codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
-[codeql]: https://github.com/cosmos/ibc-contracts/actions/workflows/codeql.yml
-[codeql-badge]: https://github.com/cosmos/ibc-contracts/actions/workflows/codeql.yml/badge.svg
-[scorecard]: https://scorecard.dev/viewer/?uri=github.com/cosmos/ibc-contracts
-[scorecard-badge]: https://api.scorecard.dev/projects/github.com/cosmos/ibc-contracts/badge
+![banner](./.github/assets/cosmos-ibc-contracts-github.svg)
 
 This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
