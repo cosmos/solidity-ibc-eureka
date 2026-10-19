@@ -265,9 +265,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				SrcChain: simdA.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier:   verifierAddress,
-					testvalues.ParameterKey_ZkAlgorithm:   proofType.String(),
-					testvalues.ParameterKey_AccessManager: s.contractAddresses.AccessManager,
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 				},
 			})
 			s.Require().NoError(err)
@@ -292,9 +291,8 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				SrcChain: simdB.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier:   verifierAddress,
-					testvalues.ParameterKey_ZkAlgorithm:   proofType.String(),
-					testvalues.ParameterKey_AccessManager: s.contractAddresses.AccessManager,
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 				},
 			})
 			s.Require().NoError(err)

@@ -323,7 +323,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 				testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
 				testvalues.ParameterKey_height:            strconv.FormatInt(latestCosmosHeader.Header.Height, 10),
 				testvalues.ParameterKey_timestamp:         strconv.FormatInt(latestCosmosHeader.Header.Time.Unix(), 10),
-				testvalues.ParameterKey_AccessManager:     s.contractAddresses.AccessManager,
 			}
 
 			var createClientTxBz []byte
@@ -363,9 +362,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 					SrcChain: simd.Config().ChainID,
 					DstChain: eth.ChainID.String(),
 					Parameters: map[string]string{
-						testvalues.ParameterKey_Sp1Verifier:   verifierAddress,
-						testvalues.ParameterKey_ZkAlgorithm:   proofType.String(),
-						testvalues.ParameterKey_AccessManager: s.contractAddresses.AccessManager,
+						testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+						testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 					},
 				})
 				s.Require().NoError(err)

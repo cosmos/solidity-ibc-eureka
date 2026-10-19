@@ -128,8 +128,6 @@ where
 const SP1_VERIFIER: &str = "sp1_verifier";
 /// The key for the zk algorithm in the parameters map.
 const ZK_ALGORITHM: &str = "zk_algorithm";
-/// The key for the access manager in the parameters map.
-const ACCESS_MANAGER: &str = "access_manager";
 
 #[async_trait::async_trait]
 impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
@@ -218,9 +216,9 @@ where
         // Check if parameters only include correct keys
         parameters
             .keys()
-            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM, ACCESS_MANAGER].contains(&k.as_str()))
+            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM].contains(&k.as_str()))
             .map_or(Ok(()), |param| {
-                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}`, `{ZK_ALGORITHM}` and `{ACCESS_MANAGER}` are allowed"))
+                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}` and `{ZK_ALGORITHM}` are allowed"))
             })?;
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
@@ -230,11 +228,8 @@ where
             latest_light_block.height().value()
         );
 
-        let access_manager = Address::from_str(
-            parameters
-                .get(ACCESS_MANAGER)
-                .ok_or_else(|| anyhow::anyhow!("Missing `{ACCESS_MANAGER}` parameter"))?,
-        )?;
+        // The light client is restricted by the router's access manager.
+        let access_manager = self.ics26_router.authority().call().await?;
         let sp1_verifier = Address::from_str(
             parameters
                 .get(SP1_VERIFIER)
@@ -387,8 +382,13 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
     ///
     /// # Errors
     /// Returns an error if transaction building fails.
-    pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        build_eth_attestor_create_client_calldata(parameters, self.provider.clone())
+    pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        build_eth_attestor_create_client_calldata(
+            parameters,
+            self.ics26_address,
+            self.provider.clone(),
+        )
+        .await
     }
 
     /// Update a client on Ethereum using attestations.

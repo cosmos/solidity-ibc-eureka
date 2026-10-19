@@ -2,7 +2,6 @@
 
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
-    str::FromStr,
     time::UNIX_EPOCH,
 };
 
@@ -47,14 +46,12 @@ struct CreateClientParams {
     max_clock_drift: u64,
     trust_level: IBesuLightClientMsgs::TrustThreshold,
     trusted_height: Option<u64>,
-    access_manager: Address,
 }
 
 const TRUSTING_PERIOD: &str = "trusting_period";
 const MAX_CLOCK_DRIFT: &str = "max_clock_drift";
 const TRUST_LEVEL: &str = "trust_level";
 const TRUSTED_HEIGHT: &str = "trusted_height";
-const ACCESS_MANAGER: &str = "access_manager";
 
 impl TxBuilder {
     pub fn new(
@@ -89,6 +86,13 @@ impl TxBuilder {
         };
 
         let trusted_state = consensus_state(&self.fetch_source_header(trusted_height).await?)?;
+        // The light client is restricted by the destination router's access manager.
+        let access_manager = self
+            .dst_ics26_router
+            .authority()
+            .call()
+            .await
+            .context("failed to fetch destination router authority")?;
 
         let calldata = match self.consensus_type {
             BesuConsensusType::Qbft => besu_qbft_light_client::BesuQBFTLightClient::deploy_builder(
@@ -112,7 +116,7 @@ impl TxBuilder {
                     stateRoot: trusted_state.stateRoot,
                     validators: trusted_state.validators,
                 },
-                params.access_manager,
+                access_manager,
             )
             .calldata()
             .to_vec(),
@@ -138,7 +142,7 @@ impl TxBuilder {
                         stateRoot: trusted_state.stateRoot,
                         validators: trusted_state.validators,
                     },
-                    params.access_manager,
+                    access_manager,
                 )
                 .calldata()
                 .to_vec()
@@ -561,13 +565,12 @@ fn parse_create_client_params(parameters: &HashMap<String, String>) -> Result<Cr
                 MAX_CLOCK_DRIFT,
                 TRUST_LEVEL,
                 TRUSTED_HEIGHT,
-                ACCESS_MANAGER,
             ]
             .contains(&key.as_str())
         })
         .map_or(Ok(()), |key| {
             Err(anyhow!(
-                "unexpected parameter `{key}`, only `{TRUSTING_PERIOD}`, `{MAX_CLOCK_DRIFT}`, `{TRUST_LEVEL}`, `{TRUSTED_HEIGHT}`, and `{ACCESS_MANAGER}` are allowed"
+                "unexpected parameter `{key}`, only `{TRUSTING_PERIOD}`, `{MAX_CLOCK_DRIFT}`, `{TRUST_LEVEL}`, and `{TRUSTED_HEIGHT}` are allowed"
             ))
         })?;
 
@@ -593,12 +596,6 @@ fn parse_create_client_params(parameters: &HashMap<String, String>) -> Result<Cr
                 })
             })
             .transpose()?,
-        access_manager: Address::from_str(
-            parameters
-                .get(ACCESS_MANAGER)
-                .ok_or_else(|| anyhow!("missing `{ACCESS_MANAGER}` parameter"))?,
-        )
-        .with_context(|| format!("failed to parse `{ACCESS_MANAGER}` as hex address"))?,
     })
 }
 
@@ -727,7 +724,7 @@ mod tests {
     use super::{
         attach_packet_proofs, map_storage_proofs, needs_update, packet_storage_key,
         parse_create_client_params, retain_provable_packet_calls, sort_commit_seals,
-        StorageSlotProof, ACCESS_MANAGER, TRUST_LEVEL,
+        StorageSlotProof, TRUST_LEVEL,
     };
     use crate::BesuConsensusType;
     use alloy::{
@@ -1015,7 +1012,6 @@ mod tests {
             let mut params = HashMap::from([
                 ("trusting_period".to_string(), "1000".to_string()),
                 ("max_clock_drift".to_string(), "10".to_string()),
-                (ACCESS_MANAGER.to_string(), Address::ZERO.to_string()),
             ]);
             if let Some(trust_level) = trust_level {
                 params.insert(TRUST_LEVEL.to_string(), trust_level.to_string());
@@ -1033,25 +1029,6 @@ mod tests {
                 "{invalid} should be rejected"
             );
         }
-    }
-
-    #[test]
-    fn create_client_params_access_manager() {
-        let access_manager = Address::repeat_byte(0xaa);
-        let mut params = HashMap::from([
-            ("trusting_period".to_string(), "1000".to_string()),
-            ("max_clock_drift".to_string(), "10".to_string()),
-        ]);
-        assert!(parse_create_client_params(&params).is_err());
-
-        params.insert(ACCESS_MANAGER.to_string(), "not-an-address".to_string());
-        assert!(parse_create_client_params(&params).is_err());
-
-        params.insert(ACCESS_MANAGER.to_string(), access_manager.to_string());
-        assert_eq!(
-            parse_create_client_params(&params).unwrap().access_manager,
-            access_manager
-        );
     }
 
     fn besu_extra_data(validators: &[Address], seals: Option<&[Vec<u8>]>) -> Bytes {

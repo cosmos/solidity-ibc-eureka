@@ -318,7 +318,6 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 					testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
 					testvalues.ParameterKey_height:            strconv.FormatInt(chainBHeader.Number.Int64(), 10),
 					testvalues.ParameterKey_timestamp:         strconv.FormatUint(chainBHeader.Time, 10),
-					testvalues.ParameterKey_AccessManager:     s.contractAddressesA.AccessManager,
 				},
 			})
 			s.Require().NoError(err)
@@ -366,7 +365,6 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 					testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
 					testvalues.ParameterKey_height:            strconv.FormatInt(chainAHeader.Number.Int64(), 10),
 					testvalues.ParameterKey_timestamp:         strconv.FormatUint(chainAHeader.Time, 10),
-					testvalues.ParameterKey_AccessManager:     s.contractAddressesB.AccessManager,
 				},
 			})
 			s.Require().NoError(err)

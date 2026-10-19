@@ -194,7 +194,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		verifierAddress, err := contractAddresses.GetVerifierAddress(prover, proofType.String())
 		s.Require().NoError(err)
 
-		// The client is added to the first deployment's router, so it uses that router's access manager.
+		// The proof API restricts the client with the access manager of its configured (first deployment's) router.
 		accessManager, err := s.ics26Contract.Authority(nil)
 		s.Require().NoError(err)
 
@@ -204,9 +204,8 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				SrcChain: simd.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier:   verifierAddress,
-					testvalues.ParameterKey_ZkAlgorithm:   proofType.String(),
-					testvalues.ParameterKey_AccessManager: accessManager.Hex(),
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 				},
 			})
 			s.Require().NoError(err)

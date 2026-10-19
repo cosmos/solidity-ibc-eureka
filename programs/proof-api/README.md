@@ -151,7 +151,7 @@ Module configuration varies by module type:
 
 ## EVM light client access control
 
-Every EVM light client created through `CreateClient` (`SP1ICS07Tendermint`, `AttestationLightClient`, `BesuQBFTLightClient` and `BesuIBFT2LightClient`) is restricted by an OpenZeppelin `AccessManager`. Its address is passed as the required `access_manager` create-client parameter.
+Every EVM light client created through `CreateClient` (`SP1ICS07Tendermint`, `AttestationLightClient`, `BesuQBFTLightClient` and `BesuIBFT2LightClient`) is restricted by an OpenZeppelin `AccessManager`. The proof API uses the `authority()` of the destination `ICS26Router` from the module config, so no parameter is needed.
 
 Deploying the client does not grant anyone access. Afterwards, the `AccessManager` admin must map the client's selectors to roles:
 - `IBCRolesLib.lightClientRelayerSelectors()` (`updateClient`, `verifyMembership`, `verifyNonMembership`) to `RELAYER_ROLE`, or to `PUBLIC_ROLE` for a permissionless client.
@@ -166,7 +166,6 @@ The `ICS26Router` calls the light client, so it must hold `RELAYER_ROLE`. See `D
 Required parameters:
 - `trusting_period`: Decimal seconds for the weak-subjectivity window.
 - `max_clock_drift`: Decimal seconds for allowed future header drift.
-- `access_manager`: Hex address of the `AccessManager` restricting the client (see [EVM light client access control](#evm-light-client-access-control)).
 
 Optional parameters:
 - `trust_level`: Minimum fraction of the trusted validator set that must sign an update, as `<numerator>/<denominator>` within `[1/3, 1]`. Defaults to `2/3`.

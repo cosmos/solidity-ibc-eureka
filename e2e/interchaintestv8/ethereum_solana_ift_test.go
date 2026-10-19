@@ -519,7 +519,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 				testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(numSolAttestors),
 				testvalues.ParameterKey_height:            strconv.FormatUint(currentFinalizedSlot, 10),
 				testvalues.ParameterKey_timestamp:         strconv.FormatInt(int64(*solanaTimestamp), 10),
-				testvalues.ParameterKey_AccessManager:     s.contractAddresses.AccessManager,
 			},
 		})
 		s.Require().NoError(err)

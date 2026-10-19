@@ -336,9 +336,8 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 					SrcChain: s.Wfchain.Config().ChainID,
 					DstChain: eth.ChainID.String(),
 					Parameters: map[string]string{
-						testvalues.ParameterKey_Sp1Verifier:   verifierAddress,
-						testvalues.ParameterKey_ZkAlgorithm:   proofType.String(),
-						testvalues.ParameterKey_AccessManager: s.contractAddresses.AccessManager,
+						testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+						testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 					},
 				})
 				s.Require().NoError(err)
@@ -1027,9 +1026,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 				SrcChain: s.Wfchain.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier:   verifierAddress,
-					testvalues.ParameterKey_ZkAlgorithm:   s.proofType.String(),
-					testvalues.ParameterKey_AccessManager: s.contractAddresses.AccessManager,
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: s.proofType.String(),
 				},
 			})
 			s.Require().NoError(err)

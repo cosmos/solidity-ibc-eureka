@@ -334,7 +334,6 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 					testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(s.quorumThreshold),
 					testvalues.ParameterKey_height:            strconv.FormatInt(latestCosmosHeader.Header.Height, 10),
 					testvalues.ParameterKey_timestamp:         strconv.FormatInt(latestCosmosHeader.Header.Time.Unix(), 10),
-					testvalues.ParameterKey_AccessManager:     s.contractAddresses.AccessManager,
 				},
 			})
 			s.Require().NoError(err)

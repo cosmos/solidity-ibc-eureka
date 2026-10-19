@@ -13,10 +13,11 @@ use crate::utils::attestor::{
 };
 use crate::utils::{eth_eureka, wait_for_condition, RelayEventsParams};
 use alloy::{primitives::Address, primitives::Bytes, sol_types::SolCall, sol_types::SolValue};
+use anyhow::Context;
 use anyhow::Result;
 use ibc_eureka_solidity_types::{
     ics26::{
-        router::{multicallCall, routerCalls, updateClientCall},
+        router::{self, multicallCall, routerCalls, updateClientCall},
         IICS02ClientMsgs::Height as ICS26Height,
     },
     msgs::IAttestationMsgs::AttestationProof,
@@ -30,13 +31,9 @@ pub const HEIGHT: &str = "height";
 pub const TIMESTAMP: &str = "timestamp";
 /// Parameter key for attestor addresses.
 pub const ATTESTOR_ADDRESSES: &str = "attestor_addresses";
-/// Parameter key for the `AccessManager` address that restricts the light client.
-pub const ACCESS_MANAGER: &str = "access_manager";
 
 /// Parsed parameters for creating an attestor light client.
 pub struct AttestorClientParams {
-    /// The `AccessManager` address that restricts the light client.
-    pub access_manager: Address,
     /// Minimum required signatures for attestation verification.
     pub min_required_sigs: u8,
     /// Initial height for the client state.
@@ -54,12 +51,6 @@ pub struct AttestorClientParams {
 pub fn parse_attestor_client_params<S: std::hash::BuildHasher>(
     parameters: &HashMap<String, String, S>,
 ) -> Result<AttestorClientParams> {
-    let access_manager: Address = parameters
-        .get(ACCESS_MANAGER)
-        .ok_or_else(|| anyhow::anyhow!("Missing `{ACCESS_MANAGER}` parameter"))?
-        .parse()
-        .map_err(|e| anyhow::anyhow!("invalid `{ACCESS_MANAGER}` address: {e}"))?;
-
     let min_required_sigs: u8 = parameters
         .get(MIN_REQUIRED_SIGS)
         .ok_or_else(|| anyhow::anyhow!("Missing `{MIN_REQUIRED_SIGS}` parameter"))?
@@ -87,7 +78,6 @@ pub fn parse_attestor_client_params<S: std::hash::BuildHasher>(
         .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
 
     Ok(AttestorClientParams {
-        access_manager,
         min_required_sigs,
         height,
         timestamp,
@@ -319,16 +309,24 @@ pub async fn build_eth_attestor_relay_events_tx(
 
 /// Builds create client calldata for an Ethereum attestor light client.
 ///
+/// The light client is restricted by the `AccessManager` of the ICS26 router at `ics26_address`.
+///
 /// # Errors
-/// Returns an error if parameter parsing fails.
-pub fn build_eth_attestor_create_client_calldata<
-    S: std::hash::BuildHasher,
+/// Returns an error if parameter parsing or querying the router's authority fails.
+pub async fn build_eth_attestor_create_client_calldata<
+    S: std::hash::BuildHasher + Sync,
     P: alloy::providers::Provider + Clone,
 >(
-    parameters: &std::collections::HashMap<String, String, S>,
+    parameters: &HashMap<String, String, S>,
+    ics26_address: Address,
     provider: P,
 ) -> Result<Vec<u8>> {
     let params = parse_attestor_client_params(parameters)?;
+    let access_manager = router::new(ics26_address, provider.clone())
+        .authority()
+        .call()
+        .await
+        .context("failed to query the ICS26 router authority")?;
 
     Ok(
         ibc_eureka_solidity_types::attestation::light_client::deploy_builder(
@@ -337,7 +335,7 @@ pub fn build_eth_attestor_create_client_calldata<
             params.min_required_sigs,
             params.height,
             params.timestamp,
-            params.access_manager,
+            access_manager,
         )
         .calldata()
         .to_vec(),

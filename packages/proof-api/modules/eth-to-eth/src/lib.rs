@@ -241,6 +241,7 @@ impl ProofApiService for EthToEthProofApiModuleService {
         let tx = self
             .tx_builder
             .create_client(&inner_req.parameters)
+            .await
             .map_err(to_tonic_status)?;
 
         tracing::info!("Create client request completed.");
@@ -296,10 +297,15 @@ impl EthToEthTxBuilder {
         }
     }
 
-    fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Attested(tb) => {
-                build_eth_attestor_create_client_calldata(parameters, tb.provider.clone())
+                build_eth_attestor_create_client_calldata(
+                    parameters,
+                    tb.ics26_address,
+                    tb.provider.clone(),
+                )
+                .await
             }
         }
     }

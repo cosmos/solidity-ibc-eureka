@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use alloy::providers::RootProvider;
+use alloy::{primitives::Address, providers::RootProvider};
 use anyhow::Result;
 use proof_api_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
@@ -24,6 +24,7 @@ use proof_api_lib::{
 /// Transaction builder using attestation proofs for Solana-to-Eth relay.
 pub struct AttestedTxBuilder {
     aggregator: Aggregator,
+    ics26_address: Address,
     provider: RootProvider,
 }
 
@@ -33,10 +34,15 @@ impl AttestedTxBuilder {
     /// # Errors
     ///
     /// Returns an error if the aggregator cannot be created from the config.
-    pub async fn new(aggregator_config: AggregatorConfig, provider: RootProvider) -> Result<Self> {
+    pub async fn new(
+        aggregator_config: AggregatorConfig,
+        ics26_address: Address,
+        provider: RootProvider,
+    ) -> Result<Self> {
         let aggregator = Aggregator::from_config(aggregator_config).await?;
         Ok(Self {
             aggregator,
+            ics26_address,
             provider,
         })
     }
@@ -58,8 +64,13 @@ impl AttestedTxBuilder {
     /// # Errors
     ///
     /// Returns an error if calldata construction fails.
-    pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        build_eth_attestor_create_client_calldata(parameters, self.provider.clone())
+    pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        build_eth_attestor_create_client_calldata(
+            parameters,
+            self.ics26_address,
+            self.provider.clone(),
+        )
+        .await
     }
 
     /// Build `update_client` calldata for the attestation light client on EVM.
