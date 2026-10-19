@@ -79,7 +79,7 @@ abstract contract MulticallIntegrationSuite is LightClientDriverTest, DeployAcce
                 )
             )
         );
-        accessManagerSetMulticallRoles(ibcImplA.accessManager(), address(multicall));
+        accessManagerSetMulticallRoles(ibcImplA.accessManager(), address(multicall), false);
 
         relayer = makeAddr("relayer");
         ibcImplA.accessManager().grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);

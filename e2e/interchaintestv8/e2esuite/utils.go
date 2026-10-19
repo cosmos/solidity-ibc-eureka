@@ -48,6 +48,8 @@ import (
 	"github.com/cosmos/interchaintest/v11/ibc"
 	"github.com/cosmos/interchaintest/v11/testutil"
 
+	"github.com/cosmos/ibc-contracts/packages/go-abigen/ibcmulticall"
+
 	"github.com/cosmos/ibc-contracts/e2e/v8/ethereum"
 	ibctesting "github.com/cosmos/ibc-contracts/e2e/v8/ibctesting"
 	"github.com/cosmos/ibc-contracts/e2e/v8/testvalues"
@@ -499,4 +501,16 @@ func StripHTTPPrefix(endpoint string) string {
 	endpoint = strings.TrimPrefix(endpoint, "https://")
 	endpoint = strings.TrimPrefix(endpoint, "http://")
 	return endpoint
+}
+
+// RequireMulticallRejected requires that a relay through `IBCMulticall` delivered no packet. Either the batch reverted,
+// or it landed and the packet calls that are allowed to fail were rolled back and reported with `CallFailed`.
+func (s *TestSuite) RequireMulticallRejected(receipt *ethtypes.Receipt, broadcastErr error) {
+	if broadcastErr != nil {
+		return
+	}
+
+	multicall, err := ibcmulticall.NewContractFilterer(receipt.ContractAddress, nil)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(GetEvmEvents(receipt, multicall.ParseCallFailed), "relay landed without rejecting any call")
 }

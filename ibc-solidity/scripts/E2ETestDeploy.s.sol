@@ -25,6 +25,7 @@ import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { IFTOwnable } from "../contracts/utils/IFTOwnable.sol";
 import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
+import { IBCMulticall } from "../contracts/utils/IBCMulticall.sol";
 
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v6.1.0/SP1VerifierGroth16.sol";
@@ -53,6 +54,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address verifierGroth16;
         address verifierMock;
         address ics26Router;
+        address ibcMulticall;
         address ics20Transfer;
         address ics27Gmp;
         address erc20;
@@ -137,6 +139,14 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         TestERC20 erc20 = new TestERC20();
         erc20.mint(e2eFaucet, type(uint256).max);
         d.erc20 = address(erc20);
+
+        // Deploy the multicall that relayers submit through. Deployed last to keep the earlier deterministic addresses.
+        d.ibcMulticall = address(
+            new ERC1967Proxy(
+                address(new IBCMulticall()), abi.encodeCall(IBCMulticall.initialize, (address(accessManager)))
+            )
+        );
+        accessManagerSetMulticallRoles(accessManager, d.ibcMulticall, true);
     }
 
     function _toJson(DeployedContracts memory d) internal returns (string memory) {
@@ -145,6 +155,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("verifierGroth16", Strings.toHexString(d.verifierGroth16));
         json.serialize("verifierMock", Strings.toHexString(d.verifierMock));
         json.serialize("ics26Router", Strings.toHexString(d.ics26Router));
+        json.serialize("ibcMulticall", Strings.toHexString(d.ibcMulticall));
         json.serialize("ics20Transfer", Strings.toHexString(d.ics20Transfer));
         json.serialize("ics27Gmp", Strings.toHexString(d.ics27Gmp));
         json.serialize("erc20", Strings.toHexString(d.erc20));
