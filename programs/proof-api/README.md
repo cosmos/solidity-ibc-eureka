@@ -151,7 +151,7 @@ Module configuration varies by module type:
 
 ## EVM light client access control
 
-Every EVM light client created through `CreateClient` (`SP1ICS07Tendermint`, `AttestationLightClient`, `BesuQBFTLightClient` and `BesuIBFT2LightClient`) is restricted by an OpenZeppelin `AccessManager`. The proof API uses the `authority()` of the destination `ICS26Router` from the module config, so no parameter is needed.
+Every EVM light client created through `CreateClient` (`SP1ICS07Tendermint`, `AttestationLightClient`, `BesuQBFTLightClient` and `BesuIBFT2LightClient`) is restricted by an `AccessManager`. The proof API uses the `authority()` of the destination `ICS26Router` from the module config, so no parameter is needed.
 
 Deploying the client does not grant anyone access. Afterwards, the `AccessManager` admin must map the client's selectors to roles:
 - `IBCRolesLib.lightClientRelayerSelectors()` (`updateClient`, `verifyMembership`, `verifyNonMembership`) to `RELAYER_ROLE`, or to `PUBLIC_ROLE` for a permissionless client.

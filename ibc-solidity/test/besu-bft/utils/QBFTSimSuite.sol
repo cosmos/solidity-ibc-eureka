@@ -220,7 +220,9 @@ contract QBFTSimSuite is Test, SimWorldState, DeployAccessManagerWithRoles {
         external
         returns (IBesuLightClient lightClient)
     {
-        AccessManager accessManager = new AccessManager(address(this));
+        // Deployed from its artifact so that its bytecode is not embedded into this contract's initcode.
+        AccessManager accessManager =
+            AccessManager(deployCode("AccessManager.sol:AccessManager", abi.encode(address(this))));
         lightClient = deployLightClient(trustingPeriod, maxClockDrift, trustLevel, address(accessManager));
         accessManagerSetLightClientTargetRoles(accessManager, address(lightClient), true, true);
     }
