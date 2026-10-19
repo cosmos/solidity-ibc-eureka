@@ -12,7 +12,8 @@ interface IIBCMulticall {
     event CallFailed(uint256 indexed index, bytes returnData);
 
     /// @notice Executes the calls in order
-    /// @dev Reverts with the revert data of the first failing call that is not allowed to fail. The effects of a
+    /// @dev Reverts with the revert data of the first failing call that is not allowed to fail. A call to an address
+    /// without code fails with `Address.AddressEmptyCode`. The effects of a
     /// failing call that is allowed to fail are rolled back while the rest of the batch is kept.
     /// @param calls The calls to execute
     /// @return results The outcome of each call

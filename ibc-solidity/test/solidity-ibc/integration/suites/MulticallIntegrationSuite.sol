@@ -23,6 +23,7 @@ import { IFTAccessManaged } from "../../../../contracts/utils/IFTAccessManaged.s
 import { EVMIFTSendCallConstructor } from "../../../../contracts/utils/EVMIFTSendCallConstructor.sol";
 import { IBCRolesLib } from "../../../../contracts/utils/IBCRolesLib.sol";
 import { ICS24Host } from "../../../../contracts/utils/ICS24Host.sol";
+import { Address } from "@openzeppelin-contracts/utils/Address.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { RateLimiter } from "@openzeppelin-contracts/utils/RateLimiter.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -190,6 +191,25 @@ abstract contract MulticallIntegrationSuite is LightClientDriverTest, DeployAcce
 
         calls[0].allowFailure = false;
         vm.expectRevert(unauthorized);
+        vm.prank(relayer);
+        multicall.multicall(calls);
+    }
+
+    function test_failure_targetWithoutCode() public {
+        address noCode = makeAddr("noCode");
+        bytes memory emptyCode = abi.encodeWithSelector(Address.AddressEmptyCode.selector, noCode);
+        IIBCMulticallMsgs.Call[] memory calls = new IIBCMulticallMsgs.Call[](1);
+        calls[0] = IIBCMulticallMsgs.Call({ target: noCode, allowFailure: true, callData: "" });
+
+        vm.expectEmit(address(multicall));
+        emit IIBCMulticall.CallFailed(0, emptyCode);
+        vm.prank(relayer);
+        IIBCMulticallMsgs.Result[] memory results = multicall.multicall(calls);
+        assertFalse(results[0].success, "call without code should fail");
+        assertEq(results[0].returnData, emptyCode);
+
+        calls[0].allowFailure = false;
+        vm.expectRevert(emptyCode);
         vm.prank(relayer);
         multicall.multicall(calls);
     }

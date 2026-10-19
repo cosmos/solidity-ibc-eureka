@@ -7,6 +7,7 @@ import { IIBCMulticall } from "../interfaces/IIBCMulticall.sol";
 
 import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Address } from "@openzeppelin-contracts/utils/Address.sol";
 import { LowLevelCall } from "@openzeppelin-contracts/utils/LowLevelCall.sol";
 
 /// @title IBC Multicall
@@ -35,11 +36,16 @@ contract IBCMulticall is IIBCMulticall, AccessManagedUpgradeable, UUPSUpgradeabl
     {
         results = new IIBCMulticallMsgs.Result[](calls.length);
         for (uint256 i = 0; i < calls.length; ++i) {
-            IIBCMulticallMsgs.Call calldata call = calls[i];
+            IIBCMulticallMsgs.Call calldata calli = calls[i];
             // solhint-disable-next-line avoid-low-level-calls
-            (bool success, bytes memory returnData) = call.target.call(call.callData);
+            (bool success, bytes memory returnData) = calli.target.call(calli.callData);
+            // A call to an address without code succeeds without doing anything, so it is treated as a failure
+            if (success && returnData.length == 0 && calli.target.code.length == 0) {
+                success = false;
+                returnData = abi.encodeWithSelector(Address.AddressEmptyCode.selector, calli.target);
+            }
             if (!success) {
-                if (!call.allowFailure) {
+                if (!calli.allowFailure) {
                     LowLevelCall.bubbleRevert(returnData);
                 }
                 emit CallFailed(i, returnData);
