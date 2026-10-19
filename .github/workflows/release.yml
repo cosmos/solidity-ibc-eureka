@@ -142,16 +142,15 @@ jobs:
         run: ./ibc-solidity/scripts/package-contracts.sh
 
       # proof-api
-      - name: Build proof-api and operator
+      - name: Build proof-api
         if: env.COMPONENT == 'proof-api'
         run: |
-          # Use the builder stage of the image's Dockerfile, so the released binaries are built in
-          # the same environment as the ones in the proof-api image.
+          # Use the builder stage of the image's Dockerfile, so the released binary is built in
+          # the same environment as the one in the proof-api image.
           docker build --target builder -t proof-api-builder -f programs/proof-api/Dockerfile .
           id=$(docker create proof-api-builder)
           mkdir -p proof-api-dist
           docker cp "${id}:/app/target/release/proof-api" proof-api-dist/
-          docker cp "${id}:/app/target/release/operator" proof-api-dist/
           docker rm "$id"
 
       - name: Collect assets
@@ -174,7 +173,7 @@ jobs:
               cp LICENSE.md proof-api-dist/
               tar --sort=name --mtime="@$(git log -1 --format=%ct)" \
                 --owner=0 --group=0 --numeric-owner \
-                -C proof-api-dist -cf - proof-api operator LICENSE.md \
+                -C proof-api-dist -cf - proof-api LICENSE.md \
                 | gzip -n > "out/assets/${NAME}${ASSET_SUFFIX}.tar.gz"
               ;;
           esac

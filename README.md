@@ -366,42 +366,7 @@ The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin
 
 The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth-v1.3.x`, and `proof-api-v0.7.x`. Please refer to our [versioning guide](./RELEASES.md) for more information on how to understand our release versioning.
 
-### Release artifacts
-
-| Tag | Artifact | Description |
-| --- | --- | --- |
-| `solidity-vX.Y.Z` | `solidity-contracts-solidity-vX.Y.Z.tar.gz` | Forge build artifacts (ABI and bytecode) of the deployable contracts, with `LICENSE.md` and a `TAG_NAME` file |
-|  | `solidity-vX.Y.Z.spdx.json` | SPDX SBOM generated from `ibc-solidity/package.json` and `bun.lock` at the tagged commit |
-|  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
-|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `solidity-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
-| `sp1-programs-vX.Y.Z` | `sp1-ics07-tendermint-update-client` | SP1 program that verifies the next block header with the Tendermint light client |
-|  | `sp1-ics07-tendermint-membership` | SP1 program that verifies the membership or non-membership of a value in a commitment root |
-|  | `sp1-ics07-tendermint-uc-and-membership` | SP1 program that verifies a client update and membership in a single proof |
-|  | `sp1-ics07-tendermint-misbehaviour` | SP1 program that verifies misbehaviour evidence |
-|  | `sp1-programs-vX.Y.Z.spdx.json` | SPDX SBOM generated from the SP1 programs' `Cargo.lock` at the tagged commit |
-|  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
-|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `sp1-programs-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
-| `cw-ics08-wasm-eth-vX.Y.Z` | `cw_ics08_wasm_eth.wasm.gz` | Gzipped CosmWasm Ethereum light client, for the 08-wasm module of Cosmos chains |
-|  | `cw-ics08-wasm-eth-vX.Y.Z.spdx.json` | SPDX SBOM generated from the light client's `Cargo.lock` at the tagged commit |
-|  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
-|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `cw-ics08-wasm-eth-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
-| `proof-api-vX.Y.Z` | `proof-api-vX.Y.Z-linux-amd64.tar.gz` | `proof-api` and `operator` binaries for linux/amd64, with `LICENSE.md` |
-|  | `proof-api-vX.Y.Z-linux-arm64.tar.gz` | `proof-api` and `operator` binaries for linux/arm64, with `LICENSE.md` |
-|  | `proof-api-vX.Y.Z-linux-amd64.spdx.json` | SPDX SBOM of the linux/amd64 archive, generated from the workspace `Cargo.lock` |
-|  | `proof-api-vX.Y.Z-linux-arm64.spdx.json` | SPDX SBOM of the linux/arm64 archive, generated from the workspace `Cargo.lock` |
-|  | `checksums.txt` | SHA-256 checksums of the archives and the SBOMs |
-|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
-|  | `proof-api-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
-|  | `ghcr.io/cosmos/proof-api:vX.Y.Z` | Proof API container image (linux/amd64, linux/arm64) with the same binaries, signed with cosign and carrying provenance and SBOM attestations |
-
-The files are attached to the tag's [GitHub release](https://github.com/cosmos/ibc-contracts/releases) and the image is published to [GHCR](https://github.com/cosmos/ibc-contracts/pkgs/container/proof-api).
-
-`operator` is the SP1 ICS07 Tendermint operator CLI, which generates proof fixtures and converts Solana misbehaviour evidence to Borsh.
-
-See [Signed release assets](./RELEASES.md#signed-release-assets) for how to verify the artifacts.
+See [Release artifacts](./RELEASES.md#release-artifacts) for the files and images each release tag publishes.
 
 ## License
 

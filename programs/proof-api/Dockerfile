@@ -21,7 +21,6 @@ COPY ibc-solana/packages ibc-solana/packages
 COPY proto proto
 
 RUN cargo build --bin proof-api --release --locked
-RUN cargo build --bin operator --release --locked
 
 FROM debian:bookworm-slim AS certs
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
@@ -37,7 +36,6 @@ COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 COPY --from=builder /app/target/release/proof-api /usr/local/bin/proof-api
-COPY --from=builder /app/target/release/operator /usr/local/bin/operator
 COPY scripts/proof_api_docker_entrypoint.sh /docker_entrypoint.sh
 
 ENV PLATFORM_COMMIT=${COMMIT}

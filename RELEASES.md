@@ -39,13 +39,48 @@ The proof API does not have a major release yet, since we want to reserve the ri
 - **Minor version bump**: A minor version bump indicates that there are new features or improvements in the proof API.
 - **Patch version bump**: A patch version bump indicates that there are bug fixes or minor improvements in the proof API.
 
+## Release artifacts
+
+| Tag | Artifact | Description |
+| --- | --- | --- |
+| `solidity-vX.Y.Z` | `solidity-contracts-solidity-vX.Y.Z.tar.gz` | Forge build artifacts (ABI and bytecode) of the deployable contracts, with `LICENSE.md` and a `TAG_NAME` file |
+|  | `solidity-vX.Y.Z.spdx.json` | SPDX SBOM generated from `ibc-solidity/package.json` and `bun.lock` at the tagged commit |
+|  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
+|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
+|  | `solidity-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
+| `sp1-programs-vX.Y.Z` | `sp1-ics07-tendermint-update-client` | SP1 program that verifies the next block header with the Tendermint light client |
+|  | `sp1-ics07-tendermint-membership` | SP1 program that verifies the membership or non-membership of a value in a commitment root |
+|  | `sp1-ics07-tendermint-uc-and-membership` | SP1 program that verifies a client update and membership in a single proof |
+|  | `sp1-ics07-tendermint-misbehaviour` | SP1 program that verifies misbehaviour evidence |
+|  | `sp1-programs-vX.Y.Z.spdx.json` | SPDX SBOM generated from the SP1 programs' `Cargo.lock` at the tagged commit |
+|  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
+|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
+|  | `sp1-programs-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
+| `cw-ics08-wasm-eth-vX.Y.Z` | `cw_ics08_wasm_eth.wasm.gz` | Gzipped CosmWasm Ethereum light client, for the 08-wasm module of Cosmos chains |
+|  | `cw-ics08-wasm-eth-vX.Y.Z.spdx.json` | SPDX SBOM generated from the light client's `Cargo.lock` at the tagged commit |
+|  | `checksums.txt` | SHA-256 checksums of the release files and the SBOM |
+|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
+|  | `cw-ics08-wasm-eth-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
+| `proof-api-vX.Y.Z` | `proof-api-vX.Y.Z-linux-amd64.tar.gz` | `proof-api` binary for linux/amd64, with `LICENSE.md` |
+|  | `proof-api-vX.Y.Z-linux-arm64.tar.gz` | `proof-api` binary for linux/arm64, with `LICENSE.md` |
+|  | `proof-api-vX.Y.Z-linux-amd64.spdx.json` | SPDX SBOM of the linux/amd64 archive, generated from the workspace `Cargo.lock` |
+|  | `proof-api-vX.Y.Z-linux-arm64.spdx.json` | SPDX SBOM of the linux/arm64 archive, generated from the workspace `Cargo.lock` |
+|  | `checksums.txt` | SHA-256 checksums of the archives and the SBOMs |
+|  | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
+|  | `proof-api-vX.Y.Z.sigstore.jsonl` | Build provenance and SBOM attestations, for verification without the attestations API with `gh attestation verify --bundle` |
+|  | `ghcr.io/cosmos/proof-api:vX.Y.Z` | Proof API container image (linux/amd64, linux/arm64) with the same binary, signed with cosign and carrying provenance and SBOM attestations |
+
+The files are attached to the tag's [GitHub release](https://github.com/cosmos/ibc-contracts/releases) and the image is published to [GHCR](https://github.com/cosmos/ibc-contracts/pkgs/container/proof-api).
+
+See [Signed release assets](#signed-release-assets) for how to verify the artifacts.
+
 ## Signed release assets
 
 Pushing a `solidity-v*`, `sp1-programs-v*`, `cw-ics08-wasm-eth-v*` or `proof-api-v*` tag runs the [release workflow](./.github/workflows/release.yml). It builds the release assets of the component from the tagged commit, generates an SPDX SBOM from the component's lockfiles, attests their build provenance, signs a `checksums.txt` over them with cosign, and attaches everything to a draft release for the tag. The release notes get a section explaining how to verify the assets.
 
 | Asset | Purpose |
 | --- | --- |
-| Component assets (`solidity-contracts-<tag>.tar.gz`, the `sp1-ics07-tendermint-*` programs, `cw_ics08_wasm_eth.wasm.gz`, or `<tag>-linux-amd64.tar.gz` and `<tag>-linux-arm64.tar.gz` with the `proof-api` and `operator` binaries) | What the component ships |
+| Component assets (`solidity-contracts-<tag>.tar.gz`, the `sp1-ics07-tendermint-*` programs, `cw_ics08_wasm_eth.wasm.gz`, or `<tag>-linux-amd64.tar.gz` and `<tag>-linux-arm64.tar.gz` with the `proof-api` binary) | What the component ships |
 | `<tag>.spdx.json` (`<tag>-<platform>.spdx.json` for proof-api) | SPDX SBOM |
 | `checksums.txt` | SHA-256 of the assets and the SBOM |
 | `checksums.txt.sigstore.json` | Cosign signature over `checksums.txt` |
