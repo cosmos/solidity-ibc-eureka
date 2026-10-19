@@ -20,7 +20,7 @@ import (
 
 	"github.com/cosmos/interchaintest/v11/chain/ethereum"
 
-	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
+	"github.com/cosmos/ibc-contracts/packages/go-abigen/ics26router"
 )
 
 const (

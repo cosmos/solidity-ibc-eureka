@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import { IICS26RouterAccessControlled } from "../interfaces/IICS26Router.sol";
 import { IICS02ClientAccessControlled } from "../interfaces/IICS02Client.sol";
 import { IICS20TransferAccessControlled } from "../interfaces/IICS20Transfer.sol";
+import { IICS26Router } from "../interfaces/IICS26Router.sol";
+import { IICS02Client } from "../interfaces/IICS02Client.sol";
 import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
 import { IPausable } from "../interfaces/IPausable.sol";
 import { IRateLimit } from "../interfaces/IRateLimit.sol";
@@ -66,6 +68,16 @@ library IBCRolesLib {
         bytes4[] memory migrationFunctions = new bytes4[](1);
         migrationFunctions[0] = IICS02ClientAccessControlled.migrateClient.selector;
         return migrationFunctions;
+    }
+
+    /// @notice The functions that can be called by the PUBLIC_ROLE in ICS26Router.
+    /// @dev These functions can be restricted further on discretion of the access manager.
+    /// @return An array of function selectors that can be called by the PUBLIC_ROLE.
+    function ics26PublicSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory publicFunctions = new bytes4[](2);
+        publicFunctions[0] = IICS26Router.addIBCApp.selector;
+        publicFunctions[1] = IICS02Client.addClient.selector;
+        return publicFunctions;
     }
 
     /// @notice The functions that can be called by the ERC20_CUSTOMIZER_ROLE in ICS20Transfer.

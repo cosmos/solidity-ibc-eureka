@@ -68,7 +68,7 @@ contract ICS26Router is
     }
 
     /// @inheritdoc IICS26Router
-    function addIBCApp(address app) external nonReentrant {
+    function addIBCApp(address app) external nonReentrant restricted {
         string memory portId = Strings.toHexString(app);
         _addIBCApp(portId, app);
     }

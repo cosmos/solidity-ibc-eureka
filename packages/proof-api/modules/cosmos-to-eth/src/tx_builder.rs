@@ -335,6 +335,7 @@ where
                 now_since_unix.as_nanos(),
             )
             .await;
+        drop(update_client_prover);
 
         let update_msg = MsgUpdateClient {
             sp1Proof: SP1Proof::new(

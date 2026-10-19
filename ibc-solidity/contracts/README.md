@@ -43,13 +43,14 @@ All contracts are compiled for the **Cancun** EVM (`evm_version = "cancun"` in `
 - Fixture status: `test/besu-bft/fixtures/qbft.json` and `ibft2.json` are captured from live Besu QBFT and IBFT2 networks by the Besu↔Besu e2e suite; only their negative update cases are derived by off-chain header mutation.
 
 ## Interchain Fungible Tokens (IFT)
-- Code reference: find the  `contracts` IFT contract code [here](https://github.com/cosmos/solidity-ibc-eureka/tree/mariuszzak/ift/contracts).
+- Code reference: find the  `contracts` IFT contract code [here](https://github.com/cosmos/ibc-contracts/tree/mariuszzak/ift/contracts).
 - IFT is an issuer-controlled ERC20 that bridges via ICS27-GMP instead of ICS20. The abstract `IFTBase` burns on send, constructs a mint call for the counterparty IFT, and tracks pending transfers keyed by (clientId, sequence).
 - Bridges: `registerIFTBridge` configures a counterparty IFT contract per IBC client along with an `IIFTSendCallConstructor` helper to encode the mint call for that chain.
 - Sending: `iftTransfer` burns locally, builds ICS27 `SendCall` to the remote IFT, records `PendingTransfer`, and emits initiation events; default timeout is 15 minutes if not provided.
 - Receiving: `iftMint` is callable only by the ICS27-controlled account; it mints locally after verifying the counterparty sender matches the registered bridge and clears pending transfers on ack/timeout callbacks to refund/mint as appropriate.
 - Rate limits: `setIFTRateLimit` configures a single capacity and refill window shared by both directions, each of which tracks its own usage. Limits are mandatory (until set, every transfer is rejected), shared across all bridges of the token, and never restored by flow in the opposite direction; refunds of pending transfers consume inbound allowance like any other mint. See the [ADR](../../docs/adr/solidity/ift-ratelimit.md).
 - Extensibility: implement concrete ERC20 constructors and different `IIFTSendCallConstructor` variants for EVM vs Cosmos SDK token factory flows; access is governed by `AccessManaged` authority roles.
+- Hooks: inheriters can override the no-op `_beforeIFTTransfer` (outbound burn), `_beforeIFTMint` (inbound mint) and `_beforeIFTRefund` (refund after an error ack or timeout) hooks to add bridge policy such as per-client limits or receiver allowlists. Each hook receives the IBC client ID and runs after the built-in validation but before any rate limit usage, balance change or pending transfer update, so reverting aborts the flow cleanly. A reverting mint hook makes ICS27-GMP write an error acknowledgement, which refunds the sender on the counterparty chain. This holds for any revert, including a bare `revert()`, since the ICS27 account reports empty revert data as `FailedCall`; only running the relay out of gas fails it instead. A reverting refund hook leaves the transfer pending and the ack or timeout retryable, but a hook that never stops reverting locks those funds.
 
 ## Interfaces, errors, and message shapes
 - `interfaces/` – External interfaces for apps, light clients, stores, rate limiting, pausing, and callbacks.

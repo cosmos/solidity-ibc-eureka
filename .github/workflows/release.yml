@@ -19,8 +19,7 @@ concurrency:
 permissions: {}
 
 env:
-  TAG: ${{ github.ref_name }}
-  SP1_VERSION: "6.1.0"
+  SP1_VERSION: "6.9.0"
 
 jobs:
   validate-tag:

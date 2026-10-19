@@ -1,5 +1,5 @@
 {
-  "name": "@cosmos/solidity-ibc-eureka",
+  "name": "@cosmos/ibc-contracts",
   "description": "This is a solidity implementation of ibc-eureka.",
   "version": "1.0.0",
   "license": "Apache-2.0",

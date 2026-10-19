@@ -100,6 +100,30 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics26Router.addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(ics20Transfer));
     }
 
+    function test_success_publicSelectors() public {
+        address user = makeAddr("user");
+
+        vm.prank(user);
+        ics26Router.addIBCApp(makeAddr("mockApp"));
+        vm.prank(user);
+        ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), makeAddr("mockClient"));
+    }
+
+    function test_failure_restrictPublicSelectors() public {
+        accessManager.setTargetFunctionRole(
+            address(ics26Router), IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.ADMIN_ROLE
+        );
+
+        address user = makeAddr("user");
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Router.addIBCApp(makeAddr("mockApp"));
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), makeAddr("mockClient"));
+    }
+
     function test_success_ics20_upgrade() public {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();

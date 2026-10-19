@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {
-  description = "Development environment for Solidity IBC Eureka";
+  description = "Development environment for IBC Contracts";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -96,7 +96,7 @@
               ++ [
                 node-modules
               ]
-              ++ (with pkgs.sp1."v6.1.0"; [
+              ++ (with pkgs.sp1."v6.9.0"; [
                 cargo-prove
                 sp1-rust-toolchain
               ]);
