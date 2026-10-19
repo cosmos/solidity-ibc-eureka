@@ -55,15 +55,7 @@ contract AttestationLightClientGasTest is Test, DeployAccessManagerWithRoles {
     function _runScenario(uint8 quorum, uint256 attestorCount, uint256 commitmentCount, string memory label) internal {
         (address[] memory attestorAddrs, uint256[] memory attestorPrivs) = _generateAttestors(attestorCount);
 
-        AccessManager accessManager = new AccessManager(address(this));
-        AttestationLightClient client = new AttestationLightClient({
-            attestorAddresses: attestorAddrs,
-            minRequiredSigs: quorum,
-            initialHeight: INITIAL_HEIGHT,
-            initialTimestampSeconds: INITIAL_TS,
-            authority: address(accessManager)
-        });
-        accessManagerSetLightClientTargetRoles(accessManager, address(client), true, true);
+        AttestationLightClient client = _deployPublicClient(attestorAddrs, quorum);
 
         (AM.PacketCompact[] memory packets, AM.PacketCompact memory target) = _makeCommitments(commitmentCount);
 
@@ -92,6 +84,24 @@ contract AttestationLightClientGasTest is Test, DeployAccessManagerWithRoles {
         emit log_named_uint(label, gasUsed);
 
         assertEq(ts, INITIAL_TS);
+    }
+
+    function _deployPublicClient(
+        address[] memory attestorAddrs,
+        uint8 quorum
+    )
+        internal
+        returns (AttestationLightClient client)
+    {
+        AccessManager accessManager = new AccessManager(address(this));
+        client = new AttestationLightClient({
+            attestorAddresses: attestorAddrs,
+            minRequiredSigs: quorum,
+            initialHeight: INITIAL_HEIGHT,
+            initialTimestampSeconds: INITIAL_TS,
+            authority: address(accessManager)
+        });
+        accessManagerSetLightClientTargetRoles(accessManager, address(client), true, true);
     }
 
     function _generateAttestors(uint256 n) internal pure returns (address[] memory addrs, uint256[] memory privs) {
