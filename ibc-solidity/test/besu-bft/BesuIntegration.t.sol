@@ -6,6 +6,7 @@ pragma solidity ^0.8.28;
 import { Integration2Suite } from "../solidity-ibc/integration/suites/Integration2Suite.sol";
 import { Integration3Suite } from "../solidity-ibc/integration/suites/Integration3Suite.sol";
 import { IFTIntegrationSuite } from "../solidity-ibc/integration/suites/IFTIntegrationSuite.sol";
+import { MulticallIntegrationSuite } from "../solidity-ibc/integration/suites/MulticallIntegrationSuite.sol";
 import { WithBesuQBFTSim, WithBesuIBFT2Sim } from "./utils/BesuSimDriver.sol";
 
 // The integration suites on Besu light clients tracking QBFT and IBFT2 sim chains. Every relayed packet is proven
@@ -28,3 +29,9 @@ contract IFTIntegrationBesuQBFTTest is IFTIntegrationSuite, WithBesuQBFTSim { }
 
 /// forge-config: default.fuzz.runs = 256
 contract IFTIntegrationBesuIBFT2Test is IFTIntegrationSuite, WithBesuIBFT2Sim { }
+
+/// forge-config: default.fuzz.runs = 256
+contract MulticallIntegrationBesuQBFTTest is MulticallIntegrationSuite, WithBesuQBFTSim { }
+
+/// forge-config: default.fuzz.runs = 256
+contract MulticallIntegrationBesuIBFT2Test is MulticallIntegrationSuite, WithBesuIBFT2Sim { }
