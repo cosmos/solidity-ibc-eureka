@@ -1,93 +1,254 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: release
+# Builds the release assets for every solidity, sp1-programs and cw-ics08-wasm-eth tag, generates
+# an SBOM and build provenance for them, signs a checksums file over them, and attaches everything
+# to a draft release so the signed assets exist before the release is published.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "solidity-v*"
+      - "sp1-programs-v*"
+      - "cw-ics08-wasm-eth-v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions: {}
 
 env:
+  TAG: ${{ github.ref_name }}
   SP1_VERSION: "6.1.0"
 
-
 jobs:
-  release-sp1-programs:
+  validate-tag:
+    name: Validate tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      component: ${{ steps.tag.outputs.component }}
+      sbom-paths: ${{ steps.tag.outputs.sbom-paths }}
+    steps:
+      - name: Check tag format
+        id: tag
+        run: |
+          if [[ ! "$TAG" =~ ^(solidity|sp1-programs|cw-ics08-wasm-eth)-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag must match <solidity|sp1-programs|cw-ics08-wasm-eth>-vX.Y.Z[-<suffix>]"
+            exit 1
+          fi
+          component="${BASH_REMATCH[1]}"
+          echo "component=${component}" >> "$GITHUB_OUTPUT"
+          # The sources the SBOM is generated from: the manifests and lockfiles of the component.
+          case "$component" in
+            solidity)
+              echo "sbom-paths=ibc-solidity/package.json ibc-solidity/bun.lock" >> "$GITHUB_OUTPUT"
+              ;;
+            sp1-programs)
+              echo "sbom-paths=ibc-solidity/programs/sp1-programs" >> "$GITHUB_OUTPUT"
+              ;;
+            cw-ics08-wasm-eth)
+              echo "sbom-paths=ibc-solidity/programs/cw-ics08-wasm-eth" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+  build:
+    name: Build release assets
+    needs: [validate-tag]
     runs-on: depot-ubuntu-24.04-4
     permissions:
-      contents: write
-    if: startsWith(github.ref_name, 'sp1-programs-')
+      contents: read
+      id-token: write
+      attestations: write
+    timeout-minutes: 90
+    env:
+      COMPONENT: ${{ needs.validate-tag.outputs.component }}
+      SBOM_PATHS: ${{ needs.validate-tag.outputs.sbom-paths }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # sp1-programs
       - name: Set up Rust
+        if: env.COMPONENT == 'sp1-programs'
         uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
         with:
           toolchain: 1.93.0
       - name: Install SP1 toolchain
+        if: env.COMPONENT == 'sp1-programs'
         shell: bash
         run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up --version ${{ env.SP1_VERSION }} --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install just
+        if: env.COMPONENT == 'sp1-programs'
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-
       - name: Build SP1 Programs
+        if: env.COMPONENT == 'sp1-programs'
         shell: bash
         run: just solidity::build-sp1-programs
 
-      - name: Upload SP1 programs to release
-        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file_glob: true
-          file: ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour}
-          tag: ${{ github.ref }}
-          overwrite: true
-
-  release-cw-ics08-wasm-eth:
-    runs-on: depot-ubuntu-24.04-4
-    permissions:
-      contents: write
-    if: startsWith(github.ref_name, 'cw-ics08-wasm-eth-')
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Upload cw-ics08-wasm-eth to release
-        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file_glob: true
-          file: e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz
-          tag: ${{ github.ref }}
-          overwrite: true
-
-  release-solidity-contracts:
-    runs-on: depot-ubuntu-24.04-4
-    permissions:
-      contents: write
-    if: startsWith(github.ref_name, 'solidity-')
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
+      # solidity
       - name: Install Foundry
+        if: env.COMPONENT == 'solidity'
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: stable
-
       - name: Install Bun
+        if: env.COMPONENT == 'solidity'
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-
       - name: Build and package the contracts
+        if: env.COMPONENT == 'solidity'
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: ./ibc-solidity/scripts/package-contracts.sh
 
-      - name: Upload solidity contract artifacts to release
-        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
+      - name: Collect assets
+        run: |
+          mkdir -p out/assets out/attestations src
+          case "$COMPONENT" in
+            sp1-programs)
+              elf_dir=ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release
+              for program in update-client membership uc-and-membership misbehaviour; do
+                cp "${elf_dir}/sp1-ics07-tendermint-${program}" out/assets/
+              done
+              ;;
+            cw-ics08-wasm-eth)
+              cp e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz out/assets/
+              ;;
+            solidity)
+              cp "ibc-solidity/solidity-contracts-${TAG}.tar.gz" out/assets/
+              ;;
+          esac
+          ls -l out/assets
+          # Stage the component sources from the tagged commit, so the SBOM is not affected by
+          # build outputs or installed dependencies in the working tree.
+          # SBOM_PATHS is left unquoted so it splits into pathspecs.
+          # shellcheck disable=SC2086
+          git archive --format=tar "$GITHUB_SHA" -- $SBOM_PATHS | tar -x -C src
+      - name: Generate SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ibc-solidity/solidity-contracts-${{ github.ref_name }}.tar.gz
-          tag: ${{ github.ref }}
-          overwrite: true
+          path: src
+          format: spdx-json
+          output-file: out/${{ env.TAG }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Attest build provenance
+        id: attest-provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: out/assets/*
+      - name: Collect provenance bundle
+        env:
+          BUNDLE_PATH: ${{ steps.attest-provenance.outputs.bundle-path }}
+        run: cp "$BUNDLE_PATH" out/attestations/provenance.json
+      - name: Attest SBOM
+        id: attest-sbom
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: out/assets/*
+          sbom-path: out/${{ env.TAG }}.spdx.json
+      - name: Collect SBOM bundle
+        env:
+          BUNDLE_PATH: ${{ steps.attest-sbom.outputs.bundle-path }}
+        run: cp "$BUNDLE_PATH" out/attestations/sbom.json
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-assets
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Attach signed assets to draft release
+    needs: [validate-tag, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    timeout-minutes: 15
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-assets
+          path: out
+      - name: Assemble assets
+        run: |
+          mkdir dist
+          mv out/assets/* out/*.spdx.json dist/
+          (cd dist && sha256sum -- * > checksums.txt && cat checksums.txt)
+          jq -c . out/attestations/*.json > "dist/${TAG}.intoto.jsonl"
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign checksums
+        working-directory: dist
+        run: cosign sign-blob --yes --bundle checksums.txt.sigstore.json checksums.txt
+      - name: Write verification notes
+        env:
+          CERT_IDENTITY: ${{ github.server_url }}/${{ github.workflow_ref }}
+        run: |
+          cat > verify.md <<EOF
+          ## Verifying the release
+
+          Verify the build provenance of a release asset. Add
+          \`--predicate-type https://spdx.dev/Document/v2.3\` to verify its SBOM instead, or
+          \`--bundle ${TAG}.intoto.jsonl\` to verify offline:
+
+          \`\`\`sh
+          gh attestation verify <asset> \\
+            --repo ${GH_REPO} \\
+            --signer-workflow ${GITHUB_WORKFLOW_REF%@*} \\
+            --source-ref ${GITHUB_REF}
+          \`\`\`
+
+          Or verify the signed checksums and then the assets against them:
+
+          \`\`\`sh
+          cosign verify-blob checksums.txt \\
+            --bundle checksums.txt.sigstore.json \\
+            --certificate-identity "${CERT_IDENTITY}" \\
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          sha256sum --check --ignore-missing checksums.txt
+          # or, on macOS without sha256sum:
+          shasum -a 256 --check --ignore-missing checksums.txt
+          \`\`\`
+          EOF
+      - name: Create or update draft release
+        run: |
+          if ! is_draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2> /dev/null); then
+            prerelease=()
+            if [[ "${TAG##*-v}" == *-* ]]; then
+              prerelease=(--prerelease)
+            fi
+            gh release create "$TAG" dist/* \
+              --draft \
+              "${prerelease[@]}" \
+              --verify-tag \
+              --title "$TAG" \
+              --notes-file verify.md
+            exit 0
+          fi
+
+          if [[ "$is_draft" == "true" ]]; then
+            # A draft already exists, either from a previous run or drafted in the UI for this tag.
+            gh release upload "$TAG" dist/* --clobber
+          else
+            # The release was published before this workflow finished. Without --clobber, gh
+            # refuses to replace assets that people may already have downloaded.
+            echo "::warning::Release $TAG was published before its signed assets were attached"
+            gh release upload "$TAG" dist/*
+          fi
+
+          body=$(gh release view "$TAG" --json body --jq .body)
+          if [[ "$body" != *"## Verifying the release"* ]]; then
+            printf '%s\n\n%s\n' "$body" "$(cat verify.md)" > notes.md
+            gh release edit "$TAG" --notes-file notes.md
+          fi
