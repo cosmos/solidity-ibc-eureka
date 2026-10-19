@@ -370,6 +370,18 @@ The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin
 
 The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth-v1.3.x`, and `proof-api-v0.7.x`. Please refer to our [versioning guide](./RELEASES.md) for more information on how to understand our release versioning.
 
+### Release artifacts
+
+| Tag | Artifact | Published to |
+| --- | --- | --- |
+| `solidity-vX.Y.Z` | Solidity contract artifacts, `solidity-contracts-<tag>.tar.gz` | [GitHub release](https://github.com/cosmos/ibc-contracts/releases) |
+| `sp1-programs-vX.Y.Z` | SP1 programs: `sp1-ics07-tendermint-update-client`, `-membership`, `-uc-and-membership`, `-misbehaviour` | [GitHub release](https://github.com/cosmos/ibc-contracts/releases) |
+| `cw-ics08-wasm-eth-vX.Y.Z` | CosmWasm Ethereum light client, `cw_ics08_wasm_eth.wasm.gz` | [GitHub release](https://github.com/cosmos/ibc-contracts/releases) |
+| `proof-api-vX.Y.Z` | Proof API and operator binaries, `proof-api-vX.Y.Z-linux-amd64.tar.gz` and `proof-api-vX.Y.Z-linux-arm64.tar.gz` | [GitHub release](https://github.com/cosmos/ibc-contracts/releases) |
+| `proof-api-vX.Y.Z` | Proof API image (`linux/amd64`, `linux/arm64`), `ghcr.io/cosmos/proof-api:vX.Y.Z` | [GHCR](https://github.com/cosmos/ibc-contracts/pkgs/container/proof-api) |
+
+Every GitHub release also carries an SPDX SBOM (`<tag>.spdx.json`, or one per platform for proof-api), a `checksums.txt` signed with cosign (`checksums.txt.sigstore.json`), and its build provenance (`<tag>.intoto.jsonl`). Proof API images carry build provenance and SBOM attestations and are signed with cosign, except images built for pull requests (tagged `pr-<number>`). See [Signed release assets](./RELEASES.md#signed-release-assets) for how to verify them.
+
 ## License
 
 This project is licensed under the Apache License, Version 2.0. See [LICENSE.md](./LICENSE.md) for the full text.

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: release
-# Builds the release assets for every solidity, sp1-programs and cw-ics08-wasm-eth tag, generates
+# Builds the release assets for every solidity, sp1-programs, cw-ics08-wasm-eth and proof-api tag, generates
 # an SBOM and build provenance for them, signs a checksums file over them, and attaches everything
 # to a draft release so the signed assets exist before the release is published.
 
@@ -11,6 +11,7 @@ on:
       - "solidity-v*"
       - "sp1-programs-v*"
       - "cw-ics08-wasm-eth-v*"
+      - "proof-api-v*"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,6 +20,7 @@ concurrency:
 permissions: {}
 
 env:
+  TAG: ${{ github.ref_name }}
   SP1_VERSION: "6.9.0"
 
 jobs:
@@ -27,41 +29,69 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      name: ${{ steps.tag.outputs.name }}
+      title: ${{ steps.tag.outputs.title }}
+      prerelease: ${{ steps.tag.outputs.prerelease }}
       component: ${{ steps.tag.outputs.component }}
       sbom-paths: ${{ steps.tag.outputs.sbom-paths }}
+      matrix: ${{ steps.tag.outputs.matrix }}
     steps:
       - name: Check tag format
         id: tag
         run: |
-          if [[ ! "$TAG" =~ ^(solidity|sp1-programs|cw-ics08-wasm-eth)-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Tag must match <solidity|sp1-programs|cw-ics08-wasm-eth>-vX.Y.Z[-<suffix>]"
+          if [[ ! "$TAG" =~ ^(solidity|sp1-programs|cw-ics08-wasm-eth|proof-api)-(v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+            echo "::error::Tag must match <solidity|sp1-programs|cw-ics08-wasm-eth|proof-api>-vX.Y.Z[-<suffix>]"
             exit 1
           fi
           component="${BASH_REMATCH[1]}"
-          echo "component=${component}" >> "$GITHUB_OUTPUT"
-          # The sources the SBOM is generated from: the manifests and lockfiles of the component.
+          version="${BASH_REMATCH[2]}"
+          suffix="${BASH_REMATCH[3]}"
+          # The build runs once, except for proof-api whose binaries are built natively per platform.
+          matrix='{"include":[{"runner":"ubuntu-latest","platform":"all","asset-suffix":""}]}'
           case "$component" in
             solidity)
-              echo "sbom-paths=ibc-solidity/package.json ibc-solidity/bun.lock" >> "$GITHUB_OUTPUT"
+              title="Solidity Contracts ${version}"
+              # The sources the SBOM is generated from: the manifests and lockfiles of the component.
+              sbom_paths="ibc-solidity/package.json ibc-solidity/bun.lock"
               ;;
             sp1-programs)
-              echo "sbom-paths=ibc-solidity/programs/sp1-programs" >> "$GITHUB_OUTPUT"
+              title="SP1 Programs ${version}"
+              sbom_paths="ibc-solidity/programs/sp1-programs"
               ;;
             cw-ics08-wasm-eth)
-              echo "sbom-paths=ibc-solidity/programs/cw-ics08-wasm-eth" >> "$GITHUB_OUTPUT"
+              title="CosmWasm ICS08 Wasm Ethereum Light Client ${version}"
+              sbom_paths="ibc-solidity/programs/cw-ics08-wasm-eth"
+              ;;
+            proof-api)
+              title="Proof API ${version}"
+              sbom_paths="Cargo.toml Cargo.lock programs/proof-api"
+              matrix='{"include":[{"runner":"ubuntu-latest","platform":"linux-amd64","asset-suffix":"-linux-amd64"},{"runner":"ubuntu-24.04-arm","platform":"linux-arm64","asset-suffix":"-linux-arm64"}]}'
               ;;
           esac
+          {
+            echo "name=${TAG}"
+            echo "title=${title}"
+            if [[ -n "$suffix" ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi
+            echo "component=${component}"
+            echo "sbom-paths=${sbom_paths}"
+            echo "matrix=${matrix}"
+          } >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build release assets
+    name: Build release assets (${{ matrix.platform }})
     needs: [validate-tag]
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       id-token: write
       attestations: write
     timeout-minutes: 90
+    strategy:
+      matrix: ${{ fromJSON(needs.validate-tag.outputs.matrix) }}
     env:
+      NAME: ${{ needs.validate-tag.outputs.name }}
+      PLATFORM: ${{ matrix.platform }}
+      ASSET_SUFFIX: ${{ matrix.asset-suffix }}
       COMPONENT: ${{ needs.validate-tag.outputs.component }}
       SBOM_PATHS: ${{ needs.validate-tag.outputs.sbom-paths }}
     steps:
@@ -105,9 +135,22 @@ jobs:
           TAG_NAME: ${{ github.ref_name }}
         run: ./ibc-solidity/scripts/package-contracts.sh
 
+      # proof-api
+      - name: Build proof-api and operator
+        if: env.COMPONENT == 'proof-api'
+        run: |
+          # Use the builder stage of the image's Dockerfile, so the released binaries are built in
+          # the same environment as the ones in the proof-api image.
+          docker build --target builder -t proof-api-builder -f programs/proof-api/Dockerfile .
+          id=$(docker create proof-api-builder)
+          mkdir -p proof-api-dist
+          docker cp "${id}:/app/target/release/proof-api" proof-api-dist/
+          docker cp "${id}:/app/target/release/operator" proof-api-dist/
+          docker rm "$id"
+
       - name: Collect assets
         run: |
-          mkdir -p out/assets out/attestations src
+          mkdir -p out/assets out/sbom out/attestations src
           case "$COMPONENT" in
             sp1-programs)
               elf_dir=ibc-solidity/programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release
@@ -121,6 +164,13 @@ jobs:
             solidity)
               cp "ibc-solidity/solidity-contracts-${TAG}.tar.gz" out/assets/
               ;;
+            proof-api)
+              cp LICENSE.md proof-api-dist/
+              tar --sort=name --mtime="@$(git log -1 --format=%ct)" \
+                --owner=0 --group=0 --numeric-owner \
+                -C proof-api-dist -cf - proof-api operator LICENSE.md \
+                | gzip -n > "out/assets/${NAME}${ASSET_SUFFIX}.tar.gz"
+              ;;
           esac
           ls -l out/assets
           # Stage the component sources from the tagged commit, so the SBOM is not affected by
@@ -133,7 +183,7 @@ jobs:
         with:
           path: src
           format: spdx-json
-          output-file: out/${{ env.TAG }}.spdx.json
+          output-file: out/sbom/${{ env.NAME }}${{ env.ASSET_SUFFIX }}.spdx.json
           upload-artifact: false
           upload-release-assets: false
       - name: Attest build provenance
@@ -144,25 +194,27 @@ jobs:
       - name: Collect provenance bundle
         env:
           BUNDLE_PATH: ${{ steps.attest-provenance.outputs.bundle-path }}
-        run: cp "$BUNDLE_PATH" out/attestations/provenance.json
+        run: cp "$BUNDLE_PATH" "out/attestations/${PLATFORM}.provenance.json"
       - name: Attest SBOM
         id: attest-sbom
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: out/assets/*
-          sbom-path: out/${{ env.TAG }}.spdx.json
+          sbom-path: out/sbom/${{ env.NAME }}${{ env.ASSET_SUFFIX }}.spdx.json
       - name: Collect SBOM bundle
         env:
           BUNDLE_PATH: ${{ steps.attest-sbom.outputs.bundle-path }}
-        run: cp "$BUNDLE_PATH" out/attestations/sbom.json
+        run: cp "$BUNDLE_PATH" "out/attestations/${PLATFORM}.sbom.json"
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-assets
+          name: release-assets-${{ matrix.platform }}
           path: out/
           if-no-files-found: error
           retention-days: 7
 
+  # This job is kept identical across cosmos/ibc, cosmos/ibc-go and cosmos/ibc-contracts.
+  # Repository-specific behaviour belongs in the tag patterns, validate-tag and build.
   release:
     name: Attach signed assets to draft release
     needs: [validate-tag, build]
@@ -174,18 +226,22 @@ jobs:
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ github.token }}
+      NAME: ${{ needs.validate-tag.outputs.name }}
+      TITLE: ${{ needs.validate-tag.outputs.title }}
+      PRERELEASE: ${{ needs.validate-tag.outputs.prerelease }}
     steps:
       - name: Download assets
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release-assets
+          pattern: release-assets*
           path: out
+          merge-multiple: true
       - name: Assemble assets
         run: |
           mkdir dist
-          mv out/assets/* out/*.spdx.json dist/
+          mv out/assets/* out/sbom/* dist/
           (cd dist && sha256sum -- * > checksums.txt && cat checksums.txt)
-          jq -c . out/attestations/*.json > "dist/${TAG}.intoto.jsonl"
+          jq -c . out/attestations/*.json > "dist/${NAME}.intoto.jsonl"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign checksums
         working-directory: dist
@@ -194,15 +250,22 @@ jobs:
         env:
           CERT_IDENTITY: ${{ github.server_url }}/${{ github.workflow_ref }}
         run: |
+          # Use the first release asset that is not an SBOM, checksum or attestation file as the example.
+          for path in dist/*; do
+            case "$path" in
+              *.spdx.json | *.intoto.jsonl | dist/checksums.txt*) ;;
+              *) example="${path#dist/}" && break ;;
+            esac
+          done
           cat > verify.md <<EOF
           ## Verifying the release
 
           Verify the build provenance of a release asset. Add
           \`--predicate-type https://spdx.dev/Document/v2.3\` to verify its SBOM instead, or
-          \`--bundle ${TAG}.intoto.jsonl\` to verify offline:
+          \`--bundle ${NAME}.intoto.jsonl\` to verify offline:
 
           \`\`\`sh
-          gh attestation verify <asset> \\
+          gh attestation verify ${example} \\
             --repo ${GH_REPO} \\
             --signer-workflow ${GITHUB_WORKFLOW_REF%@*} \\
             --source-ref ${GITHUB_REF}
@@ -224,14 +287,14 @@ jobs:
         run: |
           if ! is_draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2> /dev/null); then
             prerelease=()
-            if [[ "${TAG##*-v}" == *-* ]]; then
+            if [[ "$PRERELEASE" == "true" ]]; then
               prerelease=(--prerelease)
             fi
             gh release create "$TAG" dist/* \
               --draft \
               "${prerelease[@]}" \
               --verify-tag \
-              --title "$TAG" \
+              --title "$TITLE" \
               --notes-file verify.md
             exit 0
           fi
