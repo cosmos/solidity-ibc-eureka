@@ -207,6 +207,7 @@ generate-abi: build-contracts
 	jq '.abi' out/BesuQBFTLightClient.sol/BesuQBFTLightClient.json > abi/BesuQBFTLightClient.json
 	jq '.abi' out/IBesuLightClientEncoding.sol/IBesuLightClientEncoding.json > abi/IBesuLightClientEncoding.json
 	jq '.abi' out/IBesuLightClientErrors.sol/IBesuLightClientErrors.json > abi/IBesuLightClientErrors.json
+	jq -r '.bytecode.object' out/BesuIBFT2LightClient.sol/BesuIBFT2LightClient.json > tmp/abigen/BesuIBFT2LightClient.bin
 	jq -r '.bytecode.object' out/BesuQBFTLightClient.sol/BesuQBFTLightClient.json > tmp/abigen/BesuQBFTLightClient.bin
 	jq '.abi' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.json
 	jq -r '.bytecode.object' out/IFTOwnable.sol/IFTOwnable.json > tmp/abigen/IFTOwnable.bin
@@ -232,6 +233,7 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS27GMP.json --bin tmp/abigen/ICS27GMP.bin --pkg ics27gmp --type Contract --out ../packages/go-abigen/ics27gmp/contract.go
 	abigen --abi abi/RelayerHelper.json --bin tmp/abigen/RelayerHelper.bin --pkg relayerhelper --type Contract --out ../packages/go-abigen/relayerhelper/contract.go
 	abigen --abi abi/AttestationLightClient.json --bin tmp/abigen/AttestationLightClient.bin --pkg attestation --type Contract --out ../packages/go-abigen/attestation/contract.go
+	abigen --abi abi/BesuIBFT2LightClient.json --bin tmp/abigen/BesuIBFT2LightClient.bin --pkg besuibft2 --type Contract --out ../packages/go-abigen/besuibft2/contract.go
 	abigen --abi abi/BesuQBFTLightClient.json --bin tmp/abigen/BesuQBFTLightClient.bin --pkg besuqbft --type Contract --out ../packages/go-abigen/besuqbft/contract.go
 	abigen --v2 --abi abi/IBesuLightClientEncoding.json --pkg besumsgs --type Bindings --out ../packages/go-abigen/besumsgs/bindings.go
 	abigen --v2 --abi abi/IBesuLightClientErrors.json --pkg besuerrors --type Bindings --out ../packages/go-abigen/besuerrors/bindings.go
