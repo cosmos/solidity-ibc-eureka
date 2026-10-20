@@ -154,8 +154,8 @@ abstract contract ICS02ClientUpgradeable is IICS02Client, IICS02ClientErrors, Ac
         emit ICS02ClientMigrated(clientId, counterpartyInfo, client);
     }
 
-    /// @inheritdoc IICS02Client
-    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external {
+    /// @inheritdoc IICS02ClientAccessControlled
+    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external restricted {
         getClient(clientId).misbehaviour(misbehaviourMsg);
         emit ICS02MisbehaviourSubmitted(clientId);
     }

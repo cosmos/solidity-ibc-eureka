@@ -55,6 +55,15 @@ library IBCRolesLib {
         return relayerFunctions;
     }
 
+    /// @notice The functions that can be used to submit misbehaviour to light clients in ICS26Router.
+    /// @dev These functions are assigned to the RELAYER_ROLE or to the PUBLIC_ROLE on discretion of the access manager.
+    /// @return An array of function selectors that can be used to submit misbehaviour.
+    function ics26MisbehaviourSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory misbehaviourFunctions = new bytes4[](1);
+        misbehaviourFunctions[0] = IICS02ClientAccessControlled.submitMisbehaviour.selector;
+        return misbehaviourFunctions;
+    }
+
     /// @notice The functions that can be called by the RELAYER_ROLE in IBCMulticall.
     /// @return An array of function selectors that can be called by the RELAYER_ROLE.
     function multicallRelayerSelectors() internal pure returns (bytes4[] memory) {

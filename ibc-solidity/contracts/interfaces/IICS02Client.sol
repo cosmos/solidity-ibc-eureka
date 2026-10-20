@@ -45,6 +45,12 @@ interface IICS02ClientAccessControlled {
         address client
     )
         external;
+
+    /// @notice Submits misbehaviour to the client with the given client identifier.
+    /// @dev Can only be called by the role mapped to `IBCRolesLib.ics26MisbehaviourSelectors()`, e.g. `RELAYER_ROLE`.
+    /// @param clientId The client identifier
+    /// @param misbehaviourMsg The misbehaviour message
+    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
 }
 
 /// @title ICS02 Light Client Router Interface
@@ -75,11 +81,6 @@ interface IICS02Client is IICS02ClientAccessControlled {
     )
         external
         returns (string memory);
-
-    /// @notice Submits misbehaviour to the client with the given client identifier.
-    /// @param clientId The client identifier
-    /// @param misbehaviourMsg The misbehaviour message
-    function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
 
     // ============ Events ============
 

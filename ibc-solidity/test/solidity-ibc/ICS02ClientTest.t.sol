@@ -53,6 +53,9 @@ contract ICS02ClientTest is Test {
         accessManager.setTargetFunctionRole(
             address(ics02Client), IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE
         );
+        accessManager.setTargetFunctionRole(
+            address(ics02Client), IBCRolesLib.ics26MisbehaviourSelectors(), IBCRolesLib.RELAYER_ROLE
+        );
 
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, idCustomizer, 0);
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
@@ -132,7 +135,15 @@ contract ICS02ClientTest is Test {
         vm.mockCall(lightClient, misbehaviourCall, bytes(""));
 
         vm.expectCall(lightClient, misbehaviourCall);
+        vm.prank(relayer);
         ics02Client.submitMisbehaviour(clientIdentifier, misbehaviourMsg);
+    }
+
+    function test_failure_Misbehaviour_unauthorized() public {
+        address unauthorized = makeAddr("unauthorized");
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        vm.prank(unauthorized);
+        ics02Client.submitMisbehaviour(clientIdentifier, "testMisbehaviourMsg");
     }
 
     function test_success_updateClient() public {

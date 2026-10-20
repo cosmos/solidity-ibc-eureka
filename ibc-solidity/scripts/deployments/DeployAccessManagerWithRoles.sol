@@ -41,6 +41,11 @@ abstract contract DeployAccessManagerWithRoles {
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
 
+        accessManager.setTargetFunctionRole(
+            ics26,
+            IBCRolesLib.ics26MisbehaviourSelectors(),
+            pubRelay ? IBCRolesLib.PUBLIC_ROLE : IBCRolesLib.RELAYER_ROLE
+        );
         if (pubRelay) {
             accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE);
         }
