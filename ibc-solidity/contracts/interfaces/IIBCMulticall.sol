@@ -18,7 +18,10 @@ interface IIBCMulticall {
 
     /// @notice Executes the calls in order
     /// @dev Reverts with the revert data of the first failing call that is not allowed to fail. A call to an address
-    /// without code fails with `Address.AddressEmptyCode`. The effects of a
+    /// without code fails with `Address.AddressEmptyCode`. A call that is allowed to fail but most likely ran out of
+    /// gas reverts the batch with `IIBCMulticallErrors.IBCMulticallCallOutOfGas`, so a batch never lands with calls
+    /// dropped
+    /// for lack of gas. The effects of a
     /// failing call that is allowed to fail are rolled back while the rest of the batch is kept.
     /// @param calls The calls to execute
     /// @return results The outcome of each call

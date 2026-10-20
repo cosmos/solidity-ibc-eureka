@@ -8,6 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { IIBCMulticallMsgs } from "../../contracts/msgs/IIBCMulticallMsgs.sol";
 
 import { IIBCMulticall } from "../../contracts/interfaces/IIBCMulticall.sol";
+import { IIBCMulticallErrors } from "../../contracts/errors/IIBCMulticallErrors.sol";
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 
 import { IBCMulticall } from "../../contracts/utils/IBCMulticall.sol";
@@ -73,6 +74,25 @@ contract IBCMulticallTest is Test, DeployAccessManagerWithRoles {
         multicall.multicall(calls);
 
         assertFalse(target.isSet(1), "earlier calls should be rolled back");
+    }
+
+    /// @dev A call allowed to fail that runs out of gas, or fails like the router does when an app runs out of gas,
+    /// reverts the batch instead of starving the calls after it
+    function test_failure_allowedCallOutOfGas() public {
+        bytes[2] memory outOfGasCalls = [
+            abi.encodeCall(MulticallTargetMock.burnGas, ()),
+            abi.encodeCall(MulticallTargetMock.revertFailedCallback, ())
+        ];
+        for (uint256 j = 0; j < outOfGasCalls.length; ++j) {
+            IIBCMulticallMsgs.Call[] memory calls = new IIBCMulticallMsgs.Call[](3);
+            calls[0] = _call(abi.encodeCall(MulticallTargetMock.set, (1)), false);
+            calls[1] = _call(outOfGasCalls[j], true);
+            calls[2] = _call(abi.encodeCall(MulticallTargetMock.set, (3)), true);
+
+            vm.expectRevert(abi.encodeWithSelector(IIBCMulticallErrors.IBCMulticallCallOutOfGas.selector, 1));
+            vm.prank(relayer);
+            multicall.multicall{ gas: 1_000_000 }(calls);
+        }
     }
 
     function test_failure_targetWithoutCode() public {
