@@ -20,6 +20,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	errorsmod "cosmossdk.io/errors"
@@ -507,7 +508,7 @@ func StripHTTPPrefix(endpoint string) string {
 
 // RequireMulticallRejected requires that the `IBCMulticall` relay tx delivered no packet. Either the batch reverted, or
 // it landed and every packet call in it was rolled back and reported with `CallFailed`. Client updates may succeed.
-func (s *TestSuite) RequireMulticallRejected(relayTx []byte, receipt *ethtypes.Receipt, broadcastErr error) {
+func (s *TestSuite) RequireMulticallRejected(multicallAddress ethcommon.Address, relayTx []byte, receipt *ethtypes.Receipt, broadcastErr error) {
 	if broadcastErr != nil {
 		return
 	}
@@ -516,12 +517,18 @@ func (s *TestSuite) RequireMulticallRejected(relayTx []byte, receipt *ethtypes.R
 	s.Require().NoError(err)
 	ics26ABI, err := ics26router.ContractMetaData.GetAbi()
 	s.Require().NoError(err)
-	multicall, err := ibcmulticall.NewContractFilterer(receipt.ContractAddress, nil)
+	multicall, err := ibcmulticall.NewContractFilterer(multicallAddress, nil)
 	s.Require().NoError(err)
 
+	// The parser only matches the event signature, so skip logs emitted by any other contract
 	failed := make(map[uint64]bool)
-	for _, event := range GetEvmEvents(receipt, multicall.ParseCallFailed) {
-		failed[event.Index.Uint64()] = true
+	for _, l := range receipt.Logs {
+		if l.Address != multicallAddress {
+			continue
+		}
+		if event, err := multicall.ParseCallFailed(*l); err == nil {
+			failed[event.Index.Uint64()] = true
+		}
 	}
 	for i, call := range calls {
 		if bytes.Equal(call[:4], ics26ABI.Methods["updateClient"].ID) {
