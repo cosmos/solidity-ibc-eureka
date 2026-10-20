@@ -21,6 +21,7 @@ All contracts are compiled for the **Cancun** EVM (`evm_version = "cancun"` in `
 - `IBCSenderCallbacksLib.sol`, `IBCCallbackReceiver.sol` – Helpers for standardized callback interfaces used by apps.
 - `RateLimitUpgradeable.sol` – Reusable per-token, per-day rate limiting mixin used by escrow.
 - `IFTRateLimitUpgradeable.sol` – Refilling-bucket rate limiting mixin for IFT built on OpenZeppelin's `RateLimiter`, with one limiter keyed by direction so inbound (mint) and outbound (burn) share a capacity and window but track usage independently.
+- `IBCMulticall.sol` – UUPS, AccessManaged batcher for relayers in the style of Multicall3 `aggregate3`. Each call sets `allowFailure`. A failing call that is allowed to fail is rolled back and reported with `CallFailed`, so the rest of the batch still lands and the failed packet stays retryable. A failing call that is not allowed to fail reverts the batch with its own error. A call that is allowed to fail but fails like the router does when it runs out of gas (empty revert data or `IBCFailedCallback`) reverts the batch with `IBCMulticallCallOutOfGas`, so a batch that is short on gas never lands with packets dropped. It sits outside IBC core: map `multicall` to `RELAYER_ROLE` and grant the contract `RELAYER_ROLE` (`DeployAccessManagerWithRoles.accessManagerSetMulticallRoles`). Apps then see the multicall contract as the relayer.
 - `RelayerHelper.sol` – Read-only helper for relayers to query packet commitments, receipts, and successful acknowledgements from `ICS26Router`.
 
 ## Light clients (`light-clients/`)

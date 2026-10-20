@@ -15,8 +15,9 @@ use crate::utils::{eth_eureka, wait_for_condition, RelayEventsParams};
 use alloy::{primitives::Address, primitives::Bytes, sol_types::SolCall, sol_types::SolValue};
 use anyhow::Result;
 use ibc_eureka_solidity_types::{
+    ibc_multicall::multicall_calldata,
     ics26::{
-        router::{multicallCall, routerCalls, updateClientCall},
+        router::{routerCalls, updateClientCall},
         IICS02ClientMsgs::Height as ICS26Height,
     },
     msgs::IAttestationMsgs::AttestationProof,
@@ -154,6 +155,8 @@ pub fn inject_eth_attestor_proofs(
 
 /// Input data for building an Ethereum multicall transaction.
 pub struct MulticallInput {
+    /// The ICS26 router address that the multicall calls.
+    pub ics26_address: Address,
     /// Attestation data (state + packet attestations).
     pub attestations: AttestationData,
     /// Source chain events (send packets, write acks).
@@ -170,10 +173,11 @@ pub struct MulticallInput {
     pub dst_packet_seqs: Vec<u64>,
 }
 
-/// Builds an ABI-encoded multicall transaction for Ethereum IBC router.
+/// Builds an ABI-encoded `IBCMulticall` transaction for the Ethereum IBC router.
 ///
-/// Creates an update client message followed by recv, ack, and timeout messages,
-/// all encoded for the ICS26 router's multicall function.
+/// Creates an update client message followed by recv, ack, and timeout messages. The update
+/// client message must succeed, while each packet message carries its own proof and is allowed
+/// to fail without reverting the rest of the batch.
 ///
 /// # Errors
 /// Returns an error if system time cannot be retrieved.
@@ -238,13 +242,10 @@ pub fn build_eth_multicall(input: MulticallInput) -> Result<Vec<u8>> {
             routerCalls::recvPacket(call) => call.abi_encode(),
             routerCalls::timeoutPacket(call) => call.abi_encode(),
             _ => unreachable!("only ack, update client, recv and timeout msgs allowed"),
-        });
+        })
+        .map(Into::into);
 
-    let multicall_tx = multicallCall {
-        data: all_calls.map(Into::into).collect(),
-    };
-
-    Ok(multicall_tx.abi_encode())
+    Ok(multicall_calldata(input.ics26_address, all_calls, 1))
 }
 
 /// Builds an attested relay events transaction for Ethereum targets.
@@ -252,12 +253,13 @@ pub fn build_eth_multicall(input: MulticallInput) -> Result<Vec<u8>> {
 /// This function handles the complete flow of:
 /// 1. Collecting and encoding packets from source and target events
 /// 2. Fetching attestations from the aggregator
-/// 3. Building the multicall transaction
+/// 3. Building the `IBCMulticall` transaction that calls the router at `ics26_address`
 ///
 /// # Errors
 /// Returns an error if attestation fetching or transaction building fails.
 pub async fn build_eth_attestor_relay_events_tx(
     aggregator: &Aggregator,
+    ics26_address: Address,
     params: RelayEventsParams,
 ) -> Result<Vec<u8>> {
     tracing::info!(
@@ -308,6 +310,7 @@ pub async fn build_eth_attestor_relay_events_tx(
     .await?;
 
     build_eth_multicall(MulticallInput {
+        ics26_address,
         attestations,
         src_events: params.src_events,
         target_events: params.target_events,
@@ -347,13 +350,14 @@ pub fn build_eth_attestor_create_client_calldata<
 
 /// Builds update client calldata for an Ethereum attestor light client.
 ///
-/// Fetches the latest state attestation from the aggregator and builds
-/// the ABI-encoded `updateClient` call for the ICS26 router.
+/// Fetches the latest state attestation from the aggregator and builds an `IBCMulticall`
+/// transaction that calls `updateClient` on the ICS26 router at `ics26_address`.
 ///
 /// # Errors
 /// Returns an error if fetching attestation fails.
 pub async fn build_eth_attestor_update_client_calldata(
     aggregator: &Aggregator,
+    ics26_address: Address,
     dst_client_id: String,
 ) -> Result<Vec<u8>> {
     let current_height = aggregator.get_latest_height().await?;
@@ -365,5 +369,9 @@ pub async fn build_eth_attestor_update_client_calldata(
         updateMsg: Bytes::from(proof),
     };
 
-    Ok(call.abi_encode())
+    Ok(multicall_calldata(
+        ics26_address,
+        [call.abi_encode().into()],
+        1,
+    ))
 }

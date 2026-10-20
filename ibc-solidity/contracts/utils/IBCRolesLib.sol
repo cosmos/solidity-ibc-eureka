@@ -7,6 +7,7 @@ import { IICS20TransferAccessControlled } from "../interfaces/IICS20Transfer.sol
 import { IICS26Router } from "../interfaces/IICS26Router.sol";
 import { IICS02Client } from "../interfaces/IICS02Client.sol";
 import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
+import { IIBCMulticall } from "../interfaces/IIBCMulticall.sol";
 import { IPausable } from "../interfaces/IPausable.sol";
 import { IRateLimit } from "../interfaces/IRateLimit.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -49,6 +50,14 @@ library IBCRolesLib {
         relayerFunctions[1] = IICS26RouterAccessControlled.timeoutPacket.selector;
         relayerFunctions[2] = IICS26RouterAccessControlled.ackPacket.selector;
         relayerFunctions[3] = IICS02ClientAccessControlled.updateClient.selector;
+        return relayerFunctions;
+    }
+
+    /// @notice The functions that can be called by the RELAYER_ROLE in IBCMulticall.
+    /// @return An array of function selectors that can be called by the RELAYER_ROLE.
+    function multicallRelayerSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory relayerFunctions = new bytes4[](1);
+        relayerFunctions[0] = IIBCMulticall.multicall.selector;
         return relayerFunctions;
     }
 
