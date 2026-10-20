@@ -73,6 +73,8 @@ Module configuration varies by module type:
   - `tm_rpc_url`: Tendermint RPC endpoint for the source chain.
   - `eth_rpc_url`: EVM RPC endpoint for the destination chain.
   - `ics26_address`: IBC router contract address on the destination chain.
+  - `ibc_multicall_address`: `IBCMulticall` contract address on the destination chain. Relay and update client
+    transactions are built for and submitted to it.
   - `mode`: Proof mode object.
   - `mode.type`: `sp1` or `attested`.
   - `mode.sp1_prover`: SP1 prover config when `type: sp1`.
@@ -116,6 +118,8 @@ Module configuration varies by module type:
   - `src_ics26_address`: Source IBC router contract address.
   - `dst_rpc_url`: Destination EVM RPC endpoint.
   - `dst_ics26_address`: Destination IBC router contract address.
+  - `dst_ibc_multicall_address`: Destination `IBCMulticall` contract address that relay and update client
+    transactions are submitted to.
   - `mode`: Proof mode object.
   - `mode.type`: `attested`.
   - `mode.attestor`: Attestor config.
@@ -130,6 +134,8 @@ Module configuration varies by module type:
   - `src_ics26_address`: Source IBC router contract address.
   - `dst_rpc_url`: Destination EVM RPC endpoint.
   - `dst_ics26_address`: Destination IBC router contract address.
+  - `dst_ibc_multicall_address`: Destination `IBCMulticall` contract address that relay and update client
+    transactions are submitted to.
   - `consensus_type`: Source Besu consensus type, `qbft` or `ibft2`.
 - `cosmos_to_cosmos`:
   - `src_rpc_url`: RPC endpoint for the source chain.

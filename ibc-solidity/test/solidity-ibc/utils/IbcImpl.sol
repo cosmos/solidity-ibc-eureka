@@ -11,9 +11,11 @@ import { IICS02ClientMsgs } from "../../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS26RouterMsgs } from "../../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS20TransferMsgs } from "../../../contracts/msgs/IICS20TransferMsgs.sol";
 import { IICS27GMPMsgs } from "../../../contracts/msgs/IICS27GMPMsgs.sol";
+import { IIBCMulticallMsgs } from "../../../contracts/msgs/IIBCMulticallMsgs.sol";
 
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
-import { IICS26Router } from "../../../contracts/interfaces/IICS26Router.sol";
+import { IICS26Router, IICS26RouterAccessControlled } from "../../../contracts/interfaces/IICS26Router.sol";
+import { IICS02ClientAccessControlled } from "../../../contracts/interfaces/IICS02Client.sol";
 import { ISignatureTransfer } from "@uniswap/permit2/src/interfaces/ISignatureTransfer.sol";
 
 import { ICS26Router } from "../../../contracts/ICS26Router.sol";
@@ -29,6 +31,7 @@ import { ICS20Lib } from "../../../contracts/utils/ICS20Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ICS24Host } from "../../../contracts/utils/ICS24Host.sol";
 import { RelayerHelper } from "../../../contracts/utils/RelayerHelper.sol";
+import { IBCMulticall } from "../../../contracts/utils/IBCMulticall.sol";
 import { DeployAccessManagerWithRoles } from "../../../scripts/deployments/DeployAccessManagerWithRoles.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { IBCRolesLib } from "../../../contracts/utils/IBCRolesLib.sol";
@@ -39,6 +42,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
     ICS20Transfer public immutable ics20Transfer;
     ICS27GMP public immutable ics27Gmp;
     RelayerHelper public immutable relayerHelper;
+    IBCMulticall public immutable ibcMulticall;
 
     mapping(string clientId => ILightClientDriver driver) private _drivers;
 
@@ -55,6 +59,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
         ICS27GMP ics27GmpLogic = new ICS27GMP();
+        IBCMulticall ibcMulticallLogic = new IBCMulticall();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         _admin = msg.sender;
@@ -79,16 +84,22 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
             )
         );
 
+        ERC1967Proxy multicallProxy = new ERC1967Proxy(
+            address(ibcMulticallLogic), abi.encodeCall(IBCMulticall.initialize, (address(accessManager)))
+        );
+
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
         ics27Gmp = ICS27GMP(address(gmpProxy));
         relayerHelper = new RelayerHelper(address(ics26Router));
+        ibcMulticall = IBCMulticall(address(multicallProxy));
 
         // ============== Step 3: Wire up the contracts ==============
         vm.startPrank(msg.sender);
         accessManagerSetTargetRoles(
             accessManager, address(routerProxy), address(transferProxy), address(gmpProxy), true
         );
+        accessManagerSetMulticallRoles(accessManager, address(multicallProxy), true);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
         accessManager.grantRole(IBCRolesLib.ERC20_CUSTOMIZER_ROLE, msg.sender, 0);
 
@@ -98,8 +109,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
     }
 
     /// @notice Adds a client backed by the light client of `driver`, which also proves the relayed packets
-    /// @dev The light client is restricted to `RELAYER_ROLE` in `accessManager`, so only the router (which holds the
-    /// role) can call it. Drivers must deploy their light client with `accessManager` as its authority.
+    /// @dev The light client is restricted to `RELAYER_ROLE` in `accessManager`, which the router holds so that it can
+    /// call the client. Drivers must deploy their light client with `accessManager` as its authority.
     /// @param counterpartyId The counterparty client identifier
     /// @param driver The driver of the light client tracking the counterparty
     function addClient(
@@ -319,7 +330,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
     function recvPacket(IICS26RouterMsgs.Packet calldata packet) external returns (bytes[] memory acks) {
         IICS26RouterMsgs.MsgRecvPacket memory msgRecvPacket = recvPacketMsg(packet);
         vm.recordLogs();
-        ics26Router.recvPacket(msgRecvPacket);
+        _relay(abi.encodeCall(IICS26RouterAccessControlled.recvPacket, (msgRecvPacket)));
 
         bytes memory ackBz = _th.getValueFromEvent(IICS26Router.WriteAcknowledgement.selector);
         (, acks) = abi.decode(ackBz, (IICS26RouterMsgs.Packet, bytes[]));
@@ -328,13 +339,13 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
     function ackPacket(IICS26RouterMsgs.Packet calldata packet, bytes[] calldata acks) external {
         require(acks.length == 1, "multiple acks not supported");
-        ics26Router.ackPacket(ackPacketMsg(packet, acks[0]));
+        _relay(abi.encodeCall(IICS26RouterAccessControlled.ackPacket, (ackPacketMsg(packet, acks[0]))));
     }
 
     function timeoutPacket(IICS26RouterMsgs.Packet calldata packet) external {
         IICS26RouterMsgs.MsgTimeoutPacket memory msgTimeoutPacket = timeoutPacketMsg(packet);
         vm.recordLogs();
-        ics26Router.timeoutPacket(msgTimeoutPacket);
+        _relay(abi.encodeCall(IICS26RouterAccessControlled.timeoutPacket, (msgTimeoutPacket)));
     }
 
     /// @notice Updates the client tracking the packet's source and builds the proven `MsgRecvPacket`
@@ -390,8 +401,15 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         bytes memory updateMsg;
         (updateMsg, proof, proofHeight) = _drivers[clientId].prove(path);
         if (updateMsg.length != 0) {
-            ics26Router.updateClient(clientId, updateMsg);
+            _relay(abi.encodeCall(IICS02ClientAccessControlled.updateClient, (clientId, updateMsg)));
         }
+    }
+
+    /// @notice Relays a router call through `ibcMulticall`, reverting with the call's own error if it fails
+    function _relay(bytes memory callData) private {
+        IIBCMulticallMsgs.Call[] memory calls = new IIBCMulticallMsgs.Call[](1);
+        calls[0] = IIBCMulticallMsgs.Call({ target: address(ics26Router), allowFailure: false, callData: callData });
+        ibcMulticall.multicall(calls);
     }
 
     function _cheatCommit(bytes32 path, bytes32 value) private {

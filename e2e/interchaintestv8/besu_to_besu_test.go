@@ -241,7 +241,8 @@ func (s *BesuToBesuTestSuite) ICS20TransferERC20FromChainAToChainBTest(consensus
 	userAddressB := crypto.PubkeyToAddress(s.chainB.user.PublicKey)
 	ics20AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Ics20Transfer)
 	ics26AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Ics26Router)
-	ics26AddressB := ethcommon.HexToAddress(s.chainB.contractAddresses.Ics26Router)
+	multicallAddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.IbcMulticall)
+	multicallAddressB := ethcommon.HexToAddress(s.chainB.contractAddresses.IbcMulticall)
 	erc20AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Erc20)
 
 	var (
@@ -318,14 +319,14 @@ func (s *BesuToBesuTestSuite) ICS20TransferERC20FromChainAToChainBTest(consensus
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(relayAB.Tx)
-			s.Require().Equal(strings.ToLower(s.chainB.contractAddresses.Ics26Router), strings.ToLower(relayAB.Address))
+			s.Require().Equal(strings.ToLower(s.chainB.contractAddresses.IbcMulticall), strings.ToLower(relayAB.Address))
 			s.requireAccountProofOnlyOnFirstPacketCall(relayAB.Tx, numOfTransfers)
 			relayTx = relayAB.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Chain B", func() {
 			var err error
-			recvReceipt, err = s.chainB.eth.BroadcastTx(ctx, s.chainB.relayerSubmitter, 15_000_000, &ics26AddressB, relayTx)
+			recvReceipt, err = s.chainB.eth.BroadcastTx(ctx, s.chainB.relayerSubmitter, 15_000_000, &multicallAddressB, relayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, recvReceipt.Status)
 			s.T().Logf("Multicall recv %d packets gas used: %d", numOfTransfers, recvReceipt.GasUsed)
@@ -367,14 +368,14 @@ func (s *BesuToBesuTestSuite) ICS20TransferERC20FromChainAToChainBTest(consensus
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackRelay.Tx)
-			s.Require().Equal(strings.ToLower(s.chainA.contractAddresses.Ics26Router), strings.ToLower(ackRelay.Address))
+			s.Require().Equal(strings.ToLower(s.chainA.contractAddresses.IbcMulticall), strings.ToLower(ackRelay.Address))
 			s.requireAccountProofOnlyOnFirstPacketCall(ackRelay.Tx, numOfTransfers)
 			relayTx = ackRelay.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast acknowledgement relay tx on Chain A", func() {
 			var err error
-			ackReceipt, err = s.chainA.eth.BroadcastTx(ctx, s.chainA.relayerSubmitter, 15_000_000, &ics26AddressA, relayTx)
+			ackReceipt, err = s.chainA.eth.BroadcastTx(ctx, s.chainA.relayerSubmitter, 15_000_000, &multicallAddressA, relayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, ackReceipt.Status)
 			s.T().Logf("Multicall ack %d packets gas used: %d", numOfTransfers, ackReceipt.GasUsed)
@@ -439,8 +440,8 @@ func (s *BesuToBesuTestSuite) TimeoutICS20TransferERC20FromChainAToChainBTest(co
 	userAddressA := crypto.PubkeyToAddress(s.chainA.user.PublicKey)
 	userAddressB := crypto.PubkeyToAddress(s.chainB.user.PublicKey)
 	ics20AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Ics20Transfer)
-	ics26AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Ics26Router)
-	ics26AddressB := ethcommon.HexToAddress(s.chainB.contractAddresses.Ics26Router)
+	multicallAddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.IbcMulticall)
+	multicallAddressB := ethcommon.HexToAddress(s.chainB.contractAddresses.IbcMulticall)
 	erc20AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Erc20)
 
 	var (
@@ -538,7 +539,7 @@ func (s *BesuToBesuTestSuite) TimeoutICS20TransferERC20FromChainAToChainBTest(co
 		s.Require().NoError(err)
 		s.Require().NotEmpty(relayAB.Tx)
 
-		recvReceipt, err := s.chainB.eth.BroadcastTx(ctx, s.chainB.relayerSubmitter, 15_000_000, &ics26AddressB, relayAB.Tx)
+		recvReceipt, err := s.chainB.eth.BroadcastTx(ctx, s.chainB.relayerSubmitter, 15_000_000, &multicallAddressB, relayAB.Tx)
 		s.Require().NoError(err)
 		_, err = e2esuite.GetEvmEvent(recvReceipt, s.chainB.ics26.ParseWriteAcknowledgement)
 		s.Require().NoError(err)
@@ -572,13 +573,13 @@ func (s *BesuToBesuTestSuite) TimeoutICS20TransferERC20FromChainAToChainBTest(co
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(timeoutRelay.Tx)
-			s.Require().Equal(strings.ToLower(s.chainA.contractAddresses.Ics26Router), strings.ToLower(timeoutRelay.Address))
+			s.Require().Equal(strings.ToLower(s.chainA.contractAddresses.IbcMulticall), strings.ToLower(timeoutRelay.Address))
 			s.requireAccountProofOnlyOnFirstPacketCall(timeoutRelay.Tx, numOfTimeouts)
 			timeoutRelayTx = timeoutRelay.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast timeout relay tx on Chain A", func() {
-			timeoutReceipt, err := s.chainA.eth.BroadcastTx(ctx, s.chainA.relayerSubmitter, 15_000_000, &ics26AddressA, timeoutRelayTx)
+			timeoutReceipt, err := s.chainA.eth.BroadcastTx(ctx, s.chainA.relayerSubmitter, 15_000_000, &multicallAddressA, timeoutRelayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, timeoutReceipt.Status)
 			s.T().Logf("Multicall timeout %d packets gas used: %d", numOfTimeouts, timeoutReceipt.GasUsed)
@@ -622,8 +623,8 @@ func (s *BesuToBesuTestSuite) ErrorAckICS20TransferERC20FromChainAToChainBTest(c
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	userAddressA := crypto.PubkeyToAddress(s.chainA.user.PublicKey)
 	ics20AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Ics20Transfer)
-	ics26AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Ics26Router)
-	ics26AddressB := ethcommon.HexToAddress(s.chainB.contractAddresses.Ics26Router)
+	multicallAddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.IbcMulticall)
+	multicallAddressB := ethcommon.HexToAddress(s.chainB.contractAddresses.IbcMulticall)
 	erc20AddressA := ethcommon.HexToAddress(s.chainA.contractAddresses.Erc20)
 	universalErrorAck := sha256.Sum256([]byte("UNIVERSAL_ERROR_ACKNOWLEDGEMENT"))
 
@@ -711,13 +712,13 @@ func (s *BesuToBesuTestSuite) ErrorAckICS20TransferERC20FromChainAToChainBTest(c
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(relayAB.Tx)
-			s.Require().Equal(strings.ToLower(s.chainB.contractAddresses.Ics26Router), strings.ToLower(relayAB.Address))
+			s.Require().Equal(strings.ToLower(s.chainB.contractAddresses.IbcMulticall), strings.ToLower(relayAB.Address))
 			relayTx = relayAB.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Chain B", func() {
 			var err error
-			recvReceipt, err = s.chainB.eth.BroadcastTx(ctx, s.chainB.relayerSubmitter, 15_000_000, &ics26AddressB, relayTx)
+			recvReceipt, err = s.chainB.eth.BroadcastTx(ctx, s.chainB.relayerSubmitter, 15_000_000, &multicallAddressB, relayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, recvReceipt.Status)
 
@@ -743,12 +744,12 @@ func (s *BesuToBesuTestSuite) ErrorAckICS20TransferERC20FromChainAToChainBTest(c
 			})
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackRelay.Tx)
-			s.Require().Equal(strings.ToLower(s.chainA.contractAddresses.Ics26Router), strings.ToLower(ackRelay.Address))
+			s.Require().Equal(strings.ToLower(s.chainA.contractAddresses.IbcMulticall), strings.ToLower(ackRelay.Address))
 			relayTx = ackRelay.Tx
 		}))
 
 		s.Require().True(s.Run("Broadcast acknowledgement relay tx on Chain A", func() {
-			ackReceipt, err := s.chainA.eth.BroadcastTx(ctx, s.chainA.relayerSubmitter, 15_000_000, &ics26AddressA, relayTx)
+			ackReceipt, err := s.chainA.eth.BroadcastTx(ctx, s.chainA.relayerSubmitter, 15_000_000, &multicallAddressA, relayTx)
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, ackReceipt.Status)
 
@@ -1238,12 +1239,8 @@ func (s *BesuToBesuTestSuite) requireICS26Revert(ctx context.Context, errData []
 func (s *BesuToBesuTestSuite) requireAccountProofOnlyOnFirstPacketCall(relayTx []byte, numOfPackets int) {
 	ics26ABI, err := ics26router.ContractMetaData.GetAbi()
 	s.Require().NoError(err)
-	multicall := ics26ABI.Methods["multicall"]
-	s.Require().Equal(multicall.ID, relayTx[:4])
-	multicallArgs, err := multicall.Inputs.Unpack(relayTx[4:])
+	calls, err := ethereum.UnpackIBCMulticall(relayTx)
 	s.Require().NoError(err)
-	calls, ok := multicallArgs[0].([][]byte)
-	s.Require().True(ok)
 
 	var proofs [][]byte
 	for _, call := range calls {
@@ -1395,22 +1392,24 @@ func (s *BesuToBesuTestSuite) deployContracts(chain *besuToBesuChainState) {
 func (s *BesuToBesuTestSuite) startRelayer() {
 	config := proofapi.NewConfigBuilder().
 		BesuToEth(proofapi.BesuToEthParams{
-			SrcChainID:    s.chainA.eth.ChainID.String(),
-			DstChainID:    s.chainB.eth.ChainID.String(),
-			SrcRPC:        s.chainA.eth.RPC,
-			DstRPC:        s.chainB.eth.RPC,
-			SrcICS26:      s.chainA.contractAddresses.Ics26Router,
-			DstICS26:      s.chainB.contractAddresses.Ics26Router,
-			ConsensusType: s.consensus,
+			SrcChainID:      s.chainA.eth.ChainID.String(),
+			DstChainID:      s.chainB.eth.ChainID.String(),
+			SrcRPC:          s.chainA.eth.RPC,
+			DstRPC:          s.chainB.eth.RPC,
+			SrcICS26:        s.chainA.contractAddresses.Ics26Router,
+			DstICS26:        s.chainB.contractAddresses.Ics26Router,
+			DstIBCMulticall: s.chainB.contractAddresses.IbcMulticall,
+			ConsensusType:   s.consensus,
 		}).
 		BesuToEth(proofapi.BesuToEthParams{
-			SrcChainID:    s.chainB.eth.ChainID.String(),
-			DstChainID:    s.chainA.eth.ChainID.String(),
-			SrcRPC:        s.chainB.eth.RPC,
-			DstRPC:        s.chainA.eth.RPC,
-			SrcICS26:      s.chainB.contractAddresses.Ics26Router,
-			DstICS26:      s.chainA.contractAddresses.Ics26Router,
-			ConsensusType: s.consensus,
+			SrcChainID:      s.chainB.eth.ChainID.String(),
+			DstChainID:      s.chainA.eth.ChainID.String(),
+			SrcRPC:          s.chainB.eth.RPC,
+			DstRPC:          s.chainA.eth.RPC,
+			SrcICS26:        s.chainB.contractAddresses.Ics26Router,
+			DstICS26:        s.chainA.contractAddresses.Ics26Router,
+			DstIBCMulticall: s.chainA.contractAddresses.IbcMulticall,
+			ConsensusType:   s.consensus,
 		}).
 		Build()
 

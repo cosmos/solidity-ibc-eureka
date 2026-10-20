@@ -18,8 +18,9 @@ use ethereum_apis::eth_api::client::EthApiClient;
 use ethereum_light_client::membership::evm_ics26_commitment_path;
 use ibc_eureka_solidity_types::{
     besu::{besu_ibft2_light_client, besu_qbft_light_client},
+    ibc_multicall::multicall_calldata,
     ics26::{
-        router::{multicallCall, routerCalls, routerInstance, updateClientCall},
+        router::{routerCalls, routerInstance, updateClientCall},
         IICS02ClientMsgs::Height as RouterHeight,
         ICS26_IBC_STORAGE_SLOT,
     },
@@ -167,13 +168,19 @@ impl TxBuilder {
         let trusted_state = consensus_state(&self.fetch_source_header(trusted_height).await?)?;
         let target_header = self.fetch_source_header(target_height).await?;
 
-        Self::build_update_client_calldata(
+        let update_call = Self::build_update_client_calldata(
             dst_client_id,
             trusted_height,
             trusted_state,
             &target_header,
             self.consensus_type,
-        )
+        )?;
+
+        Ok(multicall_calldata(
+            *self.dst_ics26_router.address(),
+            [update_call.into()],
+            1,
+        ))
     }
 
     pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
@@ -260,20 +267,28 @@ impl TxBuilder {
             &consensus_state(&header)?,
         )?;
 
-        let all_calls: Vec<Bytes> = self
+        let update_call = self
             .update_client_calldata_if_needed(&params.dst_client_id, &header)
             .await?
-            .map(Bytes::from)
-            .into_iter()
-            .chain(packet_calls.into_iter().map(|call| match call {
-                routerCalls::ackPacket(call) => call.abi_encode().into(),
-                routerCalls::recvPacket(call) => call.abi_encode().into(),
-                routerCalls::timeoutPacket(call) => call.abi_encode().into(),
-                _ => unreachable!("only recv, ack, and timeout calls are constructed"),
-            }))
-            .collect();
+            .map(Bytes::from);
+        // The update and the first packet call, which carries the account proof that the
+        // remaining calls rely on, must succeed. Every other packet call is allowed to fail.
+        let strict_calls = usize::from(update_call.is_some()) + 1;
+        let all_calls =
+            update_call
+                .into_iter()
+                .chain(packet_calls.into_iter().map(|call| match call {
+                    routerCalls::ackPacket(call) => call.abi_encode().into(),
+                    routerCalls::recvPacket(call) => call.abi_encode().into(),
+                    routerCalls::timeoutPacket(call) => call.abi_encode().into(),
+                    _ => unreachable!("only recv, ack, and timeout calls are constructed"),
+                }));
 
-        Ok(multicallCall { data: all_calls }.abi_encode())
+        Ok(multicall_calldata(
+            *self.dst_ics26_router.address(),
+            all_calls,
+            strict_calls,
+        ))
     }
 
     /// Builds the update from the destination client's trusted height to `target_header`, or
@@ -487,9 +502,10 @@ fn retain_provable_packet_calls(
 /// proof nodes for the packet's commitment slot with the consensus state they are verified against.
 ///
 /// The router account proof is only attached to the first call. All calls share the same proof
-/// height and execute in a single atomic multicall, so the light client verifies the account proof
-/// once, caches the storage root in transient storage, and serves the remaining calls from that
-/// cache when their `accountProofNodes` are empty.
+/// height and execute in a single multicall, so the light client verifies the account proof once,
+/// caches the storage root in transient storage, and serves the remaining calls from that cache
+/// when their `accountProofNodes` are empty. The first call is not allowed to fail, so the cache is
+/// always set before the remaining calls run.
 fn attach_packet_proofs(
     packet_calls: &mut [routerCalls],
     account_proof: &[Bytes],

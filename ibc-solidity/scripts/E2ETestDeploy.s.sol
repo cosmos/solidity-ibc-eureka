@@ -25,6 +25,7 @@ import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { IFTOwnable } from "../contracts/utils/IFTOwnable.sol";
 import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
+import { IBCMulticall } from "../contracts/utils/IBCMulticall.sol";
 
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v6.1.0/SP1VerifierGroth16.sol";
@@ -54,6 +55,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address verifierMock;
         address accessManager;
         address ics26Router;
+        address ibcMulticall;
         address ics20Transfer;
         address ics27Gmp;
         address erc20;
@@ -85,6 +87,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address routerLogic = address(new ICS26Router());
         address transferLogic = address(new ICS20Transfer());
         address gmpLogic = address(new ICS27GMP());
+        address multicallLogic = address(new IBCMulticall());
 
         d.ics26Router =
             address(new ERC1967Proxy(routerLogic, abi.encodeCall(ICS26Router.initialize, (address(accessManager)))));
@@ -108,6 +111,10 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             )
         );
 
+        d.ibcMulticall = address(
+            new ERC1967Proxy(multicallLogic, abi.encodeCall(IBCMulticall.initialize, (address(accessManager))))
+        );
+
         // Deploy IFT
         address iftLogic = address(new IFTOwnable());
         d.ift = address(
@@ -129,6 +136,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
 
         // Wire up access control and apps
         accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, d.ics27Gmp, true);
+        accessManagerSetMulticallRoles(accessManager, d.ibcMulticall, true);
         accessManagerSetRoles(
             accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
         );
@@ -148,6 +156,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("verifierMock", Strings.toHexString(d.verifierMock));
         json.serialize("accessManager", Strings.toHexString(d.accessManager));
         json.serialize("ics26Router", Strings.toHexString(d.ics26Router));
+        json.serialize("ibcMulticall", Strings.toHexString(d.ibcMulticall));
         json.serialize("ics20Transfer", Strings.toHexString(d.ics20Transfer));
         json.serialize("ics27Gmp", Strings.toHexString(d.ics27Gmp));
         json.serialize("erc20", Strings.toHexString(d.erc20));

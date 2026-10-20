@@ -215,6 +215,8 @@ generate-abi: build-contracts
 	jq -r '.bytecode.object' out/IFTOwnable2Step.sol/IFTOwnable2Step.json > tmp/abigen/IFTOwnable2Step.bin
 	jq '.abi' out/IFTAccessManaged.sol/IFTAccessManaged.json > abi/IFTAccessManaged.json
 	jq -r '.bytecode.object' out/IFTAccessManaged.sol/IFTAccessManaged.json > tmp/abigen/IFTAccessManaged.bin
+	jq '.abi' out/IBCMulticall.sol/IBCMulticall.json > abi/IBCMulticall.json
+	jq -r '.bytecode.object' out/IBCMulticall.sol/IBCMulticall.json > tmp/abigen/IBCMulticall.bin
 	jq '.abi' out/ERC1967Proxy.sol/ERC1967Proxy.json > abi/ERC1967Proxy.json
 	jq -r '.bytecode.object' out/ERC1967Proxy.sol/ERC1967Proxy.json > tmp/abigen/ERC1967Proxy.bin
 	jq '.abi' out/EVMIFTSendCallConstructor.sol/EVMIFTSendCallConstructor.json > abi/EVMIFTSendCallConstructor.json
@@ -237,6 +239,7 @@ generate-abi: build-contracts
 	abigen --abi abi/BesuQBFTLightClient.json --bin tmp/abigen/BesuQBFTLightClient.bin --pkg besuqbft --type Contract --out ../packages/go-abigen/besuqbft/contract.go
 	abigen --v2 --abi abi/IBesuLightClientEncoding.json --pkg besumsgs --type Bindings --out ../packages/go-abigen/besumsgs/bindings.go
 	abigen --v2 --abi abi/IBesuLightClientErrors.json --pkg besuerrors --type Bindings --out ../packages/go-abigen/besuerrors/bindings.go
+	abigen --abi abi/IBCMulticall.json --bin tmp/abigen/IBCMulticall.bin --pkg ibcmulticall --type Contract --out ../packages/go-abigen/ibcmulticall/contract.go
 	abigen --abi abi/ERC1967Proxy.json --bin tmp/abigen/ERC1967Proxy.bin --pkg erc1967proxy --type Contract --out ../packages/go-abigen/erc1967proxy/contract.go
 	abigen --abi abi/EVMIFTSendCallConstructor.json --bin tmp/abigen/EVMIFTSendCallConstructor.bin --pkg evmiftsendcall --type Contract --out ../packages/go-abigen/evmiftsendcall/contract.go
 	abigen --abi abi/AccessManager.json --bin tmp/abigen/AccessManager.bin --pkg accessmanager --type Contract --out ../packages/go-abigen/accessmanager/contract.go

@@ -69,6 +69,15 @@ abstract contract DeployAccessManagerWithRoles {
         );
     }
 
+    /// @notice Lets relayers batch through `multicall` and lets `multicall` relay to the router
+    /// @dev With `pubRelay`, anyone can batch through `multicall`, matching `accessManagerSetTargetRoles`
+    function accessManagerSetMulticallRoles(IAccessManager accessManager, address multicall, bool pubRelay) public {
+        uint64 relayerRole = pubRelay ? IBCRolesLib.PUBLIC_ROLE : IBCRolesLib.RELAYER_ROLE;
+        accessManager.setTargetFunctionRole(multicall, IBCRolesLib.multicallRelayerSelectors(), relayerRole);
+        accessManager.setTargetFunctionRole(multicall, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, multicall, 0);
+    }
+
     function accessManagerSetRoles(
         IAccessManager accessManager,
         address[] memory relayers,

@@ -14,8 +14,9 @@ use alloy::{
 use anyhow::Result;
 use ibc_core_host_types::identifiers::ChainId;
 use ibc_eureka_solidity_types::{
+    ibc_multicall::multicall_calldata,
     ics26::{
-        router::{multicallCall, routerCalls, routerInstance, updateClientCall},
+        router::{routerCalls, routerInstance, updateClientCall},
         IICS02ClientMsgs::Height,
     },
     msgs::{
@@ -197,18 +198,19 @@ where
         )
         .await?;
 
-        let calls = all_msgs.into_iter().map(|msg| match msg {
-            routerCalls::timeoutPacket(call) => call.abi_encode(),
-            routerCalls::recvPacket(call) => call.abi_encode(),
-            routerCalls::ackPacket(call) => call.abi_encode(),
-            _ => unreachable!(),
-        });
+        let calls = all_msgs
+            .into_iter()
+            .map(|msg| match msg {
+                routerCalls::timeoutPacket(call) => call.abi_encode(),
+                routerCalls::recvPacket(call) => call.abi_encode(),
+                routerCalls::ackPacket(call) => call.abi_encode(),
+                _ => unreachable!(),
+            })
+            .map(Into::into);
 
-        let multicall_tx = multicallCall {
-            data: calls.map(Into::into).collect(),
-        };
-
-        Ok(multicall_tx.abi_encode())
+        // The first message carries the proof that the rest of the batch relies on, so it must
+        // succeed. Every other message is allowed to fail.
+        Ok(multicall_calldata(*self.ics26_router.address(), calls, 1))
     }
 
     #[tracing::instrument(skip_all, err(Debug))]
@@ -340,11 +342,16 @@ where
             ),
         };
 
-        Ok(updateClientCall {
+        let update_call = updateClientCall {
             clientId: dst_client_id,
             updateMsg: update_msg.abi_encode().into(),
-        }
-        .abi_encode())
+        };
+
+        Ok(multicall_calldata(
+            *self.ics26_router.address(),
+            [update_call.abi_encode().into()],
+            1,
+        ))
     }
 }
 
@@ -375,7 +382,7 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
     pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
-        build_eth_attestor_relay_events_tx(&self.aggregator, params).await
+        build_eth_attestor_relay_events_tx(&self.aggregator, self.ics26_address, params).await
     }
 
     /// Create a client on Ethereum using attestations.
@@ -397,6 +404,11 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
     /// Returns an error when called (not yet implemented).
     #[allow(clippy::unused_async)]
     pub async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
-        build_eth_attestor_update_client_calldata(&self.aggregator, dst_client_id).await
+        build_eth_attestor_update_client_calldata(
+            &self.aggregator,
+            self.ics26_address,
+            dst_client_id,
+        )
+        .await
     }
 }

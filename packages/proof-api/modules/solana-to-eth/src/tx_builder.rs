@@ -3,7 +3,7 @@
 //! Transaction builder for Solana-to-Eth relay using attestation proofs.
 //!
 //! Delegates to `eth_attested` utilities for building ABI-encoded EVM
-//! multicall transactions. Payloads from Solana are already ABI-encoded
+//! `IBCMulticall` transactions. Payloads from Solana are already ABI-encoded
 //! by the IFT program, so no translation is needed (passthrough).
 
 use std::collections::HashMap;
@@ -49,14 +49,14 @@ impl AttestedTxBuilder {
 
     /// Relay events from Solana to Ethereum using attestations.
     ///
-    /// Builds an ABI-encoded multicall transaction containing `update_client`,
-    /// `recv_packet`, `ack_packet` and `timeout_packet` calls.
+    /// Builds an ABI-encoded `IBCMulticall` transaction containing `update_client`,
+    /// `recv_packet`, `ack_packet` and `timeout_packet` calls to the ICS26 router.
     ///
     /// # Errors
     ///
     /// Returns an error if building the relay transaction fails.
     pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
-        build_eth_attestor_relay_events_tx(&self.aggregator, params).await
+        build_eth_attestor_relay_events_tx(&self.aggregator, self.ics26_address, params).await
     }
 
     /// Build `create_client` calldata for an attestation light client on EVM.
@@ -79,6 +79,11 @@ impl AttestedTxBuilder {
     ///
     /// Returns an error if calldata construction fails.
     pub async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
-        build_eth_attestor_update_client_calldata(&self.aggregator, dst_client_id.to_string()).await
+        build_eth_attestor_update_client_calldata(
+            &self.aggregator,
+            self.ics26_address,
+            dst_client_id.to_string(),
+        )
+        .await
     }
 }
