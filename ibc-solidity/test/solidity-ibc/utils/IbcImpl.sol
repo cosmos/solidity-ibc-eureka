@@ -42,6 +42,9 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
     mapping(string clientId => ILightClientDriver driver) private _drivers;
 
+    /// @dev The admin of `accessManager`, i.e. the deployer of this contract.
+    address private immutable _admin;
+
     TestHelper private _th = new TestHelper();
 
     constructor(address permit2) {
@@ -54,6 +57,7 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
         ICS27GMP ics27GmpLogic = new ICS27GMP();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
+        _admin = msg.sender;
         accessManager = new AccessManager(msg.sender);
 
         ERC1967Proxy routerProxy = new ERC1967Proxy(
@@ -94,6 +98,8 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
     }
 
     /// @notice Adds a client backed by the light client of `driver`, which also proves the relayed packets
+    /// @dev The light client is restricted to `RELAYER_ROLE` in `accessManager`, so only the router (which holds the
+    /// role) can call it. Drivers must deploy their light client with `accessManager` as its authority.
     /// @param counterpartyId The counterparty client identifier
     /// @param driver The driver of the light client tracking the counterparty
     function addClient(
@@ -107,6 +113,10 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
             IICS02ClientMsgs.CounterpartyInfo(counterpartyId, _th.EMPTY_MERKLE_PREFIX()), address(driver.lightClient())
         );
         _drivers[clientId] = driver;
+
+        vm.startPrank(_admin);
+        accessManagerSetLightClientTargetRoles(accessManager, address(driver.lightClient()), false, false);
+        vm.stopPrank();
     }
 
     function sendTransferAsUser(
