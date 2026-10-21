@@ -47,7 +47,8 @@ interface IICS02ClientAccessControlled {
         external;
 
     /// @notice Submits misbehaviour to the client with the given client identifier.
-    /// @dev Can only be called by the role mapped to `IBCRolesLib.ics26MisbehaviourSelectors()`, e.g. `RELAYER_ROLE`.
+    /// @dev Can only be called by the role mapped to `IBCRolesLib.ics26MisbehaviourSelectors()`, which is
+    /// `PUBLIC_ROLE` by default since misbehaviour is verified by the light client.
     /// @param clientId The client identifier
     /// @param misbehaviourMsg The misbehaviour message
     function submitMisbehaviour(string calldata clientId, bytes calldata misbehaviourMsg) external;
