@@ -235,6 +235,7 @@ impl ProofApiService for SolanaToEthProofApiModuleService {
         let tx = self
             .tx_builder
             .create_client(&inner_req.parameters)
+            .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
@@ -286,9 +287,9 @@ impl SolanaToEthTxBuilder {
         }
     }
 
-    fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Attested(tb) => tb.create_client(parameters),
+            Self::Attested(tb) => tb.create_client(parameters).await,
         }
     }
 

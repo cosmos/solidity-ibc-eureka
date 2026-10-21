@@ -155,6 +155,16 @@ Module configuration varies by module type:
   - `signer_address`: Cosmos address used for message construction metadata.
   - `solana_ics26_program_id`: Solana ICS26 router program ID.
 
+## EVM light client access control
+
+Every EVM light client created through `CreateClient` (`SP1ICS07Tendermint`, `AttestationLightClient`, `BesuQBFTLightClient` and `BesuIBFT2LightClient`) is restricted by an `AccessManager`. The proof API uses the `authority()` of the destination `ICS26Router` from the module config, so no parameter is needed.
+
+Deploying the client does not grant anyone access. Afterwards, the `AccessManager` admin must map the client's selectors to roles:
+- `IBCRolesLib.lightClientRelayerSelectors()` (`updateClient`, `verifyMembership`, `verifyNonMembership`) to `RELAYER_ROLE`, or to `PUBLIC_ROLE` for a permissionless client.
+- `IBCRolesLib.lightClientMisbehaviourSelectors()` (`misbehaviour`) to `RELAYER_ROLE` or `PUBLIC_ROLE`.
+
+The `ICS26Router` calls the light client, so it must hold `RELAYER_ROLE`. See `DeployAccessManagerWithRoles.accessManagerSetLightClientTargetRoles`.
+
 ## `besu_to_eth` create-client parameters
 
 `besu_to_eth` `CreateClient` returns only deployment calldata for `BesuQBFTLightClient` or `BesuIBFT2LightClient`. It does not call `ICS26Router.addClient(...)`.
@@ -166,7 +176,6 @@ Required parameters:
 Optional parameters:
 - `trust_level`: Minimum fraction of the trusted validator set that must sign an update, as `<numerator>/<denominator>` within `[1/3, 1]`. Defaults to `2/3`.
 - `trusted_height`: Decimal source block height. Defaults to the latest source block. The header at this height must still be within `trusting_period` when the calldata is deployed, or the constructor reverts.
-- `role_manager`: Hex address. Defaults to the zero address.
 
 Operational notes:
 - `consensus_type` is fixed by module config and only affects `CreateClient` wrapper selection.

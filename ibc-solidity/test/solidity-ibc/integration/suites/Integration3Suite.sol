@@ -34,16 +34,24 @@ abstract contract Integration3Suite is LightClientDriverTest {
 
         // Add the counterparty implementations
         string memory clientId;
-        clientId = ibcImplA.addClient(th.FIRST_CLIENT_ID(), _newDriver(ibcImplB.ics26Router()));
+        clientId = ibcImplA.addClient(
+            th.FIRST_CLIENT_ID(), _newDriver(ibcImplB.ics26Router(), address(ibcImplA.accessManager()))
+        );
         assertEq(clientId, th.FIRST_CLIENT_ID());
 
-        clientId = ibcImplB.addClient(th.FIRST_CLIENT_ID(), _newDriver(ibcImplA.ics26Router()));
+        clientId = ibcImplB.addClient(
+            th.FIRST_CLIENT_ID(), _newDriver(ibcImplA.ics26Router(), address(ibcImplB.accessManager()))
+        );
         assertEq(clientId, th.FIRST_CLIENT_ID());
 
-        clientId = ibcImplB.addClient(th.FIRST_CLIENT_ID(), _newDriver(ibcImplC.ics26Router()));
+        clientId = ibcImplB.addClient(
+            th.FIRST_CLIENT_ID(), _newDriver(ibcImplC.ics26Router(), address(ibcImplB.accessManager()))
+        );
         assertEq(clientId, th.SECOND_CLIENT_ID());
 
-        clientId = ibcImplC.addClient(th.SECOND_CLIENT_ID(), _newDriver(ibcImplB.ics26Router()));
+        clientId = ibcImplC.addClient(
+            th.SECOND_CLIENT_ID(), _newDriver(ibcImplB.ics26Router(), address(ibcImplC.accessManager()))
+        );
         assertEq(clientId, th.FIRST_CLIENT_ID());
     }
 

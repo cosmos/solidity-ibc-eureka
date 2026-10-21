@@ -325,7 +325,6 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 				testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
 				testvalues.ParameterKey_height:            strconv.FormatInt(latestCosmosHeader.Header.Height, 10),
 				testvalues.ParameterKey_timestamp:         strconv.FormatInt(latestCosmosHeader.Header.Time.Unix(), 10),
-				testvalues.ParameterKey_RoleManager:       ethcommon.HexToAddress(s.contractAddresses.Ics26Router).Hex(),
 			}
 
 			var createClientTxBz []byte
@@ -351,6 +350,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 				s.attestationLightClient, err = attestation.NewContract(s.sp1Ics07Address, eth.RPCClient)
 				s.Require().NoError(err)
 			}))
+
+			s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.deployer, ethcommon.HexToAddress(s.contractAddresses.AccessManager), s.sp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 		}))
 	} else {
 		s.Require().True(s.Run("Deploy SP1 ICS07 contract", func() {
@@ -383,6 +384,8 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 				s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(s.sp1Ics07Address, eth.RPCClient)
 				s.Require().NoError(err)
 			}))
+
+			s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.deployer, ethcommon.HexToAddress(s.contractAddresses.AccessManager), s.sp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 		}))
 	}
 

@@ -313,6 +313,10 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 			s.chainBSP1Ics07Contract, err = sp1ics07tendermint.NewContract(s.chainBsp1Ics07Address, eth.RPCClient)
 			s.Require().NoError(err)
 		}))
+
+		accessManager := ethcommon.HexToAddress(s.contractAddresses.AccessManager)
+		s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.deployer, accessManager, s.chainAsp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
+		s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.deployer, accessManager, s.chainBsp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 	}))
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {

@@ -124,6 +124,20 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics26Router.addClient(IICS02ClientMsgs.CounterpartyInfo(counterpartyId, merklePrefix), makeAddr("mockClient"));
     }
 
+    function test_success_publicMisbehaviour() public {
+        // Misbehaviour is public by default, even though relaying is restricted in this setup.
+        address user = makeAddr("user");
+        vm.prank(user);
+        ics26Router.submitMisbehaviour(clientId, bytes(""));
+
+        accessManager.setTargetFunctionRole(
+            address(ics26Router), IBCRolesLib.ics26MisbehaviourSelectors(), IBCRolesLib.RELAYER_ROLE
+        );
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        ics26Router.submitMisbehaviour(clientId, bytes(""));
+    }
+
     function test_success_ics20_upgrade() public {
         // ============== Step 4: Migrate the contracts ==============
         DummyInitializable newLogic = new DummyInitializable();

@@ -335,6 +335,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 			lightClientAddress := receipt.ContractAddress
 			s.T().Logf("Light client for Chain B deployed on Chain A at: %s", lightClientAddress.Hex())
+			s.Require().NoError(s.EthChainA().SetLightClientTargetRoles(ctx, s.deployerA, ethcommon.HexToAddress(s.contractAddressesA.AccessManager), lightClientAddress, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 
 			// Add client on Chain A that tracks Chain B's state
 			// The counterparty client ID is the client on Chain B that tracks Chain A
@@ -381,6 +382,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 			lightClientAddress := receipt.ContractAddress
 			s.T().Logf("Light client for Chain A deployed on Chain B at: %s", lightClientAddress.Hex())
+			s.Require().NoError(s.EthChainB().SetLightClientTargetRoles(ctx, s.deployerB, ethcommon.HexToAddress(s.contractAddressesB.AccessManager), lightClientAddress, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 
 			// Add client on Chain B that tracks Chain A's state
 			// The counterparty client ID is the client on Chain A that tracks Chain B

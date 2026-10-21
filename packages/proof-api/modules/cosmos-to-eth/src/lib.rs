@@ -440,7 +440,7 @@ impl CosmosToEthTxBuilder {
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::SP1(tb) => tb.create_client(parameters).await,
-            Self::Attested(tb) => tb.create_client(parameters),
+            Self::Attested(tb) => tb.create_client(parameters).await,
         }
     }
 

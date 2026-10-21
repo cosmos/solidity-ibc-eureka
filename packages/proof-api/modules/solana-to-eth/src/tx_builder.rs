@@ -64,8 +64,13 @@ impl AttestedTxBuilder {
     /// # Errors
     ///
     /// Returns an error if calldata construction fails.
-    pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        build_eth_attestor_create_client_calldata(parameters, self.provider.clone())
+    pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        build_eth_attestor_create_client_calldata(
+            parameters,
+            self.ics26_address,
+            self.provider.clone(),
+        )
+        .await
     }
 
     /// Build `update_client` calldata for the attestation light client on EVM.

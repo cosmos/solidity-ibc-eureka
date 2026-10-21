@@ -239,6 +239,8 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 			s.sp1Ics07Contract, err = sp1ics07tendermint.NewContract(s.sp1Ics07Address, eth.RPCClient)
 			s.Require().NoError(err)
 		}))
+
+		s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.deployer, ethcommon.HexToAddress(s.contractAddresses.AccessManager), s.sp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 	}))
 
 	s.Require().True(s.Run("Fund address with ERC20", func() {

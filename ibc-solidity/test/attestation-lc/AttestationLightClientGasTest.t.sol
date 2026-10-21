@@ -7,8 +7,10 @@ import { AttestationLightClient } from "../../contracts/light-clients/attestatio
 import { IAttestationMsgs as AM } from "../../contracts/light-clients/attestation/msgs/IAttestationMsgs.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAccessManagerWithRoles.sol";
 
-contract AttestationLightClientGasTest is Test {
+contract AttestationLightClientGasTest is Test, DeployAccessManagerWithRoles {
     uint64 internal constant INITIAL_HEIGHT = 100;
     uint64 internal constant INITIAL_TS = 1_700_000_000;
 
@@ -53,13 +55,7 @@ contract AttestationLightClientGasTest is Test {
     function _runScenario(uint8 quorum, uint256 attestorCount, uint256 commitmentCount, string memory label) internal {
         (address[] memory attestorAddrs, uint256[] memory attestorPrivs) = _generateAttestors(attestorCount);
 
-        AttestationLightClient client = new AttestationLightClient({
-            attestorAddresses: attestorAddrs,
-            minRequiredSigs: quorum,
-            initialHeight: INITIAL_HEIGHT,
-            initialTimestampSeconds: INITIAL_TS,
-            roleManager: address(0)
-        });
+        AttestationLightClient client = _deployPublicClient(attestorAddrs, quorum);
 
         (AM.PacketCompact[] memory packets, AM.PacketCompact memory target) = _makeCommitments(commitmentCount);
 
@@ -88,6 +84,24 @@ contract AttestationLightClientGasTest is Test {
         emit log_named_uint(label, gasUsed);
 
         assertEq(ts, INITIAL_TS);
+    }
+
+    function _deployPublicClient(
+        address[] memory attestorAddrs,
+        uint8 quorum
+    )
+        internal
+        returns (AttestationLightClient client)
+    {
+        AccessManager accessManager = new AccessManager(address(this));
+        client = new AttestationLightClient({
+            attestorAddresses: attestorAddrs,
+            minRequiredSigs: quorum,
+            initialHeight: INITIAL_HEIGHT,
+            initialTimestampSeconds: INITIAL_TS,
+            authority: address(accessManager)
+        });
+        accessManagerSetLightClientTargetRoles(accessManager, address(client), true, true);
     }
 
     function _generateAttestors(uint256 n) internal pure returns (address[] memory addrs, uint256[] memory privs) {

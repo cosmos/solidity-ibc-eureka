@@ -353,6 +353,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 				s.Require().NoError(err)
 				s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 				tc.sp1Ics07Address = receipt.ContractAddress
+				s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.ethDeployer, ethcommon.HexToAddress(s.contractAddresses.AccessManager), tc.sp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 			}))
 		}))
 
@@ -1040,6 +1041,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 			s.Require().NoError(err)
 			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 			sp1Ics07Address = receipt.ContractAddress
+			s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.ethDeployer, ethcommon.HexToAddress(s.contractAddresses.AccessManager), sp1Ics07Address, testvalues.EVMRelayerRole, testvalues.EVMRelayerRole))
 		}))
 
 		s.Require().True(s.Run("Create Ethereum light client on Cosmos", func() {

@@ -21,6 +21,7 @@ abstract contract DeployAccessManagerWithRoles {
         );
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.RELAYER_ROLE);
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26PublicSelectors(), IBCRolesLib.PUBLIC_ROLE);
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26MisbehaviourSelectors(), IBCRolesLib.PUBLIC_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.pauserSelectors(), IBCRolesLib.PAUSER_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.unpauserSelectors(), IBCRolesLib.UNPAUSER_ROLE);
         accessManager.setTargetFunctionRole(
@@ -44,6 +45,29 @@ abstract contract DeployAccessManagerWithRoles {
         if (pubRelay) {
             accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE);
         }
+
+        // The router calls the light clients when relaying packets.
+        accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, ics26, 0);
+    }
+
+    function accessManagerSetLightClientTargetRoles(
+        IAccessManager accessManager,
+        address lightClient,
+        bool pubRelay,
+        bool pubMisbehaviour
+    )
+        public
+    {
+        accessManager.setTargetFunctionRole(
+            lightClient,
+            IBCRolesLib.lightClientRelayerSelectors(),
+            pubRelay ? IBCRolesLib.PUBLIC_ROLE : IBCRolesLib.RELAYER_ROLE
+        );
+        accessManager.setTargetFunctionRole(
+            lightClient,
+            IBCRolesLib.lightClientMisbehaviourSelectors(),
+            pubMisbehaviour ? IBCRolesLib.PUBLIC_ROLE : IBCRolesLib.RELAYER_ROLE
+        );
     }
 
     /// @notice Lets relayers batch through `multicall` and lets `multicall` relay to the router

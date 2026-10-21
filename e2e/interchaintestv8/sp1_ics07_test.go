@@ -197,6 +197,10 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		verifierAddress, err := contractAddresses.GetVerifierAddress(prover, proofType.String())
 		s.Require().NoError(err)
 
+		// The proof API restricts the client with the access manager of its configured (first deployment's) router.
+		accessManager, err := s.ics26Contract.Authority(nil)
+		s.Require().NoError(err)
+
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
@@ -205,7 +209,6 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				Parameters: map[string]string{
 					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
 					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
-					testvalues.ParameterKey_RoleManager: ethcommon.Address{}.Hex(),
 				},
 			})
 			s.Require().NoError(err)
@@ -225,6 +228,9 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 			s.contract, err = sp1ics07tendermint.NewContract(receipt.ContractAddress, eth.RPCClient)
 			s.Require().NoError(err)
 		}))
+
+		// The tests call the client directly, so it is made permissionless.
+		s.Require().NoError(eth.SetLightClientTargetRoles(ctx, s.key, accessManager, s.sp1Ics07Address, testvalues.EVMPublicRole, testvalues.EVMPublicRole))
 
 		s.Require().True(s.Run("Add client and counterparty on EVM", func() {
 			counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
