@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import { IICS26ManagedLightClient } from "../interfaces/IICS26ManagedLightClient.sol";
-import { IICS26ManagedLightClientErrors } from "../errors/IICS26ManagedLightClientErrors.sol";
-import { IPausable } from "../interfaces/IPausable.sol";
+import { IICS26ManagedLightClient } from "../../interfaces/IICS26ManagedLightClient.sol";
+import { IICS26ManagedLightClientErrors } from "../../errors/IICS26ManagedLightClientErrors.sol";
+import { IPausable } from "../../interfaces/IPausable.sol";
 
-import { IBCRolesLib } from "./IBCRolesLib.sol";
+import { IBCRolesLib } from "../../utils/IBCRolesLib.sol";
 import { Pausable } from "@openzeppelin-contracts/utils/Pausable.sol";
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IAccessManager } from "@openzeppelin-contracts/access/manager/IAccessManager.sol";

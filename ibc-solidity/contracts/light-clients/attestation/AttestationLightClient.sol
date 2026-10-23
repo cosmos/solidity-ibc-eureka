@@ -10,7 +10,7 @@ import { IAttestationLightClientErrors } from "./errors/IAttestationLightClientE
 import { IAttestationMsgs } from "./msgs/IAttestationMsgs.sol";
 import { IAttestationLightClientMsgs } from "./msgs/IAttestationLightClientMsgs.sol";
 
-import { ICS26ManagedLightClient } from "../../utils/ICS26ManagedLightClient.sol";
+import { ICS26ManagedLightClient } from "../utils/ICS26ManagedLightClient.sol";
 
 /// @title Attestation-based IBC Light Client
 /// @notice Implements an IBC light client that trusts an off-chain m-of-n attestor set.

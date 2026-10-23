@@ -25,12 +25,14 @@ All contracts are compiled for the **Cancun** EVM (`evm_version = "cancun"` in `
 - `RelayerHelper.sol` – Read-only helper for relayers to query packet commitments, receipts, and successful acknowledgements from `ICS26Router`.
 
 ## Light clients (`light-clients/`)
-All light clients except `ICS02PrecompileWrapper` inherit `utils/ICS26ManagedLightClient.sol`: they are bound at construction to an immutable `ICS26_ROUTER`, the only caller allowed to update them, verify proofs or submit misbehaviour. Relayers reach them through the router's `updateClient`, `verifyMembership`, `verifyNonMembership` (`RELAYER_ROLE`) and the permissionless `submitMisbehaviour`. Each client is pausable through `pause()`/`unpause()`, which check `PAUSER_ROLE`/`UNPAUSER_ROLE` in the router's `AccessManager`; a paused client rejects updates and proofs but can still be frozen by misbehaviour.
+All light clients except `ICS02PrecompileWrapper` inherit `light-clients/utils/ICS26ManagedLightClient.sol`: they are bound at construction to an immutable `ICS26_ROUTER`, the only caller allowed to update them, verify proofs or submit misbehaviour. Relayers reach them through the router's `updateClient`, `verifyMembership`, `verifyNonMembership` (`RELAYER_ROLE`) and the permissionless `submitMisbehaviour`. Each client is pausable through `pause()`/`unpause()`, which check `PAUSER_ROLE`/`UNPAUSER_ROLE` in the router's `AccessManager`; a paused client rejects updates and proofs but can still be frozen by misbehaviour.
 - `attestation/AttestationLightClient.sol` – m-of-n attestor-set light client using ECDSA signatures.
 - `besu/BesuIBFT2LightClient.sol` – Besu IBFT 2.0 light client for header-validator mode. Uses weak-subjectivity / trusting-period updates, verifies Besu commit seals under the existing YUI + prover sealing-header model plus EVM account/storage proofs, and proves Eureka commitments against the tracked counterparty `ICS26Router` storage.
 - `besu/BesuQBFTLightClient.sol` – Besu QBFT light client for header-validator mode with the same proof model and storage verification surface as the IBFT2 wrapper, but QBFT-specific seal-digest rules within that same YUI + prover sealing-header model.
 - `ics02-wrapper/ICS02PrecompileWrapper.sol` – Thin adapter that exposes the `ILightClient` interface over the Cosmos EVM ICS02 precompile at a fixed address.
 - `sp1-ics07/SP1ICS07Tendermint.sol` – Tendermint light client verified via SP1 programs and verifier contract; supports update, (non)membership proofs, and misbehaviour handling.
+- `utils/ICS26ManagedLightClient.sol` – Shared base that binds a light client to its `ICS26Router` and authorizes `pause()`/`unpause()` through the router's `AccessManager`.
+- `utils/TrieProof.sol` – Merkle-Patricia trie proof verification forked from OpenZeppelin, used by the Besu light clients for account and storage proofs.
 
 ### Besu light-client scope
 - Supported: Besu **IBFT 2.0** and **QBFT** in **header-validator mode**.

@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { ECDSA } from "@openzeppelin-contracts/utils/cryptography/ECDSA.sol";
 import { RLP } from "@openzeppelin-contracts/utils/RLP.sol";
-import { TrieProof } from "../../utils/TrieProof.sol";
+import { TrieProof } from "../utils/TrieProof.sol";
 import { Memory } from "@openzeppelin-contracts/utils/Memory.sol";
 import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
 import { Math } from "@openzeppelin-contracts/utils/math/Math.sol";
@@ -16,7 +16,7 @@ import { IBesuLightClientErrors } from "./errors/IBesuLightClientErrors.sol";
 import { IBesuLightClient } from "./interfaces/IBesuLightClient.sol";
 
 import { Header } from "./utils/Header.sol";
-import { ICS26ManagedLightClient } from "../../utils/ICS26ManagedLightClient.sol";
+import { ICS26ManagedLightClient } from "../utils/ICS26ManagedLightClient.sol";
 
 /// @title Besu Light Client Base
 /// @notice Shared implementation for Besu BFT light clients that verify headers and EVM storage proofs.

@@ -18,7 +18,7 @@ import { ISP1Verifier } from "@sp1-contracts/ISP1Verifier.sol";
 import { Paths } from "./utils/Paths.sol";
 import { Multicall } from "@openzeppelin-contracts/utils/Multicall.sol";
 import { TransientSlot } from "@openzeppelin-contracts/utils/TransientSlot.sol";
-import { ICS26ManagedLightClient } from "../../utils/ICS26ManagedLightClient.sol";
+import { ICS26ManagedLightClient } from "../utils/ICS26ManagedLightClient.sol";
 
 /// @title SP1 ICS07 Tendermint Light Client
 /// @author srdtrk
