@@ -74,6 +74,7 @@ lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
 	cargo clippy --all-targets -- -D warnings
+	./scripts/check-utils-patch.sh
 	just solidity::lint-sp1
 	just solidity::lint-cw
 	just solana::lint-solana

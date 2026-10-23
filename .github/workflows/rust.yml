@@ -37,6 +37,8 @@ jobs:
         uses: actions-rs/cargo@844f36862e911db73fe0815f00a4a2602c279505 # v1.0.3
         with:
           command: clippy
+      - name: Check the ibc-eureka-utils patch still applies
+        run: ./scripts/check-utils-patch.sh
 
       # cw-ics08-wasm-eth is its own workspace (separate Cargo.lock), so the root
       # fmt/clippy above do not reach it. Lint it explicitly from its directory.
