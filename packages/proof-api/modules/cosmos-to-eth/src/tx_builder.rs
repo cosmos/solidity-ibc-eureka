@@ -129,8 +129,8 @@ where
 const SP1_VERIFIER: &str = "sp1_verifier";
 /// The key for the zk algorithm in the parameters map.
 const ZK_ALGORITHM: &str = "zk_algorithm";
-/// The key for the role manager in the parameters map.
-const ROLE_MANAGER: &str = "role_manager";
+/// The key for the `ICS26Router` that drives the light client in the parameters map.
+const ICS26_ROUTER: &str = "ics26_router";
 
 #[async_trait::async_trait]
 impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
@@ -220,9 +220,9 @@ where
         // Check if parameters only include correct keys
         parameters
             .keys()
-            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM, ROLE_MANAGER].contains(&k.as_str()))
+            .find(|k| ![SP1_VERIFIER, ZK_ALGORITHM, ICS26_ROUTER].contains(&k.as_str()))
             .map_or(Ok(()), |param| {
-                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}` and `{ZK_ALGORITHM}` are allowed"))
+                Err(anyhow::anyhow!("Unexpected parameter: `{param}`, only `{SP1_VERIFIER}`, `{ZK_ALGORITHM}` and `{ICS26_ROUTER}` are allowed"))
             })?;
 
         let latest_light_block = self.tm_client.get_light_block(None).await?;
@@ -232,9 +232,9 @@ where
             latest_light_block.height().value()
         );
 
-        let role_admin = parameters
-            .get(ROLE_MANAGER)
-            .map_or(Ok(Address::ZERO), |a| {
+        let ics26_router = parameters
+            .get(ICS26_ROUTER)
+            .map_or(Ok(*self.ics26_router.address()), |a| {
                 Address::from_str(a.as_str()).map_err(|e| anyhow::anyhow!(e))
             })?;
         let sp1_verifier = Address::from_str(
@@ -292,7 +292,7 @@ where
             sp1_verifier,
             client_state.abi_encode().into(),
             consensus_state_hash,
-            role_admin,
+            ics26_router,
         )
         .calldata()
         .to_vec())
@@ -395,7 +395,11 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
     /// # Errors
     /// Returns an error if transaction building fails.
     pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
-        build_eth_attestor_create_client_calldata(parameters, self.provider.clone())
+        build_eth_attestor_create_client_calldata(
+            parameters,
+            self.ics26_address,
+            self.provider.clone(),
+        )
     }
 
     /// Update a client on Ethereum using attestations.
