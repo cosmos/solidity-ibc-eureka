@@ -136,8 +136,8 @@ rustls-native-certs = { version = "0.8", default-features = false }
 # 0.103.16 is the first release that distrusts the compromised eMudhra emSign G3 intermediates
 rustls-webpki       = { version = "0.103.16", default-features = false }
 webpki-roots        = { version = "1.0", default-features = false }
-rcgen               = { version = "0.14", default-features = false }
 indexmap           = { version = "2.10.0", default-features = false }
+rcgen              = { version = "0.14", default-features = false } # test-only
 
 # Ensure `alloc` is enabled for ed25519-zebra so cosmwasm-crypto can import its batch module
 ed25519-zebra      = { version = "4.1.0", default-features = false, features = ["alloc"] }
