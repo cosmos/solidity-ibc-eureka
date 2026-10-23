@@ -2,7 +2,8 @@
 pragma solidity ^0.8.28;
 
 import { Test } from "forge-std/Test.sol";
-import { IAccessControl } from "@openzeppelin-contracts/access/IAccessControl.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { Pausable } from "@openzeppelin-contracts/utils/Pausable.sol";
 import { Math } from "@openzeppelin-contracts/utils/math/Math.sol";
 import { Memory } from "@openzeppelin-contracts/utils/Memory.sol";
 import { RLP } from "@openzeppelin-contracts/utils/RLP.sol";
@@ -13,9 +14,12 @@ import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IBesuLightClient } from "../../contracts/light-clients/besu/interfaces/IBesuLightClient.sol";
 import { IBesuLightClientMsgs } from "../../contracts/light-clients/besu/msgs/IBesuLightClientMsgs.sol";
 import { IBesuLightClientErrors } from "../../contracts/light-clients/besu/errors/IBesuLightClientErrors.sol";
-import { BesuLightClientBase } from "../../contracts/light-clients/besu/BesuLightClientBase.sol";
+import { IICS26ManagedLightClient } from "../../contracts/interfaces/IICS26ManagedLightClient.sol";
+import { IICS26ManagedLightClientErrors } from "../../contracts/errors/IICS26ManagedLightClientErrors.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 
+import { MockICS26Router } from "../solidity-ibc/mocks/MockICS26Router.sol";
 import { QBFTSimSuite } from "./utils/QBFTSimSuite.sol";
 import { SimHeader } from "./utils/SimHeader.sol";
 
@@ -78,45 +82,58 @@ abstract contract QBFTSimSuiteTest is Test {
     }
 
     function test_accessControl() public {
-        address manager = makeAddr("manager");
-        address relayer = makeAddr("relayer");
-        IBesuLightClient restricted = sim.deployLightClient(
-            TRUSTING_PERIOD, MAX_CLOCK_DRIFT, IBesuLightClientMsgs.TrustThreshold(2, 3), manager
-        );
-        IAccessControl acl = IAccessControl(address(restricted));
-        bytes32 role = BesuLightClientBase(address(restricted)).PROOF_SUBMITTER_ROLE();
-        assertTrue(acl.hasRole(acl.getRoleAdmin(role), manager));
-        assertTrue(acl.hasRole(role, manager));
-        assertFalse(acl.hasRole(role, address(0)));
+        (IBesuLightClient managed, address ics26, address pauser, address unpauser) = _deployManagedClient();
+        assertEq(IICS26ManagedLightClient(address(managed)).ICS26_ROUTER(), ics26);
 
         sim.produceBlock();
         bytes memory update = sim.updateMsg(2, 3);
+        address relayer = makeAddr("relayer");
         bytes memory unauthorized =
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, relayer, role);
+            abi.encodeWithSelector(IICS26ManagedLightClientErrors.LightClientUnauthorizedCaller.selector, relayer);
         ILightClientMsgs.MsgVerifyMembership memory membership;
         ILightClientMsgs.MsgVerifyNonMembership memory nonMembership;
 
         vm.startPrank(relayer);
         vm.expectRevert(unauthorized);
-        restricted.updateClient(update);
+        managed.updateClient(update);
         vm.expectRevert(unauthorized);
-        restricted.verifyMembership(membership);
+        managed.verifyMembership(membership);
         vm.expectRevert(unauthorized);
-        restricted.verifyNonMembership(nonMembership);
+        managed.verifyNonMembership(nonMembership);
+        vm.expectRevert(unauthorized);
+        managed.misbehaviour("");
         vm.stopPrank();
-        // misbehaviour is permissionless, see `test_misbehaviourIsPermissionless`.
 
-        vm.prank(manager);
-        acl.grantRole(role, relayer);
-        vm.prank(relayer);
-        assertEq(uint8(restricted.updateClient(update)), uint8(ILightClientMsgs.UpdateResult.Update));
+        vm.prank(pauser);
+        IICS26ManagedLightClient(address(managed)).pause();
+        vm.startPrank(ics26);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        managed.updateClient(update);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        managed.verifyMembership(membership);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        managed.verifyNonMembership(nonMembership);
+        vm.stopPrank();
 
-        // Without a role manager, anyone may submit and no one administers the role.
-        IAccessControl open = IAccessControl(address(client));
-        assertTrue(open.hasRole(role, address(0)));
-        assertFalse(open.hasRole(open.getRoleAdmin(role), manager));
-        vm.prank(relayer);
-        assertEq(uint8(client.updateClient(update)), uint8(ILightClientMsgs.UpdateResult.Update));
+        vm.prank(unpauser);
+        IICS26ManagedLightClient(address(managed)).unpause();
+        vm.prank(ics26);
+        assertEq(uint8(managed.updateClient(update)), uint8(ILightClientMsgs.UpdateResult.Update));
+    }
+
+    /// @dev Deploys a client bound to a mock router whose authority grants the pause roles.
+    function _deployManagedClient()
+        internal
+        returns (IBesuLightClient managed, address ics26, address pauser, address unpauser)
+    {
+        AccessManager accessManager = new AccessManager(address(this));
+        ics26 = address(new MockICS26Router(address(accessManager)));
+        pauser = makeAddr("pauser");
+        unpauser = makeAddr("unpauser");
+        accessManager.grantRole(IBCRolesLib.PAUSER_ROLE, pauser, 0);
+        accessManager.grantRole(IBCRolesLib.UNPAUSER_ROLE, unpauser, 0);
+        managed =
+            sim.deployLightClient(TRUSTING_PERIOD, MAX_CLOCK_DRIFT, IBesuLightClientMsgs.TrustThreshold(2, 3), ics26);
     }
 
     function _expectUpdateRevert(bytes memory headerRlp, bytes memory revertData) internal {
@@ -325,26 +342,26 @@ abstract contract QBFTSimSuiteTest is Test {
         assertFalse(_isFrozen(client));
     }
 
-    /// @dev Proof submission is gated, but anyone can submit misbehaviour.
-    function test_misbehaviourIsPermissionless() public {
-        IBesuLightClient gated = sim.deployLightClient(
-            TRUSTING_PERIOD, MAX_CLOCK_DRIFT, IBesuLightClientMsgs.TrustThreshold(2, 3), address(this)
-        );
+    /// @dev A paused client rejects updates but can still be frozen by misbehaviour submitted through the router.
+    function test_misbehaviourWhilePaused() public {
+        (IBesuLightClient managed, address ics26, address pauser,) = _deployManagedClient();
         SimHeader.Data memory a = sim.seal(sim.nextBlock());
         SimHeader.Data memory b = sim.nextBlock();
         b.stateRoot = keccak256("equivocation");
         b = sim.seal(b);
         bytes memory update = sim.updateMsg(2, a);
         bytes memory misbehaviour = _headersMisbehaviour(update, sim.updateMsg(2, b));
-        address anyone = makeAddr("anyone");
 
-        vm.expectPartialRevert(IAccessControl.AccessControlUnauthorizedAccount.selector);
-        vm.prank(anyone);
-        gated.updateClient(update);
+        vm.prank(pauser);
+        IICS26ManagedLightClient(address(managed)).pause();
 
-        vm.prank(anyone);
-        gated.misbehaviour(misbehaviour);
-        assertTrue(_isFrozen(gated));
+        vm.startPrank(ics26);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        managed.updateClient(update);
+
+        managed.misbehaviour(misbehaviour);
+        vm.stopPrank();
+        assertTrue(_isFrozen(managed));
     }
 
     function test_timestampFromFuture() public {

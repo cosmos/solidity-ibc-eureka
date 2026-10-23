@@ -1727,7 +1727,7 @@ abstract contract BesuLightClientFixtureTestBase is Test {
         internal
         returns (IBesuLightClient)
     {
-        return new BesuIBFT2LightClient(clientState, consensusState, address(0));
+        return new BesuIBFT2LightClient(clientState, consensusState, address(this));
     }
 
     function _deployQBFT(
@@ -1737,7 +1737,7 @@ abstract contract BesuLightClientFixtureTestBase is Test {
         internal
         returns (IBesuLightClient)
     {
-        return new BesuQBFTLightClient(clientState, consensusState, address(0));
+        return new BesuQBFTLightClient(clientState, consensusState, address(this));
     }
 
     function _fixtureFile() internal pure virtual returns (string memory);

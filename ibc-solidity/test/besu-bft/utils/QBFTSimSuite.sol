@@ -209,7 +209,7 @@ contract QBFTSimSuite is Test, SimWorldState {
 
     // ---------------------------------------------------------------- light client glue
 
-    /// @notice Deploys the light client for `MODE`, trusting the current tip, with open proof submission.
+    /// @notice Deploys the light client for `MODE`, trusting the current tip, with the caller as its ICS26 router.
     function deployLightClient(
         uint64 trustingPeriod,
         uint64 maxClockDrift,
@@ -218,15 +218,15 @@ contract QBFTSimSuite is Test, SimWorldState {
         external
         returns (IBesuLightClient)
     {
-        return deployLightClient(trustingPeriod, maxClockDrift, trustLevel, address(0));
+        return deployLightClient(trustingPeriod, maxClockDrift, trustLevel, msg.sender);
     }
 
-    /// @notice Deploys the light client for `MODE`, trusting the current tip, with `roleManager` gating submission.
+    /// @notice Deploys the light client for `MODE`, trusting the current tip, driven by `ics26Router`.
     function deployLightClient(
         uint64 trustingPeriod,
         uint64 maxClockDrift,
         IBesuLightClientMsgs.TrustThreshold memory trustLevel,
-        address roleManager
+        address ics26Router
     )
         public
         returns (IBesuLightClient)
@@ -241,9 +241,9 @@ contract QBFTSimSuite is Test, SimWorldState {
             trustLevel: trustLevel
         });
         if (MODE == SimHeader.Mode.QBFT) {
-            return new BesuQBFTLightClient(clientState, consensusState(height), roleManager);
+            return new BesuQBFTLightClient(clientState, consensusState(height), ics26Router);
         }
-        return new BesuIBFT2LightClient(clientState, consensusState(height), roleManager);
+        return new BesuIBFT2LightClient(clientState, consensusState(height), ics26Router);
     }
 
     function consensusState(uint64 height) public view returns (IBesuLightClientMsgs.ConsensusState memory) {

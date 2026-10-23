@@ -58,7 +58,7 @@ contract AttestationLightClientGasTest is Test {
             minRequiredSigs: quorum,
             initialHeight: INITIAL_HEIGHT,
             initialTimestampSeconds: INITIAL_TS,
-            roleManager: address(0)
+            ics26Router: address(this)
         });
 
         (AM.PacketCompact[] memory packets, AM.PacketCompact memory target) = _makeCommitments(commitmentCount);

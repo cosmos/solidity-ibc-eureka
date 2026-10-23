@@ -13,7 +13,11 @@ import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import {
     IAttestationLightClientErrors
 } from "../../contracts/light-clients/attestation/errors/IAttestationLightClientErrors.sol";
-import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { IICS26ManagedLightClientErrors } from "../../contracts/errors/IICS26ManagedLightClientErrors.sol";
+import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
+import { Pausable } from "@openzeppelin-contracts/utils/Pausable.sol";
+import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { MockICS26Router } from "../solidity-ibc/mocks/MockICS26Router.sol";
 
 contract AttestationLightClientTest is Test {
     AttestationLightClient internal client;
@@ -46,7 +50,7 @@ contract AttestationLightClientTest is Test {
             minRequiredSigs: 2,
             initialHeight: INITIAL_HEIGHT,
             initialTimestampSeconds: INITIAL_TS,
-            roleManager: address(0)
+            ics26Router: address(this)
         });
 
         assertEq(client.getConsensusTimestamp(INITIAL_HEIGHT), INITIAL_TS);
@@ -80,44 +84,88 @@ contract AttestationLightClientTest is Test {
         assertEq(client.getConsensusTimestamp(newHeight), newTs);
     }
 
-    function test_proofSubmitterRole() public {
-        attestorPrivKey1 = 0xA11CE;
-        attestorPrivKey2 = 0xB0B;
-        attestorPrivKey3 = 0xC0C;
-        attestorAddr1 = vm.addr(attestorPrivKey1);
-        attestorAddr2 = vm.addr(attestorPrivKey2);
-        attestorAddr3 = vm.addr(attestorPrivKey3);
+    function test_onlyICS26Router() public {
+        assertEq(client.ICS26_ROUTER(), address(this));
 
-        address[] memory addrs = new address[](3);
-        addrs[0] = attestorAddr1;
-        addrs[1] = attestorAddr2;
-        addrs[2] = attestorAddr3;
+        address unauthorized = makeAddr("unauthorized");
+        bytes memory unauthorizedErr =
+            abi.encodeWithSelector(IICS26ManagedLightClientErrors.LightClientUnauthorizedCaller.selector, unauthorized);
+        ILightClientMsgs.MsgVerifyMembership memory membershipMsg;
+        ILightClientMsgs.MsgVerifyNonMembership memory nonMembershipMsg;
 
-        address roleManager = makeAddr("roleManager");
+        vm.startPrank(unauthorized);
+        vm.expectRevert(unauthorizedErr);
+        client.updateClient(bytes(""));
+        vm.expectRevert(unauthorizedErr);
+        client.verifyMembership(membershipMsg);
+        vm.expectRevert(unauthorizedErr);
+        client.verifyNonMembership(nonMembershipMsg);
+        vm.expectRevert(unauthorizedErr);
+        client.misbehaviour(bytes(""));
+        vm.stopPrank();
+    }
+
+    function test_pause() public {
+        (address[] memory addrs,) = client.getAttestationSet();
+        AccessManager accessManager = new AccessManager(address(this));
+        address ics26 = address(new MockICS26Router(address(accessManager)));
+        address pauser = makeAddr("pauser");
+        address unpauser = makeAddr("unpauser");
+        accessManager.grantRole(IBCRolesLib.PAUSER_ROLE, pauser, 0);
+        accessManager.grantRole(IBCRolesLib.UNPAUSER_ROLE, unpauser, 0);
 
         client = new AttestationLightClient({
             attestorAddresses: addrs,
             minRequiredSigs: 2,
             initialHeight: INITIAL_HEIGHT,
             initialTimestampSeconds: INITIAL_TS,
-            roleManager: roleManager
+            ics26Router: ics26
         });
 
-        // Check that the deployer (this contract) has the PROOF_SUBMITTER_ROLE
-        bytes32 proofSubmitterRole = keccak256("PROOF_SUBMITTER_ROLE");
-        assertTrue(client.hasRole(proofSubmitterRole, address(roleManager)));
-
-        // Check that an arbitrary address does not have the PROOF_SUBMITTER_ROLE
-        address unauthorized = makeAddr("unauthorized");
-        assertFalse(client.hasRole(proofSubmitterRole, unauthorized));
-
-        vm.prank(unauthorized);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, unauthorized, proofSubmitterRole
+                IICS26ManagedLightClientErrors.LightClientUnauthorizedRole.selector, unpauser, IBCRolesLib.PAUSER_ROLE
             )
         );
-        client.updateClient(bytes(""));
+        vm.prank(unpauser);
+        client.pause();
+
+        vm.prank(pauser);
+        client.pause();
+
+        uint256[] memory signers = new uint256[](2);
+        signers[0] = attestorPrivKey1;
+        signers[1] = attestorPrivKey2;
+        (bytes memory attestationData, bytes[] memory signatures) =
+            _stateAttestation(INITIAL_HEIGHT + 1, INITIAL_TS + 100, signers);
+        bytes memory updateMsg =
+            abi.encode(AM.AttestationProof({ attestationData: attestationData, signatures: signatures }));
+        ILightClientMsgs.MsgVerifyMembership memory membershipMsg;
+        ILightClientMsgs.MsgVerifyNonMembership memory nonMembershipMsg;
+
+        vm.startPrank(ics26);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        client.updateClient(updateMsg);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        client.verifyMembership(membershipMsg);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        client.verifyNonMembership(nonMembershipMsg);
+        vm.stopPrank();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IICS26ManagedLightClientErrors.LightClientUnauthorizedRole.selector, pauser, IBCRolesLib.UNPAUSER_ROLE
+            )
+        );
+        vm.prank(pauser);
+        client.unpause();
+
+        vm.prank(unpauser);
+        client.unpause();
+
+        vm.prank(ics26);
+        ILightClientMsgs.UpdateResult res = client.updateClient(updateMsg);
+        assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.Update));
     }
 
     function test_updateClient_noop_same_height_same_ts() public {
