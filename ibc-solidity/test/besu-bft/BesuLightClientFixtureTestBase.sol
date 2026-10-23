@@ -217,15 +217,15 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
     function tableVerifyNonMembershipTest(BesuNonMembershipTestCase memory nonMembership) public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         vm.warp(nonMembership.timestamp);
 
         if (nonMembership.expectedRevert.length != 0) {
             vm.expectRevert(nonMembership.expectedRevert);
         }
-        vm.prank(ics26Router);
         uint256 timestamp = client.verifyNonMembership(nonMembership.message);
+        vm.stopPrank();
 
         if (nonMembership.expectedRevert.length == 0) {
             assertEq(timestamp, nonMembership.expectedTimestamp);
@@ -236,24 +236,20 @@ abstract contract BesuLightClientFixtureTestBase is Test {
     /// relies on the cache within the same transaction.
     function tableCachedStorageRootTest(BesuCachedStorageRootTestCase memory cachedStorageRoot) public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.adjacentUpdate));
-        vm.prank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         if (cachedStorageRoot.primeWithMembership) {
-            vm.prank(ics26Router);
             client.verifyMembership(
                 _membershipMessage(0, _singlePath(fixture.membership.path), fixture.membership.value)
             );
         } else {
-            vm.prank(ics26Router);
             client.verifyNonMembership(_nonMembershipMessage(fixture.nonMembership.proofHeight));
         }
 
         if (cachedStorageRoot.expectedRevert.length != 0) {
             vm.expectRevert(cachedStorageRoot.expectedRevert);
         }
-        vm.prank(ics26Router);
         uint256 timestamp = cachedStorageRoot.verifyMembership
             ? client.verifyMembership(
                 _membershipMessageWithProof(cachedStorageRoot.proof, cachedStorageRoot.proofHeight)
@@ -261,6 +257,7 @@ abstract contract BesuLightClientFixtureTestBase is Test {
             : client.verifyNonMembership(
                 _nonMembershipMessageWithProof(cachedStorageRoot.proof, cachedStorageRoot.proofHeight)
             );
+        vm.stopPrank();
 
         if (cachedStorageRoot.expectedRevert.length == 0) {
             assertEq(timestamp, cachedStorageRoot.expectedTimestamp);
@@ -269,12 +266,12 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
     function test_updateClient_noOpOnSameState() public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         bytes32 storedHash = client.getConsensusStateHash(fixture.nonAdjacentUpdate.height);
 
-        vm.prank(ics26Router);
         ILightClientMsgs.UpdateResult result = client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
+        vm.stopPrank();
 
         assertEq(uint8(result), uint8(ILightClientMsgs.UpdateResult.NoOp));
         assertEq(client.getConsensusStateHash(fixture.nonAdjacentUpdate.height), storedHash);
@@ -283,13 +280,12 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
     function tableUpdateClientTest(BesuUpdateTestCase memory update) public {
         vm.warp(update.timestamp);
+        vm.startPrank(ics26Router);
         if (update.preUpdate.length != 0) {
-            vm.prank(ics26Router);
             client.updateClient(update.preUpdate);
         }
 
         if (update.expectedRevert.length == 0) {
-            vm.prank(ics26Router);
             ILightClientMsgs.UpdateResult result = client.updateClient(update.update);
 
             assertEq(uint8(result), uint8(ILightClientMsgs.UpdateResult.Update));
@@ -301,7 +297,6 @@ abstract contract BesuLightClientFixtureTestBase is Test {
         bytes32 consensusStateHashBefore = client.getConsensusStateHash(fixture.initialTrustedHeight);
 
         vm.expectRevert(update.expectedRevert);
-        vm.prank(ics26Router);
         client.updateClient(update.update);
 
         assertEq(client.getClientState(), clientStateBefore);
@@ -310,15 +305,15 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
     function tableVerifyMembershipTest(BesuMembershipTestCase memory membership) public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         vm.warp(membership.timestamp);
 
         if (membership.expectedRevert.length != 0) {
             vm.expectRevert(membership.expectedRevert);
         }
-        vm.prank(ics26Router);
         uint256 timestamp = client.verifyMembership(membership.message);
+        vm.stopPrank();
 
         if (membership.expectedRevert.length == 0) {
             assertEq(timestamp, membership.expectedTimestamp);
@@ -327,7 +322,7 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
     function test_updateClient_doubleSignFreezesClient() public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         uint64 height = fixture.conflictingUpdate.height;
         bytes32 trustedHash = client.getConsensusStateHash(height);
@@ -340,7 +335,6 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
         vm.expectEmit(address(client));
         emit IBesuLightClient.DoubleSign(height, trustedHash, conflictingHash);
-        vm.prank(ics26Router);
         ILightClientMsgs.UpdateResult result = client.updateClient(_encodeUpdate(fixture.conflictingUpdate));
 
         assertEq(uint8(result), uint8(ILightClientMsgs.UpdateResult.Misbehaviour));
@@ -349,31 +343,28 @@ abstract contract BesuLightClientFixtureTestBase is Test {
 
         bytes memory frozenErr = abi.encodeWithSelector(IBesuLightClientErrors.FrozenClientState.selector);
         vm.expectRevert(frozenErr);
-        vm.prank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         vm.expectRevert(frozenErr);
-        vm.prank(ics26Router);
         client.verifyMembership(_membershipMessage(0, _singlePath(fixture.membership.path), fixture.membership.value));
         vm.expectRevert(frozenErr);
-        vm.prank(ics26Router);
         client.verifyNonMembership(_nonMembershipMessage(fixture.nonMembership.proofHeight));
         vm.expectRevert(frozenErr);
-        vm.prank(ics26Router);
         client.misbehaviour(bytes(""));
+        vm.stopPrank();
     }
 
     /// @dev Live fixture headers have monotonic timestamps, so only rejections are covered here; accepted
     /// misbehaviour is covered by `QBFTSimSuiteTest`.
     function tableMisbehaviourTest(BesuMisbehaviourTestCase memory misbehaviour) public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         bytes memory clientStateBefore = client.getClientState();
         vm.warp(misbehaviour.timestamp);
 
         vm.expectRevert(misbehaviour.expectedRevert);
-        vm.prank(ics26Router);
         client.misbehaviour(misbehaviour.misbehaviour);
+        vm.stopPrank();
 
         assertEq(client.getClientState(), clientStateBefore);
     }

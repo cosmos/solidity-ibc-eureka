@@ -57,7 +57,7 @@ contract BesuQBFTSimBenchmark is Test {
                 }
                 sim.produceBlock();
                 bytes memory update = sim.updateMsg(2, 3);
-                vm.prank(ics26Router);
+                vm.startPrank(ics26Router);
                 client.updateClient(update);
                 ILightClientMsgs.MsgVerifyMembership memory message =
                     sim.membershipMsg(3, ICS24Host.packetCommitmentPathCalldata("client-0", 1));
@@ -65,8 +65,8 @@ contract BesuQBFTSimBenchmark is Test {
                     "verify_membership.accounts_", vm.toString(sizes[a]), ".commitments_", vm.toString(sizes[c])
                 );
 
-                vm.prank(ics26Router);
                 client.verifyMembership(message);
+                vm.stopPrank();
                 vm.snapshotGasLastFrame(SNAPSHOT_GROUP, string.concat(name, ".gas"));
                 vm.snapshotValue(
                     SNAPSHOT_GROUP,

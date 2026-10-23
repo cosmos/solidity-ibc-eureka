@@ -120,7 +120,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
         });
 
         // run verify
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         ics07Tendermint.verifyMembership(membershipMsg);
 
         ClientState memory clientState = abi.decode(ics07Tendermint.getClientState(), (ClientState));
@@ -138,7 +138,6 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
             path: verifyMembershipPath,
             value: VERIFY_MEMBERSHIP_VALUE
         });
-        vm.prank(ics26Router);
         ics07Tendermint.verifyMembership(cachedMembershipMsg);
 
         console.log("Cached UpdateClientAndVerifyMembership gas used: ", vm.lastCallGas().gasTotalUsed);
@@ -149,8 +148,8 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
         });
 
         // run verify
-        vm.prank(ics26Router);
         ics07Tendermint.verifyNonMembership(nonMembershipMsg);
+        vm.stopPrank();
 
         console.log("Cached UpdateClientAndNonVerifyMembership gas used: ", vm.lastCallGas().gasTotalUsed);
     }
@@ -198,7 +197,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
             proof: abi.encode(nonMembershipProof), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
         });
 
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         mockIcs07Tendermint.verifyNonMembership(nonMembershipMsg);
 
         // change output so that it is a misbehaviour
@@ -211,7 +210,7 @@ contract SP1ICS07UpdateClientAndMembershipTest is MembershipTest {
 
         // run verify again
         vm.expectRevert(abi.encodeWithSelector(CannotHandleMisbehavior.selector));
-        vm.prank(ics26Router);
         mockIcs07Tendermint.verifyNonMembership(nonMembershipMsg);
+        vm.stopPrank();
     }
 }

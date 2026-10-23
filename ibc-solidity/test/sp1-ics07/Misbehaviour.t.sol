@@ -80,7 +80,7 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
 
         // set a correct timestamp
         vm.warp(_nanosToSeconds(output.time));
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // verify that the client is frozen
@@ -89,25 +89,22 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
 
         // try to submit a updateClient msg
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        vm.prank(ics26Router);
         ics07Tendermint.updateClient(bytes(""));
 
         // try to submit a membership msg
         MsgVerifyMembership memory membership;
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        vm.prank(ics26Router);
         ics07Tendermint.verifyMembership(membership);
 
         // try to submit a non-membership msg
         MsgVerifyNonMembership memory nonMembership;
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        vm.prank(ics26Router);
         ics07Tendermint.verifyNonMembership(nonMembership);
 
         // try to submit a misbehaviour msg
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(fixture.submitMsg);
+        vm.stopPrank();
     }
 
     // solhint-disable-next-line function-max-lines
@@ -119,13 +116,12 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         vm.expectRevert(
             abi.encodeWithSelector(ProofIsInTheFuture.selector, block.timestamp, _nanosToSeconds(output.time))
         );
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // proof is too old
         vm.warp(output.time + ics07Tendermint.ALLOWED_SP1_CLOCK_DRIFT() + 300);
         vm.expectRevert(abi.encodeWithSelector(ProofIsTooOld.selector, block.timestamp, _nanosToSeconds(output.time)));
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(fixture.submitMsg);
 
         // set a correct timestamp
@@ -142,7 +138,6 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
                 badSubmitMsg.sp1Proof.vKey
             )
         );
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(submitMsgBz);
 
         // chain id mismatch
@@ -154,7 +149,6 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         vm.expectRevert(
             abi.encodeWithSelector(ChainIdMismatch.selector, output.clientState.chainId, badOutput.clientState.chainId)
         );
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(submitMsgBz);
 
         // trust threshold mismatch
@@ -172,7 +166,6 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
                 badOutput.clientState.trustLevel.denominator
             )
         );
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(submitMsgBz);
 
         // trusting period mismatch
@@ -186,7 +179,6 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
                 TrustingPeriodMismatch.selector, output.clientState.trustingPeriod, badOutput.clientState.trustingPeriod
             )
         );
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(submitMsgBz);
 
         // invalid proof
@@ -196,15 +188,13 @@ contract SP1ICS07MisbehaviourTest is SP1ICS07TendermintTest {
         badSubmitMsg.sp1Proof.publicValues = abi.encode(badOutput);
         submitMsgBz = abi.encode(badSubmitMsg);
         vm.expectRevert(abi.encodeWithSelector(SP1Verifier.InvalidProof.selector));
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(submitMsgBz);
 
         // client state is frozen
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(fixture.submitMsg); // freeze the client
         vm.expectRevert(abi.encodeWithSelector(FrozenClientState.selector));
-        vm.prank(ics26Router);
         ics07Tendermint.misbehaviour(fixture.submitMsg);
+        vm.stopPrank();
     }
 
     function cloneSubmitMsg() private view returns (MsgSubmitMisbehaviour memory) {

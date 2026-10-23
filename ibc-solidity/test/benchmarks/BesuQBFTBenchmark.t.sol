@@ -35,13 +35,13 @@ contract BesuQBFTBenchmark is BesuLightClientFixtureTestBase {
 
     function testBenchmark_VerifyMembership() public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         ILightClientMsgs.MsgVerifyMembership memory message =
             _membershipMessage(0, _singlePath(fixture.membership.path), fixture.membership.value);
 
-        vm.prank(ics26Router);
         uint256 timestamp = client.verifyMembership(message);
+        vm.stopPrank();
         vm.snapshotGasLastFrame(SNAPSHOT_GROUP, "verify_membership.gas");
         vm.snapshotValue(
             SNAPSHOT_GROUP,
@@ -54,13 +54,13 @@ contract BesuQBFTBenchmark is BesuLightClientFixtureTestBase {
 
     function testBenchmark_VerifyNonMembership() public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
-        vm.prank(ics26Router);
+        vm.startPrank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         ILightClientMsgs.MsgVerifyNonMembership memory message =
             _nonMembershipMessage(fixture.nonMembership.proofHeight);
 
-        vm.prank(ics26Router);
         uint256 timestamp = client.verifyNonMembership(message);
+        vm.stopPrank();
         vm.snapshotGasLastFrame(SNAPSHOT_GROUP, "verify_non_membership.gas");
         vm.snapshotValue(
             SNAPSHOT_GROUP,
