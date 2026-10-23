@@ -48,14 +48,14 @@ struct CreateClientParams {
     max_clock_drift: u64,
     trust_level: IBesuLightClientMsgs::TrustThreshold,
     trusted_height: Option<u64>,
-    role_manager: Address,
+    ics26_router: Option<Address>,
 }
 
 const TRUSTING_PERIOD: &str = "trusting_period";
 const MAX_CLOCK_DRIFT: &str = "max_clock_drift";
 const TRUST_LEVEL: &str = "trust_level";
 const TRUSTED_HEIGHT: &str = "trusted_height";
-const ROLE_MANAGER: &str = "role_manager";
+const ICS26_ROUTER: &str = "ics26_router";
 
 impl TxBuilder {
     pub fn new(
@@ -90,6 +90,9 @@ impl TxBuilder {
         };
 
         let trusted_state = consensus_state(&self.fetch_source_header(trusted_height).await?)?;
+        let ics26_router = params
+            .ics26_router
+            .unwrap_or_else(|| *self.dst_ics26_router.address());
 
         let calldata = match self.consensus_type {
             BesuConsensusType::Qbft => besu_qbft_light_client::BesuQBFTLightClient::deploy_builder(
@@ -113,7 +116,7 @@ impl TxBuilder {
                     stateRoot: trusted_state.stateRoot,
                     validators: trusted_state.validators,
                 },
-                params.role_manager,
+                ics26_router,
             )
             .calldata()
             .to_vec(),
@@ -139,7 +142,7 @@ impl TxBuilder {
                         stateRoot: trusted_state.stateRoot,
                         validators: trusted_state.validators,
                     },
-                    params.role_manager,
+                    ics26_router,
                 )
                 .calldata()
                 .to_vec()
@@ -577,13 +580,13 @@ fn parse_create_client_params(parameters: &HashMap<String, String>) -> Result<Cr
                 MAX_CLOCK_DRIFT,
                 TRUST_LEVEL,
                 TRUSTED_HEIGHT,
-                ROLE_MANAGER,
+                ICS26_ROUTER,
             ]
             .contains(&key.as_str())
         })
         .map_or(Ok(()), |key| {
             Err(anyhow!(
-                "unexpected parameter `{key}`, only `{TRUSTING_PERIOD}`, `{MAX_CLOCK_DRIFT}`, `{TRUST_LEVEL}`, `{TRUSTED_HEIGHT}`, and `{ROLE_MANAGER}` are allowed"
+                "unexpected parameter `{key}`, only `{TRUSTING_PERIOD}`, `{MAX_CLOCK_DRIFT}`, `{TRUST_LEVEL}`, `{TRUSTED_HEIGHT}`, and `{ICS26_ROUTER}` are allowed"
             ))
         })?;
 
@@ -609,12 +612,13 @@ fn parse_create_client_params(parameters: &HashMap<String, String>) -> Result<Cr
                 })
             })
             .transpose()?,
-        role_manager: parameters
-            .get(ROLE_MANAGER)
-            .map_or(Ok(Address::ZERO), |value| {
+        ics26_router: parameters
+            .get(ICS26_ROUTER)
+            .map(|value| {
                 Address::from_str(value)
-                    .with_context(|| format!("failed to parse `{ROLE_MANAGER}` as hex address"))
-            })?,
+                    .with_context(|| format!("failed to parse `{ICS26_ROUTER}` as hex address"))
+            })
+            .transpose()?,
     })
 }
 
