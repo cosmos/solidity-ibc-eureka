@@ -57,6 +57,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
                 value: VERIFY_MEMBERSHIP_VALUE
             });
 
+            vm.prank(ics26Router);
             ics07Tendermint.verifyMembership(membershipMsg);
 
             console.log("VerifyMembership-", testCases[i].name, " gas used: ", vm.lastCallGas().gasTotalUsed);
@@ -77,6 +78,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
                 path: verifyNonMembershipPath
             });
 
+            vm.prank(ics26Router);
             ics07Tendermint.verifyNonMembership(nonMembershipMsg);
 
             console.log("VerifyNonMembership-", testCases[i].name, " gas used: ", vm.lastCallGas().gasTotalUsed);
@@ -94,6 +96,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             value: VERIFY_MEMBERSHIP_VALUE
         });
 
+        vm.prank(ics26Router);
         ics07Tendermint.verifyMembership(membershipMsg);
 
         // resubmit cached membership proof
@@ -103,6 +106,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             path: verifyMembershipPath,
             value: VERIFY_MEMBERSHIP_VALUE
         });
+        vm.prank(ics26Router);
         ics07Tendermint.verifyMembership(cachedMembershipMsg);
 
         console.log("Cached VerifyMembership gas used: ", vm.lastCallGas().gasTotalUsed);
@@ -112,6 +116,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             proof: bytes(""), proofHeight: fixture.proofHeight, path: verifyNonMembershipPath
         });
 
+        vm.prank(ics26Router);
         ics07Tendermint.verifyNonMembership(cachedNonMembershipMsg);
 
         console.log("Cached VerifyNonMembership gas used: ", vm.lastCallGas().gasTotalUsed);
@@ -121,6 +126,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             proof: bytes(""), proofHeight: fixture.proofHeight, path: verifyMembershipPath, value: bytes("invalid")
         });
         vm.expectRevert(abi.encodeWithSelector(KeyValuePairNotInCache.selector, verifyMembershipPath, bytes("invalid")));
+        vm.prank(ics26Router);
         ics07Tendermint.verifyMembership(invalidCachedMembershipMsg);
     }
 
@@ -143,6 +149,7 @@ contract SP1ICS07MembershipTest is MembershipTest {
             });
 
             vm.expectRevert();
+            vm.prank(ics26Router);
             ics07Tendermint.verifyNonMembership(nonMembershipMsg);
         }
     }
@@ -272,11 +279,13 @@ contract SP1ICS07MembershipTest is MembershipTest {
                     MsgVerifyMembership memory membershipMsg = MsgVerifyMembership({
                         proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path, value: tc.value
                     });
+                    vm.prank(ics26Router);
                     mockIcs07Tendermint.verifyMembership(membershipMsg);
                 } else {
                     MsgVerifyNonMembership memory membershipMsg = MsgVerifyNonMembership({
                         proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path
                     });
+                    vm.prank(ics26Router);
                     mockIcs07Tendermint.verifyNonMembership(membershipMsg);
                 }
             } else {
@@ -285,12 +294,14 @@ contract SP1ICS07MembershipTest is MembershipTest {
                         proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path, value: tc.value
                     });
                     vm.expectRevert();
+                    vm.prank(ics26Router);
                     mockIcs07Tendermint.verifyMembership(membershipMsg);
                 } else {
                     MsgVerifyNonMembership memory membershipMsg = MsgVerifyNonMembership({
                         proof: abi.encode(membershipProof), proofHeight: proofHeight, path: tc.path
                     });
                     vm.expectRevert();
+                    vm.prank(ics26Router);
                     mockIcs07Tendermint.verifyNonMembership(membershipMsg);
                 }
             }

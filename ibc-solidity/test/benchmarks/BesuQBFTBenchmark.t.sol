@@ -13,6 +13,7 @@ contract BesuQBFTBenchmark is BesuLightClientFixtureTestBase {
         vm.warp(fixture.initialTrustedTimestamp + 1);
         bytes memory update = _encodeUpdate(fixture.adjacentUpdate);
 
+        vm.prank(ics26Router);
         client.updateClient(update);
         vm.snapshotGasLastFrame(SNAPSHOT_GROUP, "update.adjacent.gas");
         vm.snapshotValue(
@@ -24,6 +25,7 @@ contract BesuQBFTBenchmark is BesuLightClientFixtureTestBase {
         vm.warp(fixture.initialTrustedTimestamp + 1);
         bytes memory update = _encodeUpdate(fixture.nonAdjacentUpdate);
 
+        vm.prank(ics26Router);
         client.updateClient(update);
         vm.snapshotGasLastFrame(SNAPSHOT_GROUP, "update.non_adjacent.gas");
         vm.snapshotValue(
@@ -33,10 +35,12 @@ contract BesuQBFTBenchmark is BesuLightClientFixtureTestBase {
 
     function testBenchmark_VerifyMembership() public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
+        vm.prank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         ILightClientMsgs.MsgVerifyMembership memory message =
             _membershipMessage(0, _singlePath(fixture.membership.path), fixture.membership.value);
 
+        vm.prank(ics26Router);
         uint256 timestamp = client.verifyMembership(message);
         vm.snapshotGasLastFrame(SNAPSHOT_GROUP, "verify_membership.gas");
         vm.snapshotValue(
@@ -50,10 +54,12 @@ contract BesuQBFTBenchmark is BesuLightClientFixtureTestBase {
 
     function testBenchmark_VerifyNonMembership() public {
         vm.warp(fixture.initialTrustedTimestamp + 1);
+        vm.prank(ics26Router);
         client.updateClient(_encodeUpdate(fixture.nonAdjacentUpdate));
         ILightClientMsgs.MsgVerifyNonMembership memory message =
             _nonMembershipMessage(fixture.nonMembership.proofHeight);
 
+        vm.prank(ics26Router);
         uint256 timestamp = client.verifyNonMembership(message);
         vm.snapshotGasLastFrame(SNAPSHOT_GROUP, "verify_non_membership.gas");
         vm.snapshotValue(

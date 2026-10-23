@@ -54,7 +54,8 @@ abstract contract SP1ICS07TendermintTest is
 
     string internal constant FIXTURE_DIR = "/test/sp1-ics07/fixtures/";
 
-    /// @dev The test contract acts as the ICS26 router, so tests can call the clients directly.
+    address public ics26Router = makeAddr("ics26Router");
+
     function setUpTest(string memory fileName) public {
         genesisFixture = loadGenesisFixture(fileName);
 
@@ -80,7 +81,7 @@ abstract contract SP1ICS07TendermintTest is
             verifier,
             genesisFixture.trustedClientState,
             trustedConsensusHash,
-            address(this)
+            ics26Router
         );
 
         mockIcs07Tendermint = new SP1ICS07Tendermint(
@@ -91,7 +92,7 @@ abstract contract SP1ICS07TendermintTest is
             address(new SP1MockVerifier()),
             genesisFixture.trustedClientState,
             trustedConsensusHash,
-            address(this)
+            ics26Router
         );
 
         ClientState memory clientState = abi.decode(mockIcs07Tendermint.getClientState(), (ClientState));

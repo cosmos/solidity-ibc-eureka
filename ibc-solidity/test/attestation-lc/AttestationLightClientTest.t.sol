@@ -32,6 +32,8 @@ contract AttestationLightClientTest is Test {
     address internal attestorAddr2;
     address internal attestorAddr3;
 
+    address internal ics26Router = makeAddr("ics26Router");
+
     function setUp() public {
         attestorPrivKey1 = 0xA11CE;
         attestorPrivKey2 = 0xB0B;
@@ -50,7 +52,7 @@ contract AttestationLightClientTest is Test {
             minRequiredSigs: 2,
             initialHeight: INITIAL_HEIGHT,
             initialTimestampSeconds: INITIAL_TS,
-            ics26Router: address(this)
+            ics26Router: ics26Router
         });
 
         assertEq(client.getConsensusTimestamp(INITIAL_HEIGHT), INITIAL_TS);
@@ -79,13 +81,14 @@ contract AttestationLightClientTest is Test {
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
+        vm.prank(ics26Router);
         ILightClientMsgs.UpdateResult res = client.updateClient(abi.encode(proof));
         assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.Update));
         assertEq(client.getConsensusTimestamp(newHeight), newTs);
     }
 
     function test_onlyICS26Router() public {
-        assertEq(client.ICS26_ROUTER(), address(this));
+        assertEq(client.ICS26_ROUTER(), ics26Router);
 
         address unauthorized = makeAddr("unauthorized");
         bytes memory unauthorizedErr =
@@ -178,6 +181,7 @@ contract AttestationLightClientTest is Test {
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
+        vm.prank(ics26Router);
         ILightClientMsgs.UpdateResult res = client.updateClient(abi.encode(proof));
         assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.NoOp));
     }
@@ -192,6 +196,7 @@ contract AttestationLightClientTest is Test {
 
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+        vm.prank(ics26Router);
         ILightClientMsgs.UpdateResult res = client.updateClient(abi.encode(proof));
         assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.Misbehaviour));
     }
@@ -207,6 +212,7 @@ contract AttestationLightClientTest is Test {
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
+        vm.prank(ics26Router);
         ILightClientMsgs.UpdateResult res = client.updateClient(abi.encode(proof));
         assertEq(uint8(res), uint8(ILightClientMsgs.UpdateResult.Update));
     }
@@ -221,6 +227,7 @@ contract AttestationLightClientTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.ThresholdNotMet.selector, 1, 2));
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+        vm.prank(ics26Router);
         client.updateClient(abi.encode(proof));
     }
 
@@ -236,6 +243,7 @@ contract AttestationLightClientTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.DuplicateSigner.selector, attestorAddr1));
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+        vm.prank(ics26Router);
         client.updateClient(abi.encode(proof));
     }
 
@@ -252,10 +260,11 @@ contract AttestationLightClientTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.UnknownSigner.selector, vm.addr(badPriv)));
         AM.AttestationProof memory proof =
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+        vm.prank(ics26Router);
         client.updateClient(abi.encode(proof));
     }
 
-    function test_verifyMembership_success_returns_ts() public view {
+    function test_verifyMembership_success_returns_ts() public {
         AM.PacketCompact[] memory packets = new AM.PacketCompact[](3);
         packets[0] = _packet("a");
         packets[1] = _packet("b");
@@ -276,6 +285,7 @@ contract AttestationLightClientTest is Test {
         msgVerify.path[0] = "path-b";
         msgVerify.value = abi.encode(_packet("b").commitment);
 
+        vm.prank(ics26Router);
         uint256 ts = client.verifyMembership(msgVerify);
         assertEq(ts, INITIAL_TS);
     }
@@ -296,6 +306,7 @@ contract AttestationLightClientTest is Test {
         msgVerify.value = bytes("");
 
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.EmptyValue.selector));
+        vm.prank(ics26Router);
         client.verifyMembership(msgVerify);
     }
 
@@ -320,6 +331,7 @@ contract AttestationLightClientTest is Test {
         msgVerify.value = abi.encode(_packet("z").commitment);
 
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.NotMember.selector));
+        vm.prank(ics26Router);
         client.verifyMembership(msgVerify);
     }
 
@@ -345,6 +357,7 @@ contract AttestationLightClientTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IAttestationLightClientErrors.ConsensusTimestampNotFound.selector, unknownHeight)
         );
+        vm.prank(ics26Router);
         client.verifyMembership(msgVerify);
     }
 
@@ -376,10 +389,11 @@ contract AttestationLightClientTest is Test {
                 IAttestationLightClientErrors.HeightMismatch.selector, INITIAL_HEIGHT, attestedHeight
             )
         );
+        vm.prank(ics26Router);
         client.verifyMembership(msgVerify);
     }
 
-    function test_verifyNonMembership_success() public view {
+    function test_verifyNonMembership_success() public {
         uint256[] memory signers = new uint256[](2);
         signers[0] = attestorPrivKey1;
         signers[1] = attestorPrivKey2;
@@ -400,6 +414,7 @@ contract AttestationLightClientTest is Test {
             path: path
         });
 
+        vm.prank(ics26Router);
         uint256 ts = client.verifyNonMembership(msgVerify);
         assertEq(ts, INITIAL_TS);
     }
@@ -426,6 +441,7 @@ contract AttestationLightClientTest is Test {
         });
 
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.NotNonMember.selector));
+        vm.prank(ics26Router);
         client.verifyNonMembership(msgVerify);
     }
 
@@ -451,6 +467,7 @@ contract AttestationLightClientTest is Test {
         });
 
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.NotMember.selector));
+        vm.prank(ics26Router);
         client.verifyNonMembership(msgVerify);
     }
 
@@ -473,6 +490,7 @@ contract AttestationLightClientTest is Test {
         });
 
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.InvalidPathLength.selector, 1, 0));
+        vm.prank(ics26Router);
         client.verifyNonMembership(msgVerify);
     }
 
@@ -492,6 +510,7 @@ contract AttestationLightClientTest is Test {
             AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
 
         vm.expectRevert();
+        vm.prank(ics26Router);
         client.updateClient(abi.encode(proof));
     }
 
@@ -519,6 +538,7 @@ contract AttestationLightClientTest is Test {
         msgVerify.value = abi.encode(_packet("a").commitment);
 
         vm.expectRevert();
+        vm.prank(ics26Router);
         client.verifyMembership(msgVerify);
     }
 
@@ -546,11 +566,13 @@ contract AttestationLightClientTest is Test {
         msgVerify.path[0] = "path-timeout-path";
 
         vm.expectRevert();
+        vm.prank(ics26Router);
         client.verifyNonMembership(msgVerify);
     }
 
     function test_misbehaviour_revert_feature_not_supported() public {
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.FeatureNotSupported.selector));
+        vm.prank(ics26Router);
         client.misbehaviour(bytes(""));
     }
 

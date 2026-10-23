@@ -209,18 +209,6 @@ contract QBFTSimSuite is Test, SimWorldState {
 
     // ---------------------------------------------------------------- light client glue
 
-    /// @notice Deploys the light client for `MODE`, trusting the current tip, with the caller as its ICS26 router.
-    function deployLightClient(
-        uint64 trustingPeriod,
-        uint64 maxClockDrift,
-        IBesuLightClientMsgs.TrustThreshold memory trustLevel
-    )
-        external
-        returns (IBesuLightClient)
-    {
-        return deployLightClient(trustingPeriod, maxClockDrift, trustLevel, msg.sender);
-    }
-
     /// @notice Deploys the light client for `MODE`, trusting the current tip, driven by `ics26Router`.
     function deployLightClient(
         uint64 trustingPeriod,
@@ -228,7 +216,7 @@ contract QBFTSimSuite is Test, SimWorldState {
         IBesuLightClientMsgs.TrustThreshold memory trustLevel,
         address ics26Router
     )
-        public
+        external
         returns (IBesuLightClient)
     {
         uint64 height = tipHeight();
